@@ -1,0 +1,532 @@
+"""Tests for parser.markdown — Milestone 5.
+
+Coverage:
+- headings: levels, anchors, nesting
+- paragraphs: single, multi-line, multiple
+- fenced code blocks: no attrs, language, full attrs, tilde fences
+- section tree structure
+- mixed content
+- integration against real fixture files
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from mkdocs_to_confluence.ir import (
+    CodeBlock,
+    IRNode,
+    Paragraph,
+    Section,
+    TextNode,
+    walk,
+)
+from mkdocs_to_confluence.parser import parse
+from mkdocs_to_confluence.parser.markdown import _make_anchor, _parse_info_string
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def only(nodes: tuple[IRNode, ...], kind: type) -> list[IRNode]:
+    """Return all nodes of *kind* from a depth-first walk of *nodes*."""
+    result = []
+    for root in nodes:
+        result.extend(n for n in walk(root) if isinstance(n, kind))
+    return result
+
+
+def first(nodes: tuple[IRNode, ...], kind: type) -> IRNode:
+    """Return the first node of *kind* found by depth-first walk."""
+    found = only(nodes, kind)
+    assert found, f"No {kind.__name__} found in tree"
+    return found[0]
+
+
+# ── _make_anchor ─────────────────────────────────────────────────────────────
+
+
+class TestMakeAnchor:
+    def test_simple_lowercase(self) -> None:
+        assert _make_anchor("Hello World") == "hello-world"
+
+    def test_already_lowercase(self) -> None:
+        assert _make_anchor("hello world") == "hello-world"
+
+    def test_punctuation_stripped(self) -> None:
+        assert _make_anchor("Hello, World!") == "hello-world"
+
+    def test_multiple_spaces_collapsed(self) -> None:
+        assert _make_anchor("Hello   World") == "hello-world"
+
+    def test_leading_trailing_stripped(self) -> None:
+        assert _make_anchor("  Hello  ") == "hello"
+
+    def test_special_chars_removed(self) -> None:
+        assert _make_anchor("C++ Guide") == "c-guide"
+
+    def test_hyphen_preserved(self) -> None:
+        assert _make_anchor("Step-by-step Guide") == "step-by-step-guide"
+
+    def test_numbers_preserved(self) -> None:
+        assert _make_anchor("Section 1.2") == "section-12"
+
+    def test_unicode_letters_preserved(self) -> None:
+        # \w matches unicode letters in Python
+        result = _make_anchor("Über Guide")
+        assert "ber" in result or "über" in result  # platform-dependent unicode
+
+
+# ── _parse_info_string ────────────────────────────────────────────────────────
+
+
+class TestParseInfoString:
+    def test_empty_string(self) -> None:
+        lang, title, linenums, ln_start, hl = _parse_info_string("")
+        assert lang is None
+        assert title is None
+        assert linenums is False
+        assert ln_start == 1
+        assert hl == ()
+
+    def test_language_only(self) -> None:
+        lang, title, linenums, ln_start, hl = _parse_info_string("python")
+        assert lang == "python"
+        assert title is None
+        assert linenums is False
+
+    def test_bash_language(self) -> None:
+        lang, *_ = _parse_info_string("bash")
+        assert lang == "bash"
+
+    def test_language_with_title(self) -> None:
+        lang, title, *_ = _parse_info_string('python title="main.py"')
+        assert lang == "python"
+        assert title == "main.py"
+
+    def test_linenums_enables_line_numbers(self) -> None:
+        _, _, linenums, ln_start, _ = _parse_info_string('python linenums="1"')
+        assert linenums is True
+        assert ln_start == 1
+
+    def test_linenums_custom_start(self) -> None:
+        _, _, linenums, ln_start, _ = _parse_info_string('python linenums="5"')
+        assert linenums is True
+        assert ln_start == 5
+
+    def test_hl_lines_single(self) -> None:
+        _, _, _, _, hl = _parse_info_string('python hl_lines="3"')
+        assert hl == (3,)
+
+    def test_hl_lines_multiple(self) -> None:
+        _, _, _, _, hl = _parse_info_string('python hl_lines="2 3 5"')
+        assert hl == (2, 3, 5)
+
+    def test_full_attrs(self) -> None:
+        lang, title, linenums, ln_start, hl = _parse_info_string(
+            'python title="example.py" linenums="1" hl_lines="2 3"'
+        )
+        assert lang == "python"
+        assert title == "example.py"
+        assert linenums is True
+        assert ln_start == 1
+        assert hl == (2, 3)
+
+    def test_no_language_with_title(self) -> None:
+        lang, title, *_ = _parse_info_string('title="README.md"')
+        assert lang is None
+        assert title == "README.md"
+
+    def test_single_quotes(self) -> None:
+        lang, title, *_ = _parse_info_string("python title='main.py'")
+        assert title == "main.py"
+
+
+# ── Heading parsing ───────────────────────────────────────────────────────────
+
+
+class TestHeadings:
+    def test_h1_creates_section(self) -> None:
+        nodes = parse("# Hello\n")
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], Section)
+
+    def test_h1_level(self) -> None:
+        nodes = parse("# Hello\n")
+        assert nodes[0].level == 1  # type: ignore[union-attr]
+
+    def test_h2_level(self) -> None:
+        nodes = parse("## Hello\n")
+        assert nodes[0].level == 2  # type: ignore[union-attr]
+
+    def test_h6_level(self) -> None:
+        nodes = parse("###### Deep\n")
+        assert nodes[0].level == 6  # type: ignore[union-attr]
+
+    def test_heading_title_text(self) -> None:
+        nodes = parse("# My Title\n")
+        section = nodes[0]
+        assert isinstance(section, Section)
+        assert len(section.title) == 1
+        assert isinstance(section.title[0], TextNode)
+        assert section.title[0].text == "My Title"
+
+    def test_heading_anchor_generated(self) -> None:
+        nodes = parse("# My Title\n")
+        section = nodes[0]
+        assert isinstance(section, Section)
+        assert section.anchor == "my-title"
+
+    def test_heading_anchor_with_punctuation(self) -> None:
+        nodes = parse("## Hello, World!\n")
+        section = nodes[0]
+        assert isinstance(section, Section)
+        assert section.anchor == "hello-world"
+
+    def test_multiple_top_level_headings(self) -> None:
+        nodes = parse("# One\n## Two\n## Three\n")
+        # One H1 containing two H2 sections
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], Section)
+        assert nodes[0].level == 1
+        assert len(nodes[0].children) == 2
+
+    def test_sibling_h2_headings(self) -> None:
+        nodes = parse("# Root\n## A\n## B\n")
+        root = nodes[0]
+        assert isinstance(root, Section)
+        sections = [c for c in root.children if isinstance(c, Section)]
+        assert len(sections) == 2
+        assert sections[0].title[0].text == "A"
+        assert sections[1].title[0].text == "B"
+
+    def test_h3_nested_inside_h2(self) -> None:
+        nodes = parse("## Parent\n### Child\n")
+        parent = nodes[0]
+        assert isinstance(parent, Section)
+        assert parent.level == 2
+        child = parent.children[0]
+        assert isinstance(child, Section)
+        assert child.level == 3
+
+    def test_content_before_heading_goes_to_root(self) -> None:
+        nodes = parse("Intro text.\n\n# Heading\n")
+        assert len(nodes) == 2
+        assert isinstance(nodes[0], Paragraph)
+        assert isinstance(nodes[1], Section)
+
+
+# ── Paragraph parsing ─────────────────────────────────────────────────────────
+
+
+class TestParagraphs:
+    def test_single_line_paragraph(self) -> None:
+        nodes = parse("Hello world.\n")
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], Paragraph)
+
+    def test_paragraph_contains_text_node(self) -> None:
+        nodes = parse("Hello world.\n")
+        para = nodes[0]
+        assert isinstance(para, Paragraph)
+        assert len(para.children) == 1
+        assert isinstance(para.children[0], TextNode)
+
+    def test_paragraph_text_content(self) -> None:
+        nodes = parse("Hello world.\n")
+        para = nodes[0]
+        assert isinstance(para, Paragraph)
+        assert para.children[0].text == "Hello world."
+
+    def test_multi_line_paragraph_joined(self) -> None:
+        nodes = parse("Line one.\nLine two.\n")
+        para = nodes[0]
+        assert isinstance(para, Paragraph)
+        assert "Line one." in para.children[0].text
+        assert "Line two." in para.children[0].text
+
+    def test_blank_line_separates_paragraphs(self) -> None:
+        nodes = parse("First.\n\nSecond.\n")
+        paras = [n for n in nodes if isinstance(n, Paragraph)]
+        assert len(paras) == 2
+
+    def test_multiple_blank_lines_same_as_one(self) -> None:
+        nodes = parse("First.\n\n\nSecond.\n")
+        paras = [n for n in nodes if isinstance(n, Paragraph)]
+        assert len(paras) == 2
+
+    def test_paragraph_inside_section(self) -> None:
+        nodes = parse("# Heading\n\nParagraph text.\n")
+        section = nodes[0]
+        assert isinstance(section, Section)
+        assert len(section.children) == 1
+        assert isinstance(section.children[0], Paragraph)
+
+    def test_two_paragraphs_inside_section(self) -> None:
+        nodes = parse("# Heading\n\nFirst.\n\nSecond.\n")
+        section = nodes[0]
+        assert isinstance(section, Section)
+        paras = [c for c in section.children if isinstance(c, Paragraph)]
+        assert len(paras) == 2
+
+
+# ── Code block parsing ────────────────────────────────────────────────────────
+
+
+class TestCodeBlocks:
+    def test_basic_code_block(self) -> None:
+        md = "```\nprint('hi')\n```\n"
+        nodes = parse(md)
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], CodeBlock)
+
+    def test_code_content_preserved(self) -> None:
+        md = "```\nhello\nworld\n```\n"
+        cb = first(parse(md), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert "hello" in cb.code
+        assert "world" in cb.code
+
+    def test_code_block_no_language(self) -> None:
+        cb = first(parse("```\ncode\n```\n"), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.language is None
+
+    def test_code_block_with_language(self) -> None:
+        cb = first(parse("```python\ncode\n```\n"), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.language == "python"
+
+    def test_code_block_bash(self) -> None:
+        cb = first(parse("```bash\npip install x\n```\n"), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.language == "bash"
+
+    def test_code_block_with_title(self) -> None:
+        cb = first(parse('```python title="main.py"\ncode\n```\n'), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.title == "main.py"
+
+    def test_code_block_with_linenums(self) -> None:
+        cb = first(parse('```python linenums="1"\ncode\n```\n'), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.linenums is True
+        assert cb.linenums_start == 1
+
+    def test_code_block_linenums_custom_start(self) -> None:
+        cb = first(parse('```python linenums="5"\ncode\n```\n'), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.linenums_start == 5
+
+    def test_code_block_hl_lines(self) -> None:
+        cb = first(parse('```python hl_lines="2 3"\nA\nB\nC\n```\n'), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.highlight_lines == (2, 3)
+
+    def test_code_block_full_attrs(self) -> None:
+        md = '```python title="ex.py" linenums="1" hl_lines="2 3"\nA\nB\nC\n```\n'
+        cb = first(parse(md), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.language == "python"
+        assert cb.title == "ex.py"
+        assert cb.linenums is True
+        assert cb.highlight_lines == (2, 3)
+
+    def test_tilde_fence(self) -> None:
+        cb = first(parse("~~~python\ncode\n~~~\n"), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.language == "python"
+
+    def test_longer_fence_marker(self) -> None:
+        cb = first(parse("````python\ncode\n````\n"), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.language == "python"
+
+    def test_code_block_inside_section(self) -> None:
+        md = "# Heading\n\n```python\ncode\n```\n"
+        nodes = parse(md)
+        section = nodes[0]
+        assert isinstance(section, Section)
+        cb = section.children[0]
+        assert isinstance(cb, CodeBlock)
+
+    def test_code_block_multiline_code(self) -> None:
+        md = "```python\ndef f():\n    return 1\n\nprint(f())\n```\n"
+        cb = first(parse(md), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert "def f():" in cb.code
+        assert "return 1" in cb.code
+        assert "print(f())" in cb.code
+
+    def test_heading_inside_fence_not_parsed(self) -> None:
+        md = "```\n# Not a heading\n```\n"
+        nodes = parse(md)
+        # Should be one CodeBlock, no Section
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], CodeBlock)
+
+    def test_code_block_default_values(self) -> None:
+        cb = first(parse("```\ncode\n```\n"), CodeBlock)
+        assert isinstance(cb, CodeBlock)
+        assert cb.linenums is False
+        assert cb.linenums_start == 1
+        assert cb.highlight_lines == ()
+        assert cb.title is None
+
+
+# ── Section tree structure ────────────────────────────────────────────────────
+
+
+class TestSectionTree:
+    def test_empty_document(self) -> None:
+        nodes = parse("")
+        assert nodes == ()
+
+    def test_blank_only_document(self) -> None:
+        nodes = parse("\n\n\n")
+        assert nodes == ()
+
+    def test_single_h1_empty_body(self) -> None:
+        nodes = parse("# Title\n")
+        assert len(nodes) == 1
+        section = nodes[0]
+        assert isinstance(section, Section)
+        assert section.children == ()
+
+    def test_h1_contains_h2_and_h3(self) -> None:
+        md = "# H1\n## H2\n### H3\n"
+        nodes = parse(md)
+        assert len(nodes) == 1
+        h1 = nodes[0]
+        assert isinstance(h1, Section)
+        assert h1.level == 1
+        assert len(h1.children) == 1
+        h2 = h1.children[0]
+        assert isinstance(h2, Section)
+        assert h2.level == 2
+        assert len(h2.children) == 1
+        h3 = h2.children[0]
+        assert isinstance(h3, Section)
+        assert h3.level == 3
+
+    def test_two_h1s_produce_two_top_level_sections(self) -> None:
+        nodes = parse("# First\n# Second\n")
+        assert len(nodes) == 2
+        assert all(isinstance(n, Section) and n.level == 1 for n in nodes)
+
+    def test_h2_after_h1_then_another_h2_both_children_of_h1(self) -> None:
+        md = "# Root\n## Alpha\n\nContent A.\n## Beta\n\nContent B.\n"
+        nodes = parse(md)
+        root = nodes[0]
+        assert isinstance(root, Section)
+        sections = [c for c in root.children if isinstance(c, Section)]
+        assert len(sections) == 2
+        assert sections[0].title[0].text == "Alpha"
+        assert sections[1].title[0].text == "Beta"
+
+    def test_content_before_first_heading_is_in_root(self) -> None:
+        md = "Preamble.\n\n# Section\n"
+        nodes = parse(md)
+        assert len(nodes) == 2
+        assert isinstance(nodes[0], Paragraph)
+        assert isinstance(nodes[1], Section)
+
+    def test_walk_collects_all_code_blocks(self) -> None:
+        md = "# A\n```py\ncode1\n```\n## B\n```js\ncode2\n```\n"
+        nodes = parse(md)
+        blocks = only(nodes, CodeBlock)
+        assert len(blocks) == 2
+
+    def test_walk_collects_all_paragraphs(self) -> None:
+        md = "# A\n\nPara 1.\n\n## B\n\nPara 2.\n\nPara 3.\n"
+        nodes = parse(md)
+        paras = only(nodes, Paragraph)
+        assert len(paras) == 3
+
+    def test_section_is_immutable(self) -> None:
+        import dataclasses
+
+        nodes = parse("# Hello\n")
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
+            nodes[0].level = 99  # type: ignore[misc]
+
+
+# ── Integration: real fixture files ──────────────────────────────────────────
+
+
+class TestFixtureIntegration:
+    def test_headings_fixture(self, docs_dir: Path) -> None:
+        text = (docs_dir / "headings.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        assert len(nodes) == 1
+        root = nodes[0]
+        assert isinstance(root, Section)
+        assert root.title[0].text == "Main Title"
+
+    def test_headings_fixture_h2_children(self, docs_dir: Path) -> None:
+        text = (docs_dir / "headings.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        root = nodes[0]
+        assert isinstance(root, Section)
+        h2s = [c for c in root.children if isinstance(c, Section) and c.level == 2]
+        assert len(h2s) == 2
+        assert h2s[0].title[0].text == "Section One"
+        assert h2s[1].title[0].text == "Section Two"
+
+    def test_headings_fixture_h3_nested(self, docs_dir: Path) -> None:
+        text = (docs_dir / "headings.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        root = nodes[0]
+        assert isinstance(root, Section)
+        section_one = next(
+            c for c in root.children if isinstance(c, Section) and c.level == 2
+        )
+        h3s = [c for c in section_one.children if isinstance(c, Section)]
+        assert len(h3s) == 2
+
+    def test_mixed_fixture_parses(self, docs_dir: Path) -> None:
+        text = (docs_dir / "mixed.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        assert len(nodes) > 0
+
+    def test_mixed_fixture_has_code_blocks(self, docs_dir: Path) -> None:
+        text = (docs_dir / "mixed.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        blocks = only(nodes, CodeBlock)
+        assert len(blocks) == 2
+
+    def test_mixed_fixture_bash_block(self, docs_dir: Path) -> None:
+        text = (docs_dir / "mixed.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        blocks = only(nodes, CodeBlock)
+        langs = [b.language for b in blocks if isinstance(b, CodeBlock)]
+        assert "bash" in langs
+
+    def test_mixed_fixture_python_block_attrs(self, docs_dir: Path) -> None:
+        text = (docs_dir / "mixed.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        blocks = only(nodes, CodeBlock)
+        py_block = next(
+            b for b in blocks if isinstance(b, CodeBlock) and b.language == "python"
+        )
+        assert py_block.title == "main.py"
+        assert py_block.linenums is True
+        assert py_block.highlight_lines == (2, 3)
+
+    def test_sample_getting_started(self) -> None:
+        path = (
+            Path(__file__).parent.parent
+            / "samples"
+            / "tech-docs"
+            / "docs"
+            / "getting-started.md"
+        )
+        text = path.read_text(encoding="utf-8")
+        nodes = parse(text)
+        # Should have at least one section and at least one code block
+        sections = only(nodes, Section)
+        blocks = only(nodes, CodeBlock)
+        assert len(sections) >= 1
+        assert len(blocks) >= 1
