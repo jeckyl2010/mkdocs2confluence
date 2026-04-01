@@ -1,0 +1,20 @@
+[project]
+name = "mkdocs-to-confluence"
+version = "0.1.0"
+description = "Compile MkDocs markdown to Confluence storage format"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+  "mypy"
+]
+
+[project.scripts]
+mk2conf = "mkdocs_to_confluence.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
