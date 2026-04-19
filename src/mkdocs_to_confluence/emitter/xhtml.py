@@ -384,6 +384,16 @@ def _emit_inline(node: IRNode) -> str:
 
 
 def _emit_link(node: LinkNode) -> str:
+    # Attachment link: local non-Markdown file with a resolved attachment name
+    if node.attachment_name is not None:
+        label = _emit_inlines(node.children)
+        filename = html.escape(node.attachment_name)
+        return (
+            "<ac:link>"
+            f'<ri:attachment ri:filename="{filename}"/>'
+            f"<ac:plain-text-link-body>{label}</ac:plain-text-link-body>"
+            "</ac:link>"
+        )
     label = _emit_inlines(node.children)
     escaped_href = html.escape(node.href)
     return f'<a href="{escaped_href}">{label}</a>'
@@ -398,7 +408,7 @@ def _emit_image(node: ImageNode) -> str:
         ref = f'<ri:url ri:value="{html.escape(src)}"/>'
         return f"<ac:image{alt_attr}{title_attr}>{ref}</ac:image>"
     else:
-        filename = html.escape(Path(src).name)
+        filename = html.escape(node.attachment_name or Path(src).name)
         # data-local-path is used by the preview renderer only (not valid XHTML)
         local_attr = f' data-local-path="{html.escape(src)}"'
         ref = f'<ri:attachment ri:filename="{filename}"/>'

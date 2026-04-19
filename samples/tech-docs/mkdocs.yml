@@ -10,3 +10,12 @@ nav:
       - Configuration: guide/configuration.md
   - Reference:
       - API: reference/api.md
+
+
+# Confluence publish settings (used by: mk2conf publish)
+# confluence:
+#   base_url: https://yourorg.atlassian.net
+#   space_key: TECH
+#   email: user@example.com
+#   token: !ENV CONFLUENCE_API_TOKEN
+#   parent_page_id: "123456"   # optional root page

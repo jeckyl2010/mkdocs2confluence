@@ -72,11 +72,16 @@ class LinkNode(IRNode):
     ``is_internal`` is set by the link-resolution transform when the href
     references another page in the same MkDocs site.  The transform also
     rewrites ``href`` from a relative ``.md`` path to the Confluence page title.
+
+    ``attachment_name`` is set by the assets transform when the href points to a
+    local non-Markdown file.  It holds the collision-safe filename used in
+    Confluence (e.g. ``assets_files_spec.pdf``).
     """
 
     href: str
     children: tuple[IRNode, ...]
     is_internal: bool = False
+    attachment_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -85,11 +90,15 @@ class ImageNode(IRNode):
 
     The images transform collects all ``ImageNode`` instances and registers
     their ``src`` on ``Document.attachments`` so the publisher can upload them.
+
+    ``attachment_name`` is the collision-safe filename used in Confluence
+    (e.g. ``assets_images_logo.png``).  Set by the assets transform.
     """
 
     src: str
     alt: str
     title: str | None = None
+    attachment_name: str | None = None
 
 
 # ── Block nodes ──────────────────────────────────────────────────────────────

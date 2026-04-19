@@ -323,5 +323,5 @@ class TestCLI:
     def test_publish_not_implemented(self) -> None:
         from mkdocs_to_confluence.cli import main
 
-        with pytest.raises(NotImplementedError):
+        with pytest.raises((SystemExit, FileNotFoundError)):
             main(["publish"])
