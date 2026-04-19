@@ -50,6 +50,7 @@ from mkdocs_to_confluence.ir.nodes import (
 
 # ── Admonition kind → Confluence macro name ───────────────────────────────────
 
+# Types that map to Confluence's four native panel macros (include built-in icons).
 _ADMONITION_MACRO: dict[str, str] = {
     "note": "info",
     "abstract": "info",
@@ -66,15 +67,21 @@ _ADMONITION_MACRO: dict[str, str] = {
     "warning": "warning",
     "caution": "warning",
     "attention": "warning",
-    "failure": "warning",
-    "fail": "warning",
-    "missing": "warning",
-    "danger": "warning",
-    "error": "warning",
-    "bug": "warning",
     "example": "note",
     "quote": "note",
     "cite": "note",
+}
+
+# Types that need a custom-coloured panel macro (red — no native equivalent).
+# Title is prefixed with an emoji since the panel macro has no built-in icon.
+_ADMONITION_DANGER_KINDS: frozenset[str] = frozenset(
+    {"danger", "error", "bug", "failure", "fail", "missing"}
+)
+_DANGER_EMOJI = "🚨"
+_DANGER_COLOURS = {
+    "borderColor": "#DE350B",
+    "titleBGColor": "#DE350B",
+    "bgColor": "#FFEBE6",
 }
 
 _DEFAULT_ADMONITION_TITLES: dict[str, str] = {
@@ -199,9 +206,24 @@ def _emit_code_block(node: CodeBlock) -> str:
 
 
 def _emit_admonition(node: Admonition) -> str:
-    macro_name = _ADMONITION_MACRO.get(node.kind, "info")
     title = node.title or _DEFAULT_ADMONITION_TITLES.get(node.kind, node.kind.capitalize())
     body = emit(node.children)
+
+    if node.kind in _ADMONITION_DANGER_KINDS:
+        colours = "".join(
+            f'  <ac:parameter ac:name="{k}">{v}</ac:parameter>\n'
+            for k, v in _DANGER_COLOURS.items()
+        )
+        prefixed_title = html.escape(f"{_DANGER_EMOJI} {title}")
+        return (
+            '<ac:structured-macro ac:name="panel">\n'
+            f'  <ac:parameter ac:name="title">{prefixed_title}</ac:parameter>\n'
+            f"{colours}"
+            f"  <ac:rich-text-body>\n{body}  </ac:rich-text-body>\n"
+            "</ac:structured-macro>\n"
+        )
+
+    macro_name = _ADMONITION_MACRO.get(node.kind, "info")
     return (
         f'<ac:structured-macro ac:name="{macro_name}">\n'
         f'  <ac:parameter ac:name="title">{html.escape(title)}</ac:parameter>\n'
