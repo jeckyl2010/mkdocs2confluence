@@ -216,3 +216,119 @@ def test_dry_run_no_api_calls(tmp_path: Path, capsys: pytest.CaptureFixture) -> 
 
         main(["publish", "--config", str(config_file), "--dry-run"])
         mock_cls.assert_not_called()
+
+
+# ── execute_publish: section parent wiring + attachment names ─────────────────
+
+
+def _make_execute_client(space_id: str = "~42") -> MagicMock:
+    """Return a minimal mock ConfluenceClient for execute_publish tests."""
+    client = MagicMock()
+    _page_counter = {"n": 100}
+
+    def create_page(sid, title, xhtml, *, parent_id=None):
+        _page_counter["n"] += 1
+        return {"id": _page_counter["n"], "version": {"number": 1}}
+
+    client.create_page.side_effect = create_page
+    client.update_page.return_value = {"id": 99, "version": {"number": 2}}
+    client.list_attachments.return_value = {}
+    return client
+
+
+def _make_section_node(title: str, children: list) -> NavNode:
+    return NavNode(title=title, docs_path=None, source_path=None, level=0, children=tuple(children))
+
+
+def _make_page_node(title: str, tmp_path: Path, docs_dir: Path) -> NavNode:
+    src = docs_dir / f"{title.lower().replace(' ', '_')}.md"
+    src.write_text(f"# {title}\n")
+    return NavNode(
+        title=title,
+        docs_path=src.relative_to(docs_dir).as_posix(),
+        source_path=src,
+        level=0,
+    )
+
+
+class TestExecutePublish:
+    def test_new_section_children_get_correct_parent_id(self, tmp_path: Path) -> None:
+        """Children of a newly-created section must be nested under it."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        child = _make_page_node("Child", tmp_path, docs_dir)
+        section = _make_section_node("My Section", [child])
+
+        section_action = PageAction(
+            node=section, title="My Section", action="create",
+            parent_id="ROOT", xhtml="", page_id=None,
+        )
+        child_action = PageAction(
+            node=child, title="Child", action="create",
+            parent_id=None, xhtml="<p>hi</p>",
+        )
+        plan = [section_action, child_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        # Section was created first → got page_id
+        assert section_action.page_id is not None
+        # Child's parent_id must be the section's new page_id, not None
+        assert child_action.parent_id == section_action.page_id
+
+    def test_existing_section_children_wired_from_update(self, tmp_path: Path) -> None:
+        """Children of an existing (update) section are also wired correctly."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        child = _make_page_node("Child2", tmp_path, docs_dir)
+        section = _make_section_node("Existing Section", [child])
+
+        section_action = PageAction(
+            node=section, title="Existing Section", action="update",
+            parent_id="ROOT", xhtml="", page_id="existing-99", version=1,
+        )
+        child_action = PageAction(
+            node=child, title="Child2", action="create",
+            parent_id=None, xhtml="<p>hi</p>",
+        )
+        plan = [section_action, child_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert child_action.parent_id == "existing-99"
+
+    def test_attachment_uses_collision_safe_name(self, tmp_path: Path) -> None:
+        """Attachments must be uploaded with the docs_dir-relative name."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        assets = docs_dir / "assets" / "images"
+        assets.mkdir(parents=True)
+        img = assets / "logo.png"
+        img.write_bytes(b"PNG")
+
+        page_node = NavNode(
+            title="Page", docs_path="page.md",
+            source_path=docs_dir / "page.md",
+            level=0,
+        )
+        page_action = PageAction(
+            node=page_node, title="Page", action="create",
+            parent_id="ROOT", xhtml="<p/>", page_id=None,
+            attachments=[img],
+        )
+        client = _make_execute_client()
+
+        execute_publish([page_action], client, space_id="~42", docs_dir=docs_dir)
+
+        # upload_attachment must be called with the collision-safe name
+        client.upload_attachment.assert_called_once()
+        _, _, att_name = client.upload_attachment.call_args.args
+        assert att_name == "assets_images_logo.png"
+        assert att_name != "logo.png"

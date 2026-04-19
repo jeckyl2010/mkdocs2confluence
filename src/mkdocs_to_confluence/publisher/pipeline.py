@@ -34,7 +34,7 @@ from mkdocs_to_confluence.preprocess.includes import (
     strip_unsupported_html,
 )
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
-from mkdocs_to_confluence.transforms.assets import resolve_local_assets
+from mkdocs_to_confluence.transforms.assets import _make_attachment_name, resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import inject_edit_link
 from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 
@@ -241,24 +241,24 @@ def execute_publish(
     *,
     dry_run: bool = False,
     space_id: str,
+    docs_dir: Path,
 ) -> list[PageAction]:
     """Execute the publish plan.
 
-    Pages are processed in order so parent sections are created before child
-    pages.  Section actions carry a ``_section_ref`` so that child pages can
-    look up the created/found page ID for their ``parent_id``.
+    Pages are processed in nav order so parent sections are always created
+    before their children.  Once a section's ``page_id`` is known (after
+    create/update), all direct children in the plan have their ``parent_id``
+    updated immediately — avoiding the pre-pass approach that broke for
+    newly-created sections.
 
     Returns the updated plan with ``page_id`` filled in for executed actions.
     """
     if dry_run:
         return plan
 
-    # Map section node id → created/found page_id so children can reference it
-    section_page_ids: dict[int, str] = {}
-
-    # We need to resolve parent_id for children of sections at execute time.
-    # Rebuild parent_id by walking the plan in order and tracking depth.
-    _resolve_parent_ids(plan, section_page_ids)
+    # Index: nav node id → PageAction, used to wire child parent_ids after
+    # each section is created/updated.
+    action_by_node: dict[int, PageAction] = {id(a.node): a for a in plan}
 
     for action in plan:
         if action.action == "skip":
@@ -275,66 +275,27 @@ def execute_publish(
         elif action.action == "update":
             assert action.page_id is not None
             assert action.version is not None
-            page = client.update_page(
+            client.update_page(
                 action.page_id,
                 action.title,
                 action.xhtml or "",
                 action.version + 1,
             )
 
-        if action.page_id and action.node.is_section:
-            section_page_ids[id(action.node)] = action.page_id
+        # Once a section's page_id is known, wire it into all direct children
+        # so that children created later in the loop use the correct parent_id.
+        if action.node.is_section and action.page_id:
+            for child_node in action.node.children:
+                child_action = action_by_node.get(id(child_node))
+                if child_action is not None:
+                    child_action.parent_id = action.page_id
 
-        # Upload attachments
+        # Upload attachments using collision-safe names derived from docs_dir.
         if action.page_id and action.attachments:
             existing_attachments = client.list_attachments(action.page_id)
             for attachment_path in action.attachments:
-                # Derive the attachment filename
-                from mkdocs_to_confluence.transforms.assets import _make_attachment_name
-                docs_dir = None
-                # We need config.docs_dir — passed implicitly via attachment_name on nodes
-                # Fall back to just the filename
-                att_name = attachment_path.name
-                # Check if already uploaded
+                att_name = _make_attachment_name(attachment_path, docs_dir)
                 if att_name not in existing_attachments:
                     client.upload_attachment(action.page_id, attachment_path, att_name)
 
     return plan
-
-
-def _resolve_parent_ids(
-    plan: list[PageAction],
-    section_page_ids: dict[int, str],
-) -> None:
-    """Post-process plan to fill parent_id for children of sections.
-
-    The planning phase leaves children of section nodes with ``parent_id=None``
-    because the section's page_id is not known until execution.  This function
-    walks the nav structure mirrored in the plan and wires up the parent_ids
-    by using the section node identity.
-    """
-    # Build index: nav node id → PageAction
-    action_by_node: dict[int, PageAction] = {id(a.node): a for a in plan}
-
-    # Walk the original nav order implicit in the plan.
-    # Section actions appear before their children in document order.
-    # We track the "current section stack" to resolve parents.
-    _walk_and_resolve(plan, action_by_node)
-
-
-def _walk_and_resolve(
-    plan: list[PageAction],
-    action_by_node: dict[int, PageAction],
-) -> None:
-    """Fill ``parent_id`` for child pages using the section node tree."""
-    # We reconstruct the tree by looking at node.level and nav structure.
-    # Use a depth-first traversal of each section's children.
-    for action in plan:
-        if not action.node.is_section:
-            continue
-        # For every child of this section, set parent_id to this section's page_id
-        for child_node in action.node.children:
-            child_action = action_by_node.get(id(child_node))
-            if child_action is not None and child_action.parent_id is None:
-                # Will be resolved at execute time — store a reference
-                child_action.parent_id = action.page_id  # may still be None pre-execution
