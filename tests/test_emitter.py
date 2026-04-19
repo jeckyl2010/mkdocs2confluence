@@ -150,3 +150,75 @@ class TestUnsupportedBlock:
         out = emit((UnsupportedBlock(raw="some raw content", reason="not supported"),))
         assert 'ac:name="warning"' in out
         assert "some raw content" in out
+
+
+# ── Missing node coverage ─────────────────────────────────────────────────────
+
+from mkdocs_to_confluence.ir.nodes import (
+    BlockQuote,
+    ImageNode,
+    StrikethroughNode,
+    Table,
+    TableCell,
+    TableRow,
+)
+
+
+class TestStrikethroughEmitter:
+    def test_strikethrough_node(self) -> None:
+        out = emit((Paragraph((StrikethroughNode((TextNode("old"),)),)),))
+        assert "<s>old</s>" in out
+
+
+class TestBlockQuoteEmitter:
+    def test_blockquote_wraps_children(self) -> None:
+        out = emit((BlockQuote(children=(Paragraph((TextNode("quote"),)),)),))
+        assert "<blockquote>" in out
+        assert "<p>quote</p>" in out
+        assert "</blockquote>" in out
+
+
+class TestImageEmitter:
+    def test_image_url(self) -> None:
+        out = emit((Paragraph((ImageNode(src="https://example.com/img.png", alt="logo"),),),))
+        assert '<ri:url ri:value="https://example.com/img.png"/>' in out
+        assert "<ac:image" in out
+
+    def test_image_alt(self) -> None:
+        out = emit((Paragraph((ImageNode(src="img.png", alt="desc"),),),))
+        assert 'ac:alt="desc"' in out
+
+    def test_image_title(self) -> None:
+        out = emit((Paragraph((ImageNode(src="img.png", alt="", title="My title"),),),))
+        assert 'ac:title="My title"' in out
+
+
+class TestTableEmitter:
+    def _simple_table(self) -> Table:
+        header = TableRow(cells=(
+            TableCell(children=(TextNode("Name"),), is_header=True),
+            TableCell(children=(TextNode("Value"),), is_header=True),
+        ))
+        row = TableRow(cells=(
+            TableCell(children=(TextNode("foo"),)),
+            TableCell(children=(TextNode("bar"),)),
+        ))
+        return Table(header=header, rows=(row,))
+
+    def test_table_has_table_tag(self) -> None:
+        out = emit((self._simple_table(),))
+        assert "<table>" in out
+
+    def test_table_header_uses_th(self) -> None:
+        out = emit((self._simple_table(),))
+        assert "<th>Name</th>" in out
+
+    def test_table_body_uses_td(self) -> None:
+        out = emit((self._simple_table(),))
+        assert "<td>foo</td>" in out
+
+    def test_table_alignment(self) -> None:
+        header = TableRow(cells=(TableCell(children=(TextNode("N"),), is_header=True),))
+        row = TableRow(cells=(TableCell(children=(TextNode("1"),), align="right"),))
+        out = emit((Table(header=header, rows=(row,)),))
+        assert 'text-align: right' in out

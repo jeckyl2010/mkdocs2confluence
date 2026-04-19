@@ -722,3 +722,178 @@ class TestFixtureIntegration:
         nodes = parse(text)
         admonitions = only(nodes, Admonition)
         assert len(admonitions) >= 1
+
+
+# ── Inline parsing ────────────────────────────────────────────────────────────
+
+
+from mkdocs_to_confluence.ir import BoldNode, BulletList, BlockQuote, CodeInlineNode, HorizontalRule, ItalicNode, LinkNode, OrderedList, StrikethroughNode, Table
+
+
+class TestInlineParsing:
+    def test_plain_text_becomes_text_node(self) -> None:
+        para = first(parse("Hello world.\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        assert isinstance(para.children[0], TextNode)
+        assert para.children[0].text == "Hello world."
+
+    def test_bold_star(self) -> None:
+        para = first(parse("Hello **world**.\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        bold = next(n for n in para.children if isinstance(n, BoldNode))
+        assert isinstance(bold.children[0], TextNode)
+        assert bold.children[0].text == "world"
+
+    def test_italic_star(self) -> None:
+        para = first(parse("Hello *world*.\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        italic = next(n for n in para.children if isinstance(n, ItalicNode))
+        assert italic.children[0].text == "world"  # type: ignore[union-attr]
+
+    def test_strikethrough(self) -> None:
+        para = first(parse("Hello ~~old~~ text.\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        strike = next(n for n in para.children if isinstance(n, StrikethroughNode))
+        assert strike.children[0].text == "old"  # type: ignore[union-attr]
+
+    def test_inline_code(self) -> None:
+        para = first(parse("Use `foo()` here.\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        code = next(n for n in para.children if isinstance(n, CodeInlineNode))
+        assert code.code == "foo()"
+
+    def test_link(self) -> None:
+        para = first(parse("[Click here](https://example.com)\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        link = next(n for n in para.children if isinstance(n, LinkNode))
+        assert link.href == "https://example.com"
+        assert link.children[0].text == "Click here"  # type: ignore[union-attr]
+
+    def test_heading_bold(self) -> None:
+        nodes = parse("# **Bold** heading\n")
+        section = nodes[0]
+        assert isinstance(section, Section)
+        assert any(isinstance(n, BoldNode) for n in section.title)
+
+
+# ── List parsing ──────────────────────────────────────────────────────────────
+
+
+class TestListParsing:
+    def test_bullet_list_nodes(self) -> None:
+        nodes = parse("- Alpha\n- Beta\n- Gamma\n")
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        assert len(bl.items) == 3
+
+    def test_bullet_item_text(self) -> None:
+        nodes = parse("- Hello world\n")
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        assert bl.items[0].children[0].text == "Hello world"  # type: ignore[union-attr]
+
+    def test_bullet_item_with_link(self) -> None:
+        nodes = parse("- [Docs](docs.md)\n")
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        link = next(
+            n for n in bl.items[0].children if isinstance(n, LinkNode)
+        )
+        assert link.href == "docs.md"
+
+    def test_task_list_checked(self) -> None:
+        nodes = parse("- [x] Done item\n")
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        assert bl.items[0].task is True
+
+    def test_task_list_unchecked(self) -> None:
+        nodes = parse("- [ ] Todo item\n")
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        assert bl.items[0].task is False
+
+    def test_ordered_list(self) -> None:
+        nodes = parse("1. First\n2. Second\n3. Third\n")
+        ol = first(nodes, OrderedList)
+        assert isinstance(ol, OrderedList)
+        assert len(ol.items) == 3
+        assert ol.start == 1
+
+    def test_ordered_list_custom_start(self) -> None:
+        nodes = parse("5. Fifth\n6. Sixth\n")
+        ol = first(nodes, OrderedList)
+        assert isinstance(ol, OrderedList)
+        assert ol.start == 5
+
+
+# ── Table parsing ─────────────────────────────────────────────────────────────
+
+
+class TestTableParsing:
+    def test_basic_table(self) -> None:
+        md = "| A | B |\n|---|---|\n| 1 | 2 |\n"
+        tbl = first(parse(md), Table)
+        assert isinstance(tbl, Table)
+
+    def test_table_header_cells(self) -> None:
+        md = "| Name | Value |\n|------|-------|\n| foo  | bar   |\n"
+        tbl = first(parse(md), Table)
+        assert isinstance(tbl, Table)
+        assert tbl.header.cells[0].children[0].text == "Name"  # type: ignore[union-attr]
+        assert tbl.header.cells[1].children[0].text == "Value"  # type: ignore[union-attr]
+
+    def test_table_body_rows(self) -> None:
+        md = "| A | B |\n|---|---|\n| x | y |\n| p | q |\n"
+        tbl = first(parse(md), Table)
+        assert isinstance(tbl, Table)
+        assert len(tbl.rows) == 2
+
+    def test_table_header_is_th(self) -> None:
+        md = "| H1 | H2 |\n|----|----|\n| v1 | v2 |\n"
+        tbl = first(parse(md), Table)
+        assert isinstance(tbl, Table)
+        assert all(c.is_header for c in tbl.header.cells)
+
+    def test_table_right_align(self) -> None:
+        md = "| Num |\n| ---: |\n| 42 |\n"
+        tbl = first(parse(md), Table)
+        assert isinstance(tbl, Table)
+        assert tbl.rows[0].cells[0].align == "right"
+
+    def test_table_center_align(self) -> None:
+        md = "| X |\n| :---: |\n| v |\n"
+        tbl = first(parse(md), Table)
+        assert isinstance(tbl, Table)
+        assert tbl.rows[0].cells[0].align == "center"
+
+
+# ── Blockquote and HR parsing ─────────────────────────────────────────────────
+
+
+class TestBlockquoteAndHR:
+    def test_blockquote(self) -> None:
+        nodes = parse("> Hello\n")
+        bq = first(nodes, BlockQuote)
+        assert isinstance(bq, BlockQuote)
+
+    def test_blockquote_inline(self) -> None:
+        nodes = parse("> **Bold** text\n")
+        bq = first(nodes, BlockQuote)
+        assert isinstance(bq, BlockQuote)
+        para = first(bq.children, Paragraph)
+        assert isinstance(para, Paragraph)
+        assert any(isinstance(n, BoldNode) for n in para.children)
+
+    def test_horizontal_rule_dashes(self) -> None:
+        nodes = parse("---\n")
+        assert any(isinstance(n, HorizontalRule) for n in nodes)
+
+    def test_horizontal_rule_stars(self) -> None:
+        nodes = parse("***\n")
+        assert any(isinstance(n, HorizontalRule) for n in nodes)
+
+    def test_hr_does_not_break_surrounding_paragraphs(self) -> None:
+        nodes = parse("Before.\n\n---\n\nAfter.\n")
+        paras = only(nodes, Paragraph)
+        assert len(paras) == 2

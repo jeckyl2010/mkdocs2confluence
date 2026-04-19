@@ -12,6 +12,7 @@ from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page, load_page
 from mkdocs_to_confluence.parser.markdown import parse
+from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.preprocess.includes import preprocess_includes
 
 
@@ -50,6 +51,11 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         default=None,
         help="Write output to FILE instead of stdout.",
+    )
+    preview.add_argument(
+        "--html",
+        action="store_true",
+        help="Render macros as browser-viewable HTML instead of raw Confluence XHTML.",
     )
 
     # --- publish ---
@@ -110,11 +116,13 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     ir_nodes = parse(preprocessed)
     xhtml = emit(ir_nodes)
 
+    output = render_page(xhtml, page=args.page) if args.html else xhtml
+
     if args.out:
-        Path(args.out).write_text(xhtml, encoding="utf-8")
+        Path(args.out).write_text(output, encoding="utf-8")
         print(f"Written to {args.out}")
     else:
-        print(xhtml)
+        print(output)
 
 
 def _cmd_publish(args: argparse.Namespace) -> None:
