@@ -315,11 +315,11 @@ class TestCLI:
             main([])
         assert exc_info.value.code == 0
 
-    def test_preview_not_implemented(self) -> None:
+    def test_preview_missing_config_exits_nonzero(self) -> None:
         from mkdocs_to_confluence.cli import main
 
-        with pytest.raises(NotImplementedError):
-            main(["preview", "--page", "docs/index.md"])
+        with pytest.raises((SystemExit, FileNotFoundError)):
+            main(["preview", "--config", "nonexistent.yml", "--page", "index.md"])
 
     def test_publish_not_implemented(self) -> None:
         from mkdocs_to_confluence.cli import main

@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from mkdocs_to_confluence import __version__
+from mkdocs_to_confluence.emitter.xhtml import emit
+from mkdocs_to_confluence.loader.config import load_config
+from mkdocs_to_confluence.loader.nav import resolve_nav
+from mkdocs_to_confluence.loader.page import PageLoadError, find_page, load_page
+from mkdocs_to_confluence.parser.markdown import parse
+from mkdocs_to_confluence.preprocess.includes import preprocess_includes
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -80,7 +87,34 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def _cmd_preview(args: argparse.Namespace) -> None:
-    raise NotImplementedError("preview command is not yet implemented (milestone 4).")
+    config_path = Path(args.config).resolve()
+    config = load_config(config_path)
+
+    nodes = resolve_nav(config)
+    node = find_page(nodes, args.page)
+    if node is None:
+        print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        raw = load_page(node)
+    except PageLoadError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    preprocessed = preprocess_includes(
+        raw,
+        source_path=node.source_path,  # type: ignore[arg-type]
+        docs_dir=config.docs_dir,
+    )
+    ir_nodes = parse(preprocessed)
+    xhtml = emit(ir_nodes)
+
+    if args.out:
+        Path(args.out).write_text(xhtml, encoding="utf-8")
+        print(f"Written to {args.out}")
+    else:
+        print(xhtml)
 
 
 def _cmd_publish(args: argparse.Namespace) -> None:
