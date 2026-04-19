@@ -17,6 +17,7 @@ from mkdocs_to_confluence.preprocess.abbrevs import (
     strip_abbreviation_defs,
 )
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
+from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
 from mkdocs_to_confluence.preprocess.includes import (
     preprocess_includes,
     strip_html_comments,
@@ -125,6 +126,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     )
     preprocessed = strip_unsupported_html(preprocessed)
     preprocessed = strip_html_comments(preprocessed)
+    preprocessed = strip_icon_shortcodes(preprocessed)
     front_matter, preprocessed = extract_front_matter(preprocessed)
     abbrevs = extract_abbreviations(preprocessed)
     preprocessed = strip_abbreviation_defs(preprocessed)
