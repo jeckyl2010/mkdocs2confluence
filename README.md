@@ -114,9 +114,56 @@ mk2conf preview --config docs/mkdocs.yml --page guide/installation.md \
 |---|---|
 | `--8<--` file includes | Resolved before parsing |
 | Admonitions `!!! type "title"` | `info` / `tip` / `warning` / `note` macro |
+| Danger admonitions (`danger`, `error`, `bug`) | Custom red `panel` macro with 🚨 prefix |
 | Collapsible admonitions `??? type` | `expand` macro |
 | Content tabs `=== "Label"` | `expand` macros (one per tab) |
 | Mermaid diagrams | `code` macro labelled `mermaid` |
+
+### YAML front matter → Page Properties
+
+Pages with a YAML front matter block are automatically converted to a Confluence **Page Properties** macro (`details`), making the metadata queryable across your space via the Page Properties Report macro.
+
+```yaml
+---
+title: "Architecture Proposal – IAM"
+subtitle: "Hybrid Identity Hub for manufacturing sites"
+documentId: AP-IAM-HYBRID-2026
+version: "0.1"
+lastUpdated: 2026-01-12
+author: "Anders Hybertz"
+tags: [architecture, iam, keycloak]
+ready: true
+---
+```
+
+Field mapping:
+
+| Front matter field | Display name | Notes |
+|---|---|---|
+| `title` | Title | Used as the Confluence page title on publish |
+| `subtitle` | — | Rendered as an italic lead paragraph above the properties table |
+| `documentId` | Document ID | — |
+| `version` | Version | — |
+| `lastUpdated` | Last Updated | — |
+| `author` | Author | — |
+| `tags` | Tags | Also applied as Confluence page labels on publish |
+| `ready` | Status | `true` → ✅ Ready · `false` → 📝 Draft |
+| `source` | — | **Stripped** (internal tooling field) |
+| *other fields* | Title-cased key | Value stringified |
+
+### Abbreviation expansion
+
+MkDocs abbreviation definitions (`*[ABBR]: Full term`) are expanded automatically — Confluence has no native tooltip/`<abbr>` equivalent.
+
+**Behaviour:**
+
+- The **first occurrence** of each abbreviation in body text is expanded inline: `IAM` → `IAM (Identity and Access Management)`
+- **Subsequent occurrences** are left as plain text
+- Headings, table headers, admonition titles, code blocks, and link text are **skipped** (expansion there would look odd)
+- If an abbreviation only appears in skipped contexts, it is listed in an auto-appended **Glossary** section at the bottom of the page
+- Definition lines are stripped from the output — they never appear as raw text
+
+Abbreviation definitions can live in the page itself or in an included file (e.g. `--8<-- "includes/legend-glossary.md"`).
 
 ### Graceful degradation
 
@@ -134,10 +181,14 @@ The following Material for MkDocs features are **intentionally suppressed** (wra
 
 The `--html` flag post-processes the Confluence XHTML and renders macros as styled HTML panels, so you can review a page in any browser without a Confluence instance:
 
-- **Code macros** → dark code panel with language label
-- **Info / tip / warning / note macros** → colour-coded panels (blue / green / orange / grey)
-- **Expand macros** → collapsible `<details>` elements
-- **Unknown macros** → labelled placeholder
+| Macro | Preview rendering |
+|---|---|
+| `code` | Dark code panel with language label and optional title |
+| `info` / `tip` / `warning` / `note` | Colour-coded panels (blue / green / orange / grey) |
+| `panel` (danger types) | Red panel with 🚨 title prefix |
+| `expand` | Collapsible `<details>` element |
+| `details` (Page Properties) | 📋 Page Properties card with metadata table |
+| Unknown macros | Labelled dashed placeholder |
 
 > **Note:** `--html` output is for local review only. The actual content sent to Confluence is always the raw XHTML (without `--html`).
 
@@ -149,11 +200,15 @@ The `--html` flag post-processes the Confluence XHTML and renders macros as styl
 src/mkdocs_to_confluence/
 ├── cli.py              # CLI entrypoint (mk2conf)
 ├── loader/
-│   ├── config.py       # mkdocs.yml loader
-│   ├── nav.py          # nav resolver
-│   └── page.py         # single-page loader
+│   ├── config.py       # mkdocs.yml loader (!ENV + unknown tag support)
+│   ├── nav.py          # nav resolver (auto-discovers pages when nav: is absent)
+│   └── page.py         # single-page loader (exact + suffix matching)
 ├── preprocess/
-│   └── includes.py     # --8<-- include/snippet preprocessor
+│   ├── includes.py     # --8<-- include/snippet preprocessor
+│   ├── abbrevs.py      # *[ABBR]: definition extractor and stripper
+│   └── frontmatter.py  # YAML front matter extractor and field mapper
+├── transforms/
+│   └── abbrevs.py      # IR tree transform: abbreviation first-occurrence expansion
 ├── ir/
 │   └── nodes.py        # immutable IR node types
 ├── parser/
@@ -172,10 +227,14 @@ Planned features, roughly in priority order:
 
 - [ ] **Internal link resolution** — rewrite `.md` hrefs to Confluence page titles using the nav resolver
 - [ ] **Image attachments** — collect local images and upload as Confluence attachments at publish time
-- [ ] **Publish command** — Confluence REST API client to create/update pages and upload attachments
+- [ ] **Publish command** — Confluence REST API client to create/update pages, set labels, and upload attachments
 - [ ] **Material icon shortcodes** — map `:material-x:` / `:fontawesome-x:` to Confluence emoticons or Unicode, with graceful fallback
 - [ ] **Mermaid native macro** — target the Confluence Mermaid marketplace macro instead of a plain code block
-- [ ] **Abbreviation expansion** — collect `*[ABBR]: definition` pairs from includes and page body; expand the first occurrence of each acronym in body text (paragraphs, list items, table body cells); skip headings, table/admonition headers, and code blocks; append a Glossary section for acronyms that only appeared in skipped contexts
+
+**Completed:**
+
+- [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
+- [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction
 
 ---
 
@@ -193,3 +252,4 @@ ruff check src tests
 # Type-check
 mypy src
 ```
+

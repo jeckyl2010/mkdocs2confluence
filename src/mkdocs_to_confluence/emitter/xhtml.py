@@ -28,6 +28,7 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeInlineNode,
     ContentTabs,
     Expandable,
+    FrontMatter,
     HorizontalRule,
     IRNode,
     ImageNode,
@@ -161,6 +162,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_content_tabs(node)
     if isinstance(node, Expandable):
         return _emit_expandable(node)
+    if isinstance(node, FrontMatter):
+        return _emit_front_matter(node)
     if isinstance(node, UnsupportedBlock):
         return _emit_unsupported(node)
     # Inline nodes at block level (shouldn't normally appear, but be safe)
@@ -176,6 +179,32 @@ def _emit_section(node: Section) -> str:
     heading = f"<{tag}>{title_html}</{tag}>\n"
     body = emit(node.children)
     return heading + body
+
+
+def _emit_front_matter(node: FrontMatter) -> str:
+    """Emit front matter as an optional subtitle paragraph + Page Properties macro."""
+    parts: list[str] = []
+
+    if node.subtitle:
+        parts.append(f"<p><em>{html.escape(node.subtitle)}</em></p>\n")
+
+    if node.properties:
+        rows = "".join(
+            f"    <tr><th>{html.escape(display)}</th>"
+            f"<td>{html.escape(value)}</td></tr>\n"
+            for display, value in node.properties
+        )
+        parts.append(
+            '<ac:structured-macro ac:name="details">\n'
+            "  <ac:rich-text-body>\n"
+            "    <table><tbody>\n"
+            f"{rows}"
+            "    </tbody></table>\n"
+            "  </ac:rich-text-body>\n"
+            "</ac:structured-macro>\n"
+        )
+
+    return "".join(parts)
 
 
 def _emit_paragraph(node: Paragraph) -> str:

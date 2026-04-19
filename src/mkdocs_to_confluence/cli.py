@@ -13,7 +13,10 @@ from mkdocs_to_confluence.loader.nav import resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page, load_page
 from mkdocs_to_confluence.parser.markdown import parse
 from mkdocs_to_confluence.preview.render import render_page
+from mkdocs_to_confluence.preprocess.abbrevs import extract_abbreviations, strip_abbreviation_defs
+from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 from mkdocs_to_confluence.preprocess.includes import preprocess_includes, strip_unsupported_html
+from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -114,7 +117,13 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         docs_dir=config.docs_dir,
     )
     preprocessed = strip_unsupported_html(preprocessed)
+    front_matter, preprocessed = extract_front_matter(preprocessed)
+    abbrevs = extract_abbreviations(preprocessed)
+    preprocessed = strip_abbreviation_defs(preprocessed)
     ir_nodes = parse(preprocessed)
+    ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
+    if front_matter is not None:
+        ir_nodes = (front_matter,) + ir_nodes
     xhtml = emit(ir_nodes)
 
     output = render_page(xhtml, page=args.page) if args.html else xhtml

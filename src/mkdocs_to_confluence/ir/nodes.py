@@ -307,6 +307,34 @@ class Expandable(IRNode):
     children: tuple[IRNode, ...]
 
 
+# ── Document metadata ────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class FrontMatter(IRNode):
+    """YAML front matter extracted from the top of a markdown file.
+
+    The emitter renders this as a Confluence **Page Properties** (``details``)
+    macro so the metadata is queryable via the Page Properties Report macro.
+
+    Attributes:
+        title:      The page title (``title:`` field).  Used as the Confluence
+                    page title on publish; also shown as a row in the table.
+        subtitle:   Optional subtitle rendered as an italic lead paragraph
+                    *before* the properties table.
+        properties: Ordered ``(display_name, value)`` pairs for the table.
+                    Field-order and display names are normalised by the
+                    front matter extractor.
+        labels:     Confluence page labels derived from the ``tags:`` field.
+                    Applied via the REST API at publish time (not in XHTML).
+    """
+
+    title: str | None
+    subtitle: str | None
+    properties: tuple[tuple[str, str], ...]
+    labels: tuple[str, ...]
+
+
 # ── Graceful degradation ──────────────────────────────────────────────────────
 
 
