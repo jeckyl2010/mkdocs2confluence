@@ -90,10 +90,17 @@ def _render_code(params: dict[str, str], body: str) -> str:
 
 
 def _render_panel(name: str, params: dict[str, str], body: str) -> str:
-    default_title = name.capitalize()
-    title = params.get("title", default_title)
+    if name == "panel":
+        # Custom-coloured panel (used for danger/error/bug kinds).
+        border = params.get("borderColor", "#505f79")
+        bg = params.get("bgColor", "#f4f5f7")
+        title_bg = params.get("titleBGColor", border)
+        title = params.get("title", "")
+    else:
+        default_title = name.capitalize()
+        title = params.get("title", default_title)
+        border, bg, title_bg = _PANEL_COLOURS.get(name, ("#505f79", "#f4f5f7", "#505f79"))
     content = render_html(_rich_body(body))
-    border, bg, title_bg = _PANEL_COLOURS.get(name, ("#505f79", "#f4f5f7", "#505f79"))
     return (
         f'<div class="panel" style="border-left:4px solid {border};background:{bg};'
         f'margin:1em 0;border-radius:0 4px 4px 0;">'
@@ -125,7 +132,7 @@ def _render_macro(m: re.Match[str]) -> str:
 
     if name == "code":
         return _render_code(p, body)
-    if name in _PANEL_COLOURS:
+    if name in _PANEL_COLOURS or name == "panel":
         return _render_panel(name, p, body)
     if name == "expand":
         return _render_expand(p, body)
