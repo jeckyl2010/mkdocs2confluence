@@ -13,6 +13,7 @@ dev = [
   "pytest",
   "ruff",
   "mypy",
+  "build",
 ]
 
 [project.scripts]
