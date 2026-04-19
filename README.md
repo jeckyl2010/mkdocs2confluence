@@ -13,13 +13,13 @@ Requires Python 3.12+.
 **From the latest GitHub release** (recommended):
 
 ```bash
-pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.4/mkdocs_to_confluence-0.1.4-py3-none-any.whl
+pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.6/mkdocs_to_confluence-0.1.6-py3-none-any.whl
 ```
 
 Or with `pipx` for an isolated install (no virtual environment needed):
 
 ```bash
-pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.4/mkdocs_to_confluence-0.1.4-py3-none-any.whl
+pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.6/mkdocs_to_confluence-0.1.6-py3-none-any.whl
 ```
 
 **From source** (see [Setup.md](Setup.md) for the full dev environment guide):
