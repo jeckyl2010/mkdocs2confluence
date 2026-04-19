@@ -125,6 +125,20 @@ def _render_expand(params: dict[str, str], body: str) -> str:
     )
 
 
+def _render_details(body: str) -> str:
+    """Render the Confluence Page Properties (``details``) macro as a styled card."""
+    content = render_html(_rich_body(body))
+    return (
+        '<div style="border:1px solid #dfe1e6;border-radius:4px;margin:1em 0;'
+        'overflow:hidden;">'
+        '<div style="background:#f4f5f7;padding:6px 12px;font-weight:600;'
+        'font-size:0.85em;color:#505f79;border-bottom:1px solid #dfe1e6;">'
+        "📋 Page Properties</div>"
+        f'<div style="padding:0 12px;">{content}</div>'
+        "</div>"
+    )
+
+
 def _render_macro(m: re.Match[str]) -> str:
     name = m.group("name")
     body = m.group("body")
@@ -136,6 +150,8 @@ def _render_macro(m: re.Match[str]) -> str:
         return _render_panel(name, p, body)
     if name == "expand":
         return _render_expand(p, body)
+    if name == "details":
+        return _render_details(body)
 
     return (
         f'<div style="border:1px dashed #aaa;padding:8px;margin:0.5em 0;'
