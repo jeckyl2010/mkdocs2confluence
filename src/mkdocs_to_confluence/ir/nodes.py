@@ -383,7 +383,9 @@ def walk(node: IRNode) -> Generator[IRNode, None, None]:
     yield node
     for f in dataclasses.fields(node):
         value = getattr(node, f.name)
-        if isinstance(value, tuple):
+        if isinstance(value, IRNode):
+            yield from walk(value)
+        elif isinstance(value, tuple):
             for item in value:
                 if isinstance(item, IRNode):
                     yield from walk(item)

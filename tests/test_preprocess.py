@@ -389,3 +389,71 @@ class TestStripHtmlComments:
         assert "<!--" not in result
         assert "*[ACID]" in result
         assert "*[AD]" in result
+
+
+# ── FenceTracker ──────────────────────────────────────────────────────────────
+
+
+class TestFenceTracker:
+    from mkdocs_to_confluence.preprocess.fence import FenceTracker
+
+    def test_starts_outside_fence(self) -> None:
+        from mkdocs_to_confluence.preprocess.fence import FenceTracker
+        t = FenceTracker()
+        assert t.in_fence is False
+
+    def test_backtick_fence_opens_and_closes(self) -> None:
+        from mkdocs_to_confluence.preprocess.fence import FenceTracker
+        t = FenceTracker()
+        t.update("```python")
+        assert t.in_fence is True
+        t.update("code here")
+        assert t.in_fence is True
+        t.update("```")
+        assert t.in_fence is False
+
+    def test_tilde_fence_opens_and_closes(self) -> None:
+        from mkdocs_to_confluence.preprocess.fence import FenceTracker
+        t = FenceTracker()
+        t.update("~~~")
+        assert t.in_fence is True
+        t.update("~~~")
+        assert t.in_fence is False
+
+    def test_mismatched_fence_char_does_not_close(self) -> None:
+        from mkdocs_to_confluence.preprocess.fence import FenceTracker
+        t = FenceTracker()
+        t.update("```")
+        assert t.in_fence is True
+        t.update("~~~")  # different char — not a closer
+        assert t.in_fence is True
+        t.update("```")
+        assert t.in_fence is False
+
+    def test_shorter_closer_does_not_close(self) -> None:
+        from mkdocs_to_confluence.preprocess.fence import FenceTracker
+        t = FenceTracker()
+        t.update("````")  # 4 backticks
+        assert t.in_fence is True
+        t.update("```")   # 3 backticks — too short
+        assert t.in_fence is True
+        t.update("````")
+        assert t.in_fence is False
+
+    def test_transition_tracking(self) -> None:
+        from mkdocs_to_confluence.preprocess.fence import FenceTracker
+        t = FenceTracker()
+        lines = ["text", "```", "code", "```", "more"]
+        states = []
+        for line in lines:
+            was = t.in_fence
+            t.update(line)
+            now = t.in_fence
+            states.append((was, now))
+        assert states == [
+            (False, False),  # "text" — outside
+            (False, True),   # "```" — opens fence
+            (True, True),    # "code" — inside
+            (True, False),   # "```" — closes fence
+            (False, False),  # "more" — outside
+        ]

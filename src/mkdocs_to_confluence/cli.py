@@ -7,27 +7,12 @@ import sys
 from pathlib import Path
 
 from mkdocs_to_confluence import __version__
-from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import resolve_nav
-from mkdocs_to_confluence.loader.page import PageLoadError, find_page, load_page
-from mkdocs_to_confluence.parser.markdown import parse
-from mkdocs_to_confluence.preprocess.abbrevs import (
-    extract_abbreviations,
-    strip_abbreviation_defs,
-)
-from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
-from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
-from mkdocs_to_confluence.preprocess.includes import (
-    preprocess_includes,
-    strip_html_comments,
-    strip_unsupported_html,
-)
+from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import render_page
-from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
-from mkdocs_to_confluence.transforms.assets import resolve_local_assets
-from mkdocs_to_confluence.transforms.editlink import inject_edit_link
-from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
+from mkdocs_to_confluence.publisher.pipeline import compile_page
+from mkdocs_to_confluence.transforms.internallinks import build_link_map
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -123,37 +108,11 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        raw = load_page(node)
+        link_map = build_link_map(nodes)
+        xhtml, _attachments = compile_page(node, config, link_map)
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
-
-    preprocessed = preprocess_includes(
-        raw,
-        source_path=node.source_path,  # type: ignore[arg-type]
-        docs_dir=config.docs_dir,
-    )
-    preprocessed = strip_unsupported_html(preprocessed)
-    preprocessed = strip_html_comments(preprocessed)
-    preprocessed = strip_icon_shortcodes(preprocessed)
-    front_matter, preprocessed = extract_front_matter(preprocessed)
-    abbrevs = extract_abbreviations(preprocessed)
-    preprocessed = strip_abbreviation_defs(preprocessed)
-    ir_nodes = parse(preprocessed)
-    ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
-    ir_nodes, _attachments = resolve_local_assets(
-        ir_nodes,
-        page_path=node.source_path,  # type: ignore[arg-type]
-        docs_dir=config.docs_dir,
-    )
-    link_map = build_link_map(nodes)
-    ir_nodes = resolve_internal_links(ir_nodes, link_map, node.docs_path or "")
-    edit_url = config.page_edit_url(node.docs_path or "")
-    if edit_url:
-        ir_nodes = inject_edit_link(ir_nodes, edit_url, repo_url=config.repo_url)
-    if front_matter is not None:
-        ir_nodes = (front_matter,) + ir_nodes
-    xhtml = emit(ir_nodes)
 
     output = render_page(xhtml, page=args.page) if args.html else xhtml
 
