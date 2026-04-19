@@ -31,19 +31,14 @@ from mkdocs_to_confluence.ir.nodes import (
     BlockQuote,
     BoldNode,
     BulletList,
-    CodeBlock,
     ContentTabs,
     Expandable,
-    HorizontalRule,
     IRNode,
-    ImageNode,
     ItalicNode,
     LinkNode,
     ListItem,
-    MermaidDiagram,
     OrderedList,
     Paragraph,
-    RawHTML,
     Section,
     StrikethroughNode,
     Tab,
@@ -51,9 +46,7 @@ from mkdocs_to_confluence.ir.nodes import (
     TableCell,
     TableRow,
     TextNode,
-    UnsupportedBlock,
 )
-
 
 # ── Internal state ────────────────────────────────────────────────────────────
 

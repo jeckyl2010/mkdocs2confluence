@@ -49,8 +49,8 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeInlineNode,
     ContentTabs,
     HorizontalRule,
-    IRNode,
     ImageNode,
+    IRNode,
     ItalicNode,
     LinkNode,
     ListItem,
@@ -64,7 +64,6 @@ from mkdocs_to_confluence.ir.nodes import (
     TableRow,
     TextNode,
 )
-
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
