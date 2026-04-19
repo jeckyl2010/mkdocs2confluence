@@ -18,8 +18,10 @@ Supported macros
 
 from __future__ import annotations
 
+import base64
 import html as _html
 import re
+from pathlib import Path
 
 # ── Regex patterns ────────────────────────────────────────────────────────────
 
@@ -41,6 +43,16 @@ _CDATA_RE = re.compile(r"<!\[CDATA\[(.*?)\]\]>", re.DOTALL)
 _RICH_BODY_RE = re.compile(
     r"<ac:rich-text-body>(.*?)</ac:rich-text-body>", re.DOTALL
 )
+
+# Matches <ac:image ...>...</ac:image> blocks (single or multi-line).
+_IMAGE_RE = re.compile(
+    r'<ac:image(?P<attrs>[^>]*)>(?P<body>.*?)</ac:image>', re.DOTALL
+)
+_RI_URL_RE = re.compile(r'<ri:url\s+ri:value="(?P<src>[^"]+)"\s*/>')
+_RI_ATTACH_RE = re.compile(r'<ri:attachment\s+ri:filename="(?P<name>[^"]+)"\s*/>')
+_AC_ALT_RE = re.compile(r'ac:alt="(?P<alt>[^"]*)"')
+_AC_TITLE_RE = re.compile(r'ac:title="(?P<title>[^"]*)"')
+_DATA_LOCAL_PATH_RE = re.compile(r'data-local-path="(?P<path>[^"]*)"')
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -204,6 +216,63 @@ hr { border: none; border-top: 1px solid #dfe1e6; margin: 1.5em 0; }
 """
 
 
+def _render_image(m: re.Match[str]) -> str:
+    """Convert ``<ac:image>`` to an ``<img>`` tag for browser preview."""
+    attrs = m.group("attrs")
+    body = m.group("body")
+
+    alt_m = _AC_ALT_RE.search(attrs)
+    title_m = _AC_TITLE_RE.search(attrs)
+    local_m = _DATA_LOCAL_PATH_RE.search(attrs)
+    alt = _html.escape(alt_m.group("alt")) if alt_m else ""
+    title = _html.escape(title_m.group("title")) if title_m else ""
+
+    style = "max-width:100%;height:auto;margin:0.5em 0;"
+    title_attr = f' title="{title}"' if title else ""
+
+    url_m = _RI_URL_RE.search(body)
+    attach_m = _RI_ATTACH_RE.search(body)
+
+    if url_m:
+        src = url_m.group("src")
+        if not src.startswith(("http://", "https://", "data:")):
+            data = _load_image_data(Path(src))
+            if data:
+                return f'<img src="{data}" alt="{alt}"{title_attr} style="{style}">'
+        return f'<img src="{_html.escape(src)}" alt="{alt}"{title_attr} style="{style}">'
+
+    if attach_m:
+        # Use data-local-path if present (set by emitter for local files)
+        if local_m:
+            data = _load_image_data(Path(local_m.group("path")))
+            if data:
+                return f'<img src="{data}" alt="{alt}"{title_attr} style="{style}">'
+        name = attach_m.group("name")
+        return (
+            f'<div style="border:1px dashed #aaa;padding:0.5em;color:#666;'
+            f'font-style:italic;">📎 Attachment: {_html.escape(name)}</div>'
+        )
+
+    return m.group(0)
+
+
+def _load_image_data(path: Path) -> str:
+    """Return a base64 data URI for a local image file, or empty string."""
+    if not path.exists():
+        return ""
+    suffix = path.suffix.lower()
+    mime = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+    }.get(suffix, "image/png")
+    data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{data}"
+
+
 def render_html(xhtml: str) -> str:
     """Translate Confluence XHTML macros into browser-renderable HTML.
 
@@ -215,6 +284,8 @@ def render_html(xhtml: str) -> str:
     while result != prev:
         prev = result
         result = _MACRO_RE.sub(_render_macro, result)
+    # Convert ac:image elements after macros are resolved
+    result = _IMAGE_RE.sub(_render_image, result)
     return result
 
 

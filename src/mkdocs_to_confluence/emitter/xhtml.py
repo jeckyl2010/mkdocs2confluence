@@ -17,6 +17,7 @@ https://developer.atlassian.com/server/confluence/confluence-storage-format/
 from __future__ import annotations
 
 import html
+from pathlib import Path
 from typing import Sequence
 
 from mkdocs_to_confluence.ir.nodes import (
@@ -391,8 +392,14 @@ def _emit_link(node: LinkNode) -> str:
 def _emit_image(node: ImageNode) -> str:
     alt_attr = f' ac:alt="{html.escape(node.alt)}"' if node.alt else ""
     title_attr = f' ac:title="{html.escape(node.title)}"' if node.title else ""
-    return (
-        f"<ac:image{alt_attr}{title_attr}>"
-        f'<ri:url ri:value="{html.escape(node.src)}"/>'
-        f"</ac:image>"
-    )
+    # Local file → attachment reference; URL → external ri:url
+    src = node.src
+    if src.startswith(("http://", "https://", "//", "data:")):
+        ref = f'<ri:url ri:value="{html.escape(src)}"/>'
+        return f"<ac:image{alt_attr}{title_attr}>{ref}</ac:image>"
+    else:
+        filename = html.escape(Path(src).name)
+        # data-local-path is used by the preview renderer only (not valid XHTML)
+        local_attr = f' data-local-path="{html.escape(src)}"'
+        ref = f'<ri:attachment ri:filename="{filename}"/>'
+        return f"<ac:image{alt_attr}{title_attr}{local_attr}>{ref}</ac:image>"
