@@ -1,5 +1,9 @@
 """Resolve ``--8<--`` (pymdownx.snippets) include directives in raw markdown.
 
+Also strips unsupported Material for MkDocs HTML layout wrappers (e.g.
+``<div class="grid" markdown>``) that have no Confluence equivalent.  Their
+content is preserved; only the wrapper tags are removed.
+
 Supported syntax
 ----------------
 * ``--8<-- "path/to/file"``        — include the entire file
@@ -31,15 +35,56 @@ class IncludeError(Exception):
     """
 
 
-# Matches the opening characters of a fenced code block.
-# A closing fence must be the same character with at least as many repetitions
-# and nothing else on the line (trailing spaces allowed).
 _FENCE_OPEN_RE = re.compile(r"^(?P<char>`{3,}|~{3,})")
 _FENCE_CLOSE_RE = re.compile(r"^(?P<char>`{3,}|~{3,})\s*$")
 
-# Matches a snippet directive that occupies its own line.
-# The path argument is a quoted string immediately after ``--8<-- ``.
+# Snippet directive
 _SNIPPET_RE = re.compile(r'^--8<--\s+"(?P<path>[^"]+)"\s*$')
+
+# Raw HTML block wrappers that have no Confluence equivalent — stripped silently.
+# Matches opening tags like <div class="grid" markdown> and bare </div>.
+_STRIP_TAG_RE = re.compile(
+    r'^\s*<div\b[^>]*\bmarkdown\b[^>]*>\s*$'   # <div ... markdown ...>
+    r'|^\s*</div>\s*$',                          # </div>
+    re.IGNORECASE,
+)
+
+
+def strip_unsupported_html(text: str) -> str:
+    """Remove Material for MkDocs HTML layout wrappers that have no Confluence equivalent.
+
+    Strips ``<div ... markdown ...>`` opening tags and bare ``</div>`` closing
+    tags.  The content inside is preserved — only the wrapper lines are dropped.
+    Tags inside fenced code blocks are left untouched.
+    """
+    lines = text.splitlines(keepends=True)
+    result: list[str] = []
+    in_fence = False
+    fence_char = ""
+    fence_min_len = 0
+
+    for line in lines:
+        stripped = line.rstrip("\n").rstrip("\r")
+        if not in_fence:
+            m = _FENCE_OPEN_RE.match(stripped)
+            if m:
+                marker = m.group("char")
+                fence_char = marker[0]
+                fence_min_len = len(marker)
+                in_fence = True
+                result.append(line)
+                continue
+            if _STRIP_TAG_RE.match(stripped):
+                continue  # drop the wrapper line silently
+        else:
+            m = _FENCE_CLOSE_RE.match(stripped)
+            if m and m.group("char")[0] == fence_char and len(m.group("char")) >= fence_min_len:
+                in_fence = False
+                fence_char = ""
+                fence_min_len = 0
+        result.append(line)
+
+    return "".join(result)
 
 
 def preprocess_includes(

@@ -18,7 +18,9 @@ class PageLoadError(Exception):
 def find_page(nodes: list[NavNode], docs_path: str) -> NavNode | None:
     """Search *nodes* (and their descendants) for a node matching *docs_path*.
 
-    Performs a depth-first search so that page order is preserved.
+    Performs a depth-first search so that page order is preserved.  If no
+    exact match is found, falls back to suffix matching so that bare filenames
+    like ``"iam-platform.md"`` match ``"proposals/2026/iam-platform.md"``.
 
     Args:
         nodes: Top-level nav nodes as returned by :func:`~loader.nav.resolve_nav`.
@@ -27,10 +29,31 @@ def find_page(nodes: list[NavNode], docs_path: str) -> NavNode | None:
     Returns:
         The matching :class:`~loader.nav.NavNode`, or ``None`` if not found.
     """
+    # Pass 1: exact match
+    result = _find_exact(nodes, docs_path)
+    if result is not None:
+        return result
+    # Pass 2: suffix match (e.g. bare filename matches a nested path)
+    return _find_suffix(nodes, docs_path)
+
+
+def _find_exact(nodes: list[NavNode], docs_path: str) -> NavNode | None:
     for node in nodes:
         if node.docs_path == docs_path:
             return node
-        found = find_page(list(node.children), docs_path)
+        found = _find_exact(list(node.children), docs_path)
+        if found is not None:
+            return found
+    return None
+
+
+def _find_suffix(nodes: list[NavNode], docs_path: str) -> NavNode | None:
+    for node in nodes:
+        if node.docs_path is not None and (
+            node.docs_path.endswith("/" + docs_path) or node.docs_path == docs_path
+        ):
+            return node
+        found = _find_suffix(list(node.children), docs_path)
         if found is not None:
             return found
     return None
