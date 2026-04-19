@@ -25,6 +25,7 @@ from mkdocs_to_confluence.preprocess.includes import (
 )
 from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
+from mkdocs_to_confluence.transforms.images import resolve_images
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -132,6 +133,11 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     preprocessed = strip_abbreviation_defs(preprocessed)
     ir_nodes = parse(preprocessed)
     ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
+    ir_nodes, _attachments = resolve_images(
+        ir_nodes,
+        page_path=node.source_path,  # type: ignore[arg-type]
+        docs_dir=config.docs_dir,
+    )
     if front_matter is not None:
         ir_nodes = (front_matter,) + ir_nodes
     xhtml = emit(ir_nodes)
