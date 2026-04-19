@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
-from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
-from mkdocs_to_confluence.ir.nodes import FrontMatter
 from mkdocs_to_confluence.emitter.xhtml import emit
-
+from mkdocs_to_confluence.ir.nodes import FrontMatter
+from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 
 _SAMPLE = """\
 ---

@@ -9,8 +9,7 @@ from pathlib import Path
 import pytest
 
 from mkdocs_to_confluence.loader.config import ConfigError, MkDocsConfig, load_config
-from mkdocs_to_confluence.loader.nav import NavNode, flat_pages, resolve_nav
-
+from mkdocs_to_confluence.loader.nav import flat_pages, resolve_nav
 
 # ---------------------------------------------------------------------------
 # load_config — happy paths

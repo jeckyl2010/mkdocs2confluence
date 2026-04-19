@@ -2,28 +2,24 @@
 
 from __future__ import annotations
 
-import pytest
-
-from mkdocs_to_confluence.preprocess.abbrevs import (
-    extract_abbreviations,
-    strip_abbreviation_defs,
-)
-from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.ir.nodes import (
+    Admonition,
+    BoldNode,
     BulletList,
-    ListItem,
+    CodeBlock,
+    LinkNode,
     Paragraph,
     Section,
     Table,
     TableCell,
     TableRow,
     TextNode,
-    Admonition,
-    BoldNode,
-    CodeBlock,
-    LinkNode,
 )
-
+from mkdocs_to_confluence.preprocess.abbrevs import (
+    extract_abbreviations,
+    strip_abbreviation_defs,
+)
+from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 
 # ── extract_abbreviations ─────────────────────────────────────────────────────
 

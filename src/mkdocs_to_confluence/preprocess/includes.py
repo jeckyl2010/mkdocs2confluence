@@ -69,7 +69,6 @@ def strip_html_comments(text: str) -> str:
     # We locate fence boundaries first, then apply the comment regex only to
     # the non-fenced portions.
     segments: list[tuple[bool, str]] = []  # (is_fenced, text)
-    pos = 0
     lines = text.splitlines(keepends=True)
     buf: list[str] = []
     in_fence = False

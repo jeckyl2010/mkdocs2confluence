@@ -7,8 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from mkdocs_to_confluence.preprocess.includes import IncludeError, preprocess_includes
-
+from mkdocs_to_confluence.preprocess.includes import (
+    IncludeError,
+    preprocess_includes,
+    strip_html_comments,
+)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -337,9 +340,6 @@ class TestInvalidSyntax:
 
 
 # ── strip_html_comments ───────────────────────────────────────────────────────
-
-
-from mkdocs_to_confluence.preprocess.includes import strip_html_comments
 
 
 class TestStripHtmlComments:

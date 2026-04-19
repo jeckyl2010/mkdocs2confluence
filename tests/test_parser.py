@@ -27,7 +27,6 @@ from mkdocs_to_confluence.ir import (
 from mkdocs_to_confluence.parser import parse
 from mkdocs_to_confluence.parser.markdown import _make_anchor, _parse_info_string
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -727,7 +726,18 @@ class TestFixtureIntegration:
 # ── Inline parsing ────────────────────────────────────────────────────────────
 
 
-from mkdocs_to_confluence.ir import BoldNode, BulletList, BlockQuote, CodeInlineNode, HorizontalRule, ItalicNode, LinkNode, OrderedList, StrikethroughNode, Table
+from mkdocs_to_confluence.ir import (
+    BlockQuote,
+    BoldNode,
+    BulletList,
+    CodeInlineNode,
+    HorizontalRule,
+    ItalicNode,
+    LinkNode,
+    OrderedList,
+    StrikethroughNode,
+    Table,
+)
 
 
 class TestInlineParsing:

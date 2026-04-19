@@ -11,39 +11,39 @@ equal.  Import everything you need directly from this package:
 
 from mkdocs_to_confluence.ir.document import Document, PageMeta, compute_sha
 from mkdocs_to_confluence.ir.nodes import (
-    # Inline nodes
-    TextNode,
-    BoldNode,
-    ItalicNode,
-    StrikethroughNode,
-    CodeInlineNode,
-    LinkNode,
-    ImageNode,
-    # Block nodes
-    Section,
-    Paragraph,
-    CodeBlock,
-    BlockQuote,
-    HorizontalRule,
-    RawHTML,
-    # List nodes
-    BulletList,
-    OrderedList,
-    ListItem,
-    # Table nodes
-    Table,
-    TableRow,
-    TableCell,
     # Material extension nodes
     Admonition,
-    MermaidDiagram,
+    BlockQuote,
+    BoldNode,
+    # List nodes
+    BulletList,
+    CodeBlock,
+    CodeInlineNode,
     ContentTabs,
-    Tab,
     Expandable,
-    # Graceful degradation
-    UnsupportedBlock,
+    HorizontalRule,
+    ImageNode,
     # Traversal utility
     IRNode,
+    ItalicNode,
+    LinkNode,
+    ListItem,
+    MermaidDiagram,
+    OrderedList,
+    Paragraph,
+    RawHTML,
+    # Block nodes
+    Section,
+    StrikethroughNode,
+    Tab,
+    # Table nodes
+    Table,
+    TableCell,
+    TableRow,
+    # Inline nodes
+    TextNode,
+    # Graceful degradation
+    UnsupportedBlock,
     walk,
 )
 
