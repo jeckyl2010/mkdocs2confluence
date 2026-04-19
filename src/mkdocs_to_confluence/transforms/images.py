@@ -52,7 +52,7 @@ def resolve_images(
     attachments: list[Path] = []
 
     # Build a mapping of old ImageNode id → replacement for the tree rebuild.
-    replacements: dict[int, ImageNode] = {}
+    replacements: dict[int, IRNode] = {}
 
     for top_node in nodes:
         for node in walk(top_node):
@@ -100,16 +100,16 @@ def _replace_nodes(
 def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
     """Return *node* with any matching descendants replaced."""
     changes: dict[str, object] = {}
-    for field in dataclasses.fields(node):  # type: ignore[arg-type]
+    for field in dataclasses.fields(node):
         value = getattr(node, field.name)
         if isinstance(value, IRNode):
-            new_value = replacements.get(id(value), _rebuild(value, replacements))
-            if new_value is not value:
-                changes[field.name] = new_value
+            replaced = replacements.get(id(value), _rebuild(value, replacements))
+            if replaced is not value:
+                changes[field.name] = replaced
         elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
-            new_value = _replace_nodes(value, replacements)
-            if new_value is not value:
-                changes[field.name] = new_value
+            rebuilt = _replace_nodes(value, replacements)
+            if rebuilt is not value:
+                changes[field.name] = rebuilt
     if changes:
         return dataclasses.replace(node, **changes)
     return node

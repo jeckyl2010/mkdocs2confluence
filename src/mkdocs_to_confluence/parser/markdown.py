@@ -642,25 +642,31 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
             _append_content(node, stack, root)
 
         elif isinstance(token, _CodeToken):
-            node = CodeBlock(
-                code=token.code,
-                language=token.language,
-                title=token.title,
-                linenums=token.linenums,
-                linenums_start=token.linenums_start,
-                highlight_lines=token.highlight_lines,
+            _append_content(
+                CodeBlock(
+                    code=token.code,
+                    language=token.language,
+                    title=token.title,
+                    linenums=token.linenums,
+                    linenums_start=token.linenums_start,
+                    highlight_lines=token.highlight_lines,
+                ),
+                stack,
+                root,
             )
-            _append_content(node, stack, root)
 
         elif isinstance(token, _AdmonitionToken):
             body_nodes = _build_tree(token.body_tokens)
-            node = Admonition(
-                kind=token.kind,
-                title=token.title,
-                collapsible=token.collapsible,
-                children=body_nodes,
+            _append_content(
+                Admonition(
+                    kind=token.kind,
+                    title=token.title,
+                    collapsible=token.collapsible,
+                    children=body_nodes,
+                ),
+                stack,
+                root,
             )
-            _append_content(node, stack, root)
 
         elif isinstance(token, _HRToken):
             _append_content(HorizontalRule(), stack, root)
