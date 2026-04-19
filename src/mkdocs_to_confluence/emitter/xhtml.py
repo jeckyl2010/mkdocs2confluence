@@ -384,6 +384,17 @@ def _emit_inline(node: IRNode) -> str:
 
 
 def _emit_link(node: LinkNode) -> str:
+    # Internal page link: resolved by the internallinks transform
+    if node.is_internal:
+        label = _emit_inlines(node.children)
+        page_title = html.escape(node.href)
+        anchor_attr = f' ac:anchor="{html.escape(node.anchor)}"' if node.anchor else ""
+        return (
+            f"<ac:link{anchor_attr}>"
+            f'<ri:page ac:title="{page_title}"/>'
+            f"<ac:plain-text-link-body>{label}</ac:plain-text-link-body>"
+            "</ac:link>"
+        )
     # Attachment link: local non-Markdown file with a resolved attachment name
     if node.attachment_name is not None:
         label = _emit_inlines(node.children)

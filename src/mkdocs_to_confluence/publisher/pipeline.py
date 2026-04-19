@@ -36,6 +36,7 @@ from mkdocs_to_confluence.preprocess.includes import (
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import inject_edit_link
+from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
@@ -82,7 +83,11 @@ def _extract_ready_flag(raw: str) -> bool | None:
     return bool(val)
 
 
-def compile_page(node: NavNode, config: MkDocsConfig) -> tuple[str, list[Path]]:
+def compile_page(
+    node: NavNode,
+    config: MkDocsConfig,
+    link_map: dict[str, str] | None = None,
+) -> tuple[str, list[Path]]:
     """Run the full compile pipeline for one page.
 
     Returns
@@ -113,6 +118,8 @@ def compile_page(node: NavNode, config: MkDocsConfig) -> tuple[str, list[Path]]:
         page_path=node.source_path,
         docs_dir=config.docs_dir,
     )
+    if link_map is not None and node.docs_path:
+        ir_nodes = resolve_internal_links(ir_nodes, link_map, node.docs_path)
     edit_url = config.page_edit_url(node.docs_path or "")
     if edit_url:
         ir_nodes = inject_edit_link(ir_nodes, edit_url, repo_url=config.repo_url)
@@ -140,7 +147,8 @@ def plan_publish(
     under them.  The parent_id chain is resolved top-down.
     """
     actions: list[PageAction] = []
-    _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, actions)
+    link_map = build_link_map(nav_nodes)
+    _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, actions, link_map)
     return actions
 
 
@@ -151,6 +159,7 @@ def _plan_nodes(
     space_id: str,
     parent_id: str | None,
     actions: list[PageAction],
+    link_map: dict[str, str] | None = None,
 ) -> None:
     for node in nodes:
         if node.is_section:
@@ -170,7 +179,7 @@ def _plan_nodes(
             actions.append(page_action)
             # Children will be placed under this section's page_id (resolved at execute)
             _plan_nodes(
-                list(node.children), client, config, space_id, None, actions
+                list(node.children), client, config, space_id, None, actions, link_map
             )
         else:
             # Page node — read raw to check ready flag
@@ -194,7 +203,7 @@ def _plan_nodes(
                 continue
 
             try:
-                xhtml, attachments = compile_page(node, config)
+                xhtml, attachments = compile_page(node, config, link_map)
             except (PageLoadError, OSError):
                 actions.append(
                     PageAction(
