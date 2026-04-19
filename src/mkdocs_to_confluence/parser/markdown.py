@@ -42,10 +42,24 @@ from typing import Union
 
 from mkdocs_to_confluence.ir.nodes import (
     Admonition,
+    BlockQuote,
+    BoldNode,
+    BulletList,
     CodeBlock,
+    CodeInlineNode,
+    HorizontalRule,
     IRNode,
+    ImageNode,
+    ItalicNode,
+    LinkNode,
+    ListItem,
+    OrderedList,
     Paragraph,
     Section,
+    StrikethroughNode,
+    Table,
+    TableCell,
+    TableRow,
     TextNode,
 )
 
@@ -100,7 +114,51 @@ class _AdmonitionToken:
     body_tokens: list[_Token]
 
 
-_Token = Union[_HeadingToken, _CodeToken, _ParagraphToken, _AdmonitionToken]
+@dataclass
+class _HRToken:
+    """A horizontal rule (``---``, ``***``, ``___``)."""
+
+
+@dataclass
+class _BlockQuoteToken:
+    body_tokens: list["_Token"]
+
+
+@dataclass
+class _ListItemData:
+    text: str
+    task: bool | None = None  # None=regular, True=checked, False=unchecked
+
+
+@dataclass
+class _BulletListToken:
+    items: list[_ListItemData]
+
+
+@dataclass
+class _OrderedListToken:
+    start: int
+    items: list[_ListItemData]
+
+
+@dataclass
+class _TableToken:
+    header_cells: list[str]
+    aligns: list[str | None]
+    rows: list[list[str]]
+
+
+_Token = Union[
+    _HeadingToken,
+    _CodeToken,
+    _ParagraphToken,
+    _AdmonitionToken,
+    _HRToken,
+    _BlockQuoteToken,
+    _BulletListToken,
+    _OrderedListToken,
+    _TableToken,
+]
 
 
 # ── Tokenizer ─────────────────────────────────────────────────────────────────
@@ -115,6 +173,18 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 _ADMONITION_RE = re.compile(
     r'^(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+["\'](?P<title>[^"\']*)["\'])?$'
 )
+
+# Matches a horizontal rule (3+ dashes, stars, or underscores alone on a line).
+_HR_RE = re.compile(r'^(?:-{3,}|\*{3,}|_{3,})\s*$')
+
+# Matches a bullet list item: optional leading spaces, then - / * / +, then space.
+_BULLET_RE = re.compile(r'^(?P<indent>\s*)(?P<marker>[-*+])\s+(?P<text>.+)$')
+
+# Matches an ordered list item: digits, dot, space.
+_ORDERED_RE = re.compile(r'^(?P<indent>\s*)(?P<num>\d+)\.\s+(?P<text>.+)$')
+
+# Matches a task checkbox at the start of a list item body.
+_TASK_RE = re.compile(r'^\[(?P<state>[xX ])\]\s+(?P<rest>.+)$')
 
 
 def _tokenize(text: str) -> list[_Token]:
@@ -211,11 +281,80 @@ def _tokenize(text: str) -> list[_Token]:
             )
             continue
 
+        # ── Horizontal rule ───────────────────────────────────────────────────
+        if _HR_RE.match(line):
+            tokens.append(_HRToken())
+            i += 1
+            continue
+
+        # ── Blockquote ────────────────────────────────────────────────────────
+        if line.startswith("> ") or line == ">":
+            bq_lines: list[str] = []
+            while i < len(lines) and (lines[i].startswith("> ") or lines[i] == ">"):
+                stripped = lines[i][2:] if lines[i].startswith("> ") else ""
+                bq_lines.append(stripped)
+                i += 1
+            body_tokens_bq = _tokenize("\n".join(bq_lines))
+            tokens.append(_BlockQuoteToken(body_tokens=body_tokens_bq))
+            continue
+
+        # ── Bullet list ───────────────────────────────────────────────────────
+        bullet_m = _BULLET_RE.match(line)
+        if bullet_m and not bullet_m.group("indent"):
+            list_items: list[_ListItemData] = []
+            while i < len(lines):
+                bm = _BULLET_RE.match(lines[i])
+                if not bm or bm.group("indent"):
+                    break
+                item_text = bm.group("text")
+                task: bool | None = None
+                task_m = _TASK_RE.match(item_text)
+                if task_m:
+                    task = task_m.group("state").lower() == "x"
+                    item_text = task_m.group("rest")
+                list_items.append(_ListItemData(text=item_text, task=task))
+                i += 1
+            tokens.append(_BulletListToken(items=list_items))
+            continue
+
+        # ── Ordered list ──────────────────────────────────────────────────────
+        ordered_m = _ORDERED_RE.match(line)
+        if ordered_m and not ordered_m.group("indent"):
+            start = int(ordered_m.group("num"))
+            ord_items: list[_ListItemData] = []
+            while i < len(lines):
+                om = _ORDERED_RE.match(lines[i])
+                if not om or om.group("indent"):
+                    break
+                ord_items.append(_ListItemData(text=om.group("text")))
+                i += 1
+            tokens.append(_OrderedListToken(start=start, items=ord_items))
+            continue
+
+        # ── Table ─────────────────────────────────────────────────────────────
+        if line.strip().startswith("|") and i + 1 < len(lines):
+            sep = lines[i + 1]
+            if re.match(r"^[\|\s\-:]+$", sep) and "|" in sep and "-" in sep:
+                header_cells = _split_table_row(line)
+                aligns = _parse_table_aligns(sep)
+                table_rows: list[list[str]] = []
+                i += 2  # skip header and separator
+                while i < len(lines) and "|" in lines[i]:
+                    table_rows.append(_split_table_row(lines[i]))
+                    i += 1
+                tokens.append(
+                    _TableToken(
+                        header_cells=header_cells,
+                        aligns=aligns,
+                        rows=table_rows,
+                    )
+                )
+                continue
+
         # ── Paragraph accumulation ───────────────────────────────────────────
         para_lines: list[str] = []
         while i < len(lines):
             current = lines[i]
-            # Stop on blank line, heading, fence opening, or admonition opener
             if not current.strip():
                 break
             if _HEADING_RE.match(current):
@@ -223,6 +362,16 @@ def _tokenize(text: str) -> list[_Token]:
             if _FENCE_OPEN_RE.match(current):
                 break
             if _ADMONITION_RE.match(current):
+                break
+            if _HR_RE.match(current):
+                break
+            if current.startswith("> ") or current == ">":
+                break
+            if _BULLET_RE.match(current) and not _BULLET_RE.match(current).group("indent"):  # type: ignore[union-attr]
+                break
+            if _ORDERED_RE.match(current) and not _ORDERED_RE.match(current).group("indent"):  # type: ignore[union-attr]
+                break
+            if current.strip().startswith("|"):
                 break
             para_lines.append(current)
             i += 1
@@ -285,7 +434,135 @@ def _parse_info_string(
     return language, title, linenums, linenums_start, highlight_lines
 
 
-# ── Tree builder ──────────────────────────────────────────────────────────────
+# ── Table helpers ─────────────────────────────────────────────────────────────
+
+
+def _split_table_row(line: str) -> list[str]:
+    """Split a GFM table row into trimmed cell strings."""
+    s = line.strip()
+    if s.startswith("|"):
+        s = s[1:]
+    if s.endswith("|"):
+        s = s[:-1]
+    return [c.strip() for c in s.split("|")]
+
+
+def _parse_table_aligns(sep_line: str) -> list[str | None]:
+    """Extract per-column alignment from a GFM separator row."""
+    aligns: list[str | None] = []
+    for cell in _split_table_row(sep_line):
+        c = cell.strip()
+        if c.startswith(":") and c.endswith(":"):
+            aligns.append("center")
+        elif c.endswith(":"):
+            aligns.append("right")
+        elif c.startswith(":"):
+            aligns.append("left")
+        else:
+            aligns.append(None)
+    return aligns
+
+
+# ── Inline parser ─────────────────────────────────────────────────────────────
+
+
+def _parse_inline(text: str) -> tuple[IRNode, ...]:
+    """Parse inline markdown into a tuple of IR inline nodes.
+
+    Handles: backtick code spans, images, links, bold (``**``/``__``),
+    strikethrough (``~~``), italic (``*``/``_``), and plain text.
+    """
+    return tuple(_scan_inline(text))
+
+
+def _scan_inline(text: str) -> list[IRNode]:
+    nodes: list[IRNode] = []
+    buf = ""
+    i = 0
+    n = len(text)
+
+    def flush() -> None:
+        nonlocal buf
+        if buf:
+            nodes.append(TextNode(text=buf))
+            buf = ""
+
+    while i < n:
+        # Inline code: backtick span (supports multi-backtick like `` ` ``)
+        if text[i] == "`":
+            j = i
+            while j < n and text[j] == "`":
+                j += 1
+            tick = text[i:j]
+            close_idx = text.find(tick, j)
+            if close_idx != -1:
+                flush()
+                nodes.append(CodeInlineNode(code=text[j:close_idx].strip()))
+                i = close_idx + len(tick)
+            else:
+                buf += tick
+                i = j
+            continue
+
+        # Image: ![alt](src) or ![alt](src "title")
+        if text[i : i + 2] == "![":
+            m = re.match(
+                r'!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\s*\)', text[i:]
+            )
+            if m:
+                flush()
+                nodes.append(
+                    ImageNode(src=m.group(2), alt=m.group(1), title=m.group(3))
+                )
+                i += len(m.group(0))
+                continue
+
+        # Link: [text](href)
+        if text[i] == "[":
+            m = re.match(r"\[([^\]]*)\]\(([^)]*)\)", text[i:])
+            if m:
+                flush()
+                inner = _scan_inline(m.group(1))
+                nodes.append(LinkNode(href=m.group(2), children=tuple(inner)))
+                i += len(m.group(0))
+                continue
+
+        # Bold: **text** or __text__
+        if text[i : i + 2] in ("**", "__"):
+            delim = text[i : i + 2]
+            close_idx = text.find(delim, i + 2)
+            if close_idx != -1:
+                flush()
+                inner = _scan_inline(text[i + 2 : close_idx])
+                nodes.append(BoldNode(children=tuple(inner)))
+                i = close_idx + 2
+                continue
+
+        # Strikethrough: ~~text~~
+        if text[i : i + 2] == "~~":
+            close_idx = text.find("~~", i + 2)
+            if close_idx != -1:
+                flush()
+                inner = _scan_inline(text[i + 2 : close_idx])
+                nodes.append(StrikethroughNode(children=tuple(inner)))
+                i = close_idx + 2
+                continue
+
+        # Italic: *text* — only for *, not _ (avoids false positives in code)
+        if text[i] == "*":
+            close_idx = text.find("*", i + 1)
+            if close_idx != -1 and close_idx > i + 1:
+                flush()
+                inner = _scan_inline(text[i + 1 : close_idx])
+                nodes.append(ItalicNode(children=tuple(inner)))
+                i = close_idx + 1
+                continue
+
+        buf += text[i]
+        i += 1
+
+    flush()
+    return nodes
 
 
 @dataclass
@@ -339,6 +616,54 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
             )
             _append_content(node, stack, root)
 
+        elif isinstance(token, _HRToken):
+            _append_content(HorizontalRule(), stack, root)
+
+        elif isinstance(token, _BlockQuoteToken):
+            body_nodes_bq = _build_tree(token.body_tokens)
+            _append_content(BlockQuote(children=body_nodes_bq), stack, root)
+
+        elif isinstance(token, _BulletListToken):
+            items = tuple(
+                ListItem(children=_parse_inline(item.text), task=item.task)
+                for item in token.items
+            )
+            _append_content(BulletList(items=items), stack, root)
+
+        elif isinstance(token, _OrderedListToken):
+            items = tuple(
+                ListItem(children=_parse_inline(item.text))
+                for item in token.items
+            )
+            _append_content(OrderedList(items=items, start=token.start), stack, root)
+
+        elif isinstance(token, _TableToken):
+            aligns = token.aligns
+
+            def _make_cell(
+                text: str, col: int, is_header: bool = False
+            ) -> TableCell:
+                align = aligns[col] if col < len(aligns) else None
+                return TableCell(
+                    children=_parse_inline(text),
+                    align=align,
+                    is_header=is_header,
+                )
+
+            header = TableRow(
+                cells=tuple(
+                    _make_cell(c, j, is_header=True)
+                    for j, c in enumerate(token.header_cells)
+                )
+            )
+            body_rows = tuple(
+                TableRow(
+                    cells=tuple(_make_cell(c, j) for j, c in enumerate(row))
+                )
+                for row in token.rows
+            )
+            _append_content(Table(header=header, rows=body_rows), stack, root)
+
     # Close all remaining open sections.
     _close_from_level(0, stack, root)
     return tuple(root)
@@ -353,7 +678,7 @@ def _close_from_level(
         section = Section(
             level=closed.level,
             anchor=_make_anchor(closed.title_text),
-            title=(TextNode(text=closed.title_text),),
+            title=_parse_inline(closed.title_text),
             children=tuple(closed.children),
         )
         _append_content(section, stack, root)
@@ -370,13 +695,9 @@ def _append_content(
 
 
 def _paragraph_node(token: _ParagraphToken) -> Paragraph:
-    """Convert a paragraph token into a :class:`~ir.Paragraph` node.
-
-    Inline parsing is not yet implemented; the whole paragraph text is wrapped
-    in a single :class:`~ir.TextNode`.
-    """
+    """Convert a paragraph token into a :class:`~ir.Paragraph` node."""
     text = " ".join(line.strip() for line in token.lines)
-    return Paragraph(children=(TextNode(text=text),))
+    return Paragraph(children=_parse_inline(text))
 
 
 # ── Anchor generation ─────────────────────────────────────────────────────────
