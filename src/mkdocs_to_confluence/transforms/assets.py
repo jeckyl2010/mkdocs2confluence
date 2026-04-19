@@ -151,7 +151,11 @@ def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
     changes: dict[str, object] = {}
     for field in dataclasses.fields(node):  # type: ignore[arg-type]
         value = getattr(node, field.name)
-        if isinstance(value, tuple) and value and isinstance(value[0], IRNode):
+        if isinstance(value, IRNode):
+            new_value = replacements.get(id(value), _rebuild(value, replacements))
+            if new_value is not value:
+                changes[field.name] = new_value
+        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
             new_value = _replace_nodes(value, replacements)
             if new_value is not value:
                 changes[field.name] = new_value

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from mkdocs_to_confluence.ir.nodes import (
@@ -208,3 +210,53 @@ def test_emitter_plain_link_unchanged():
     link = LinkNode(href="https://example.com", children=(TextNode(text="ext"),))
     xhtml = emit((Paragraph(children=(link,)),))
     assert '<a href="https://example.com">ext</a>' in xhtml
+
+
+def test_internal_link_in_table_header_is_resolved():
+    """Links inside Table.header cells must be transformed by _rebuild()."""
+    from mkdocs_to_confluence.ir.nodes import Table, TableCell, TableRow
+    from mkdocs_to_confluence.transforms.internallinks import resolve_internal_links
+
+    link = LinkNode(href="guide.md", children=(TextNode("Guide"),))
+    header_cell = TableCell(children=(link,), is_header=True)
+    header_row = TableRow(cells=(header_cell,))
+    body_cell = TableCell(children=(TextNode("val"),))
+    body_row = TableRow(cells=(body_cell,))
+    table = Table(header=header_row, rows=(body_row,))
+
+    link_map = {"guide.md": "Setup Guide"}
+    result = resolve_internal_links((table,), link_map, "index.md")
+
+    from mkdocs_to_confluence.ir.nodes import walk
+    links = [n for n in walk(result[0]) if isinstance(n, LinkNode)]
+    assert len(links) == 1
+    assert links[0].is_internal is True
+    assert links[0].href == "Setup Guide"
+
+
+def test_asset_in_table_header_is_resolved(tmp_path: Path):
+    """Images inside Table.header cells must be resolved by resolve_local_assets."""
+    from mkdocs_to_confluence.ir.nodes import ImageNode, Table, TableCell, TableRow
+    from mkdocs_to_confluence.transforms.assets import resolve_local_assets
+
+    docs_dir = tmp_path / "docs"
+    img_dir = docs_dir / "assets"
+    img_dir.mkdir(parents=True)
+    img_file = img_dir / "logo.png"
+    img_file.write_bytes(b"PNG")
+    page_path = docs_dir / "index.md"
+
+    img = ImageNode(src="assets/logo.png", alt="logo")
+    header_cell = TableCell(children=(img,), is_header=True)
+    header_row = TableRow(cells=(header_cell,))
+    table = Table(header=header_row, rows=())
+
+    result_nodes, attachments = resolve_local_assets(
+        (table,), page_path=page_path, docs_dir=docs_dir
+    )
+
+    from mkdocs_to_confluence.ir.nodes import walk
+    images = [n for n in walk(result_nodes[0]) if isinstance(n, ImageNode)]
+    assert len(images) == 1
+    assert images[0].attachment_name == "assets_logo.png"
+    assert len(attachments) == 1

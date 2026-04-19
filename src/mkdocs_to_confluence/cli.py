@@ -165,7 +165,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
     with ConfluenceClient(conf_config) as client:
         space_id = client.get_space_id(conf_config.space_key)
         plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
-        results = execute_publish(plan, client, dry_run=False, space_id=space_id)
+        results = execute_publish(plan, client, dry_run=False, space_id=space_id, docs_dir=config.docs_dir)
 
     created = sum(1 for r in results if r.action == "create" and r.page_id)
     updated = sum(1 for r in results if r.action == "update" and r.page_id)
