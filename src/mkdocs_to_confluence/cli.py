@@ -25,7 +25,7 @@ from mkdocs_to_confluence.preprocess.includes import (
 )
 from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
-from mkdocs_to_confluence.transforms.images import resolve_images
+from mkdocs_to_confluence.transforms.assets import resolve_local_assets
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -86,6 +86,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Compute the sync plan and print it without touching Confluence.",
     )
+    publish.add_argument(
+        "--page",
+        metavar="PATH",
+        default=None,
+        help="Relative path to a single markdown file to publish (optional).",
+    )
 
     return parser
 
@@ -133,7 +139,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     preprocessed = strip_abbreviation_defs(preprocessed)
     ir_nodes = parse(preprocessed)
     ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
-    ir_nodes, _attachments = resolve_images(
+    ir_nodes, _attachments = resolve_local_assets(
         ir_nodes,
         page_path=node.source_path,  # type: ignore[arg-type]
         docs_dir=config.docs_dir,
@@ -152,4 +158,50 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
 
 def _cmd_publish(args: argparse.Namespace) -> None:
-    raise NotImplementedError("publish command is not yet implemented (milestone 5).")
+    config_path = Path(args.config).resolve()
+    config = load_config(config_path)
+
+    conf_config = config.confluence
+    if conf_config is None:
+        print("error: no 'confluence:' section in mkdocs.yml", file=sys.stderr)
+        sys.exit(1)
+
+    token = conf_config.token
+    if not token:
+        print(
+            "error: Confluence API token not set. Set CONFLUENCE_API_TOKEN env var.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    nav_nodes = resolve_nav(config)
+
+    # Single-page filter
+    if getattr(args, "page", None):
+        node = find_page(nav_nodes, args.page)
+        if node is None:
+            print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)
+            sys.exit(1)
+        nav_nodes = [node]
+
+    if args.dry_run:
+        from mkdocs_to_confluence.loader.nav import flat_pages
+
+        pages = flat_pages(nav_nodes)
+        print(f"Dry run: would publish {len(pages)} pages to {conf_config.base_url}")
+        for page in pages:
+            print(f"  {page.docs_path} → '{page.title}'")
+        return
+
+    from mkdocs_to_confluence.publisher.client import ConfluenceClient
+    from mkdocs_to_confluence.publisher.pipeline import execute_publish, plan_publish
+
+    with ConfluenceClient(conf_config) as client:
+        space_id = client.get_space_id(conf_config.space_key)
+        plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
+        results = execute_publish(plan, client, dry_run=False, space_id=space_id)
+
+    created = sum(1 for r in results if r.action == "create" and r.page_id)
+    updated = sum(1 for r in results if r.action == "update" and r.page_id)
+    skipped = sum(1 for r in results if r.action == "skip")
+    print(f"Published: {created} created, {updated} updated, {skipped} skipped")

@@ -15,6 +15,17 @@ class ConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+class ConfluenceConfig:
+    """Confluence Cloud connection settings, parsed from the ``confluence:`` block."""
+
+    base_url: str           # https://yourorg.atlassian.net (no trailing slash)
+    space_key: str          # e.g. "TECH"
+    email: str              # Basic auth user email
+    token: str              # API token (may be empty — callers check truthiness)
+    parent_page_id: str | None = None  # optional root parent page
+
+
+@dataclass(frozen=True)
 class MkDocsConfig:
     """Typed representation of the fields we consume from mkdocs.yml."""
 
@@ -22,6 +33,7 @@ class MkDocsConfig:
     docs_dir: Path       # absolute path to the docs directory
     repo_url: str | None
     nav: list | None     # raw nav structure from YAML; None when using auto-nav plugins
+    confluence: ConfluenceConfig | None = None
 
 
 _REPO_URL_RE = re.compile(r"^https?://")
@@ -108,9 +120,49 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
                 "mkdocs.yml: 'repo_url' must be an http/https URL when provided."
             )
 
+    # --- confluence (optional) ---
+    confluence: ConfluenceConfig | None = None
+    raw_conf = raw.get("confluence")
+    if raw_conf is not None:
+        if not isinstance(raw_conf, dict):
+            raise ConfigError("mkdocs.yml: 'confluence' must be a mapping when present.")
+
+        base_url = raw_conf.get("base_url")
+        if not isinstance(base_url, str) or not base_url.strip():
+            raise ConfigError("mkdocs.yml: 'confluence.base_url' is required and must be a non-empty string.")
+
+        space_key = raw_conf.get("space_key")
+        if not isinstance(space_key, str) or not space_key.strip():
+            raise ConfigError("mkdocs.yml: 'confluence.space_key' is required and must be a non-empty string.")
+
+        email = raw_conf.get("email")
+        if not isinstance(email, str) or not email.strip():
+            raise ConfigError("mkdocs.yml: 'confluence.email' is required and must be a non-empty string.")
+
+        # Token lookup order: YAML value → CONFLUENCE_API_TOKEN env → MK2CONF_TOKEN env
+        token: str = raw_conf.get("token") or ""
+        if not token:
+            token = os.environ.get("CONFLUENCE_API_TOKEN", "")
+        if not token:
+            token = os.environ.get("MK2CONF_TOKEN", "")
+
+        parent_page_id: str | None = None
+        raw_parent = raw_conf.get("parent_page_id")
+        if raw_parent is not None:
+            parent_page_id = str(raw_parent)
+
+        confluence = ConfluenceConfig(
+            base_url=base_url.rstrip("/"),
+            space_key=space_key.strip(),
+            email=email.strip(),
+            token=token,
+            parent_page_id=parent_page_id,
+        )
+
     return MkDocsConfig(
         site_name=site_name.strip(),
         docs_dir=docs_dir,
         repo_url=repo_url,
         nav=nav,
+        confluence=confluence,
     )
