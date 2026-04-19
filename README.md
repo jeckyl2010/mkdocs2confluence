@@ -166,12 +166,14 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --page guide/setup.
 
 | Feature | Confluence output |
 |---|---|
-| `--8<--` file includes | Resolved before parsing |
+| `--8<-- ` file includes | Resolved before parsing |
 | Admonitions `!!! type "title"` | `info` / `tip` / `warning` / `note` macro |
 | Danger admonitions (`danger`, `error`, `bug`) | Custom red `panel` macro with 🚨 prefix |
 | Collapsible admonitions `??? type` | `expand` macro |
 | Content tabs `=== "Label"` | `expand` macros (one per tab) |
 | Mermaid diagrams | `code` macro labelled `mermaid` |
+| Internal links `[text](page.md)` | `<ac:link><ri:page ac:title="...">` native Confluence page link |
+| Edit link banner | `info` macro with a link back to the source file in GitHub/GitLab (uses `repo_url` + `edit_uri` from `mkdocs.yml`) |
 
 ### YAML front matter → Page Properties
 
@@ -259,12 +261,16 @@ src/mkdocs_to_confluence/
 │   └── page.py         # single-page loader (exact + suffix matching)
 ├── preprocess/
 │   ├── includes.py     # --8<-- include/snippet preprocessor + HTML comment stripping
+│   ├── fence.py        # FenceTracker: shared fenced-code-block state machine
 │   ├── abbrevs.py      # *[ABBR]: definition extractor and stripper
 │   ├── frontmatter.py  # YAML front matter extractor and field mapper
 │   └── icons.py        # :material-x: / :fontawesome-x: shortcode → emoji mapping
 ├── transforms/
 │   ├── abbrevs.py      # IR tree transform: abbreviation first-occurrence expansion
-│   └── assets.py       # IR tree transform: local image/file path resolution + attachment naming
+│   ├── assets.py       # IR tree transform: local image/file path resolution + attachment naming
+│   ├── images.py       # IR tree transform: image src resolution
+│   ├── internallinks.py# IR tree transform: .md hrefs → Confluence page title links
+│   └── editlink.py     # IR tree transform: inject edit-on-GitHub banner
 ├── ir/
 │   └── nodes.py        # immutable IR node types
 ├── parser/
@@ -298,13 +304,14 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 
 Planned features, roughly in priority order:
 
-- [ ] **Internal link resolution** — rewrite `.md` hrefs to Confluence page titles using the nav resolver
 - [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth
 - [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column
 - [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the instance has a Mermaid plugin). Pre-rendering via self-hosted [Kroki](https://kroki.io) (`docker run -p 8000:8000 yuzutech/kroki`) is the preferred future path — no browser dependency.
 
 **Completed:**
 
+- [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ac:title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully
+- [x] **Edit link banner** — each published page gets an `info` macro at the top linking back to the source file on GitHub/GitLab (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
 - [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support
 - [x] **Local image and file attachments** — local images and file links resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded per-page at publish time; local images embedded as base64 data URIs in the browser preview
 - [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to nearest Unicode emoji; unknown shortcodes stripped cleanly
