@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -86,7 +87,7 @@ class ConfluenceClient:
 
     # ── Pages ──────────────────────────────────────────────────────────────────
 
-    def find_page(self, space_id: str, title: str) -> dict | None:
+    def find_page(self, space_id: str, title: str) -> dict[str, Any] | None:
         """Return the page dict for *title* in *space_id*, or ``None``."""
         url = self._v2("/pages")
         resp = self._http.get(
@@ -100,7 +101,7 @@ class ConfluenceClient:
             },
         )
         self._raise_for_status(resp, f"find_page({title!r})")
-        results = resp.json().get("results", [])
+        results: list[dict[str, Any]] = resp.json().get("results", [])
         return results[0] if results else None
 
     def create_page(
@@ -110,9 +111,9 @@ class ConfluenceClient:
         body: str,
         *,
         parent_id: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create a new Confluence page and return the full page dict."""
-        payload: dict = {
+        payload: dict[str, Any] = {
             "spaceId": space_id,
             "status": "current",
             "title": title,
@@ -126,11 +127,11 @@ class ConfluenceClient:
 
         resp = self._http.post(self._v2("/pages"), json=payload)
         self._raise_for_status(resp, f"create_page({title!r})")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
-    def update_page(self, page_id: str, title: str, body: str, version: int) -> dict:
+    def update_page(self, page_id: str, title: str, body: str, version: int) -> dict[str, Any]:
         """Update an existing page to a new version and return the page dict."""
-        payload = {
+        payload: dict[str, Any] = {
             "id": page_id,
             "status": "current",
             "title": title,
@@ -145,16 +146,16 @@ class ConfluenceClient:
         }
         resp = self._http.put(self._v2(f"/pages/{page_id}"), json=payload)
         self._raise_for_status(resp, f"update_page({page_id!r})")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     # ── Attachments ────────────────────────────────────────────────────────────
 
-    def list_attachments(self, page_id: str) -> dict[str, dict]:
+    def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
         """Return a ``{filename: metadata}`` mapping of all page attachments."""
         url = self._v1(f"/content/{page_id}/child/attachment")
         resp = self._http.get(url, params={"limit": 200})
         self._raise_for_status(resp, f"list_attachments({page_id!r})")
-        results = resp.json().get("results", [])
+        results: list[dict[str, Any]] = resp.json().get("results", [])
         return {r["title"]: r for r in results}
 
     def upload_attachment(self, page_id: str, path: Path, filename: str) -> None:

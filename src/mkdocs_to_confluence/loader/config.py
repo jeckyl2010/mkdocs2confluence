@@ -6,6 +6,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -33,7 +34,7 @@ class MkDocsConfig:
     docs_dir: Path       # absolute path to the docs directory
     repo_url: str | None
     edit_uri: str | None  # e.g. "edit/main/docs/" — None means no edit link
-    nav: list | None     # raw nav structure from YAML; None when using auto-nav plugins
+    nav: list[Any] | None     # raw nav structure from YAML; None when using auto-nav plugins
     confluence: ConfluenceConfig | None = None
 
     def page_edit_url(self, docs_path: str) -> str | None:
@@ -52,7 +53,7 @@ class MkDocsConfig:
 _REPO_URL_RE = re.compile(r"^https?://")
 
 
-def _make_env_loader() -> yaml.SafeLoader:
+def _make_env_loader() -> type[yaml.SafeLoader]:
     """Return a SafeLoader subclass that handles MkDocs ``!ENV`` tags.
 
     ``!ENV VAR_NAME`` and ``!ENV [VAR_NAME, default]`` are resolved against
@@ -65,7 +66,7 @@ def _make_env_loader() -> yaml.SafeLoader:
     def _env_constructor(loader: yaml.SafeLoader, node: yaml.Node) -> str | None:
         # Scalar form:  !ENV MY_VAR  or  !ENV "MY_VAR default_value"
         if isinstance(node, yaml.ScalarNode):
-            parts = loader.construct_scalar(node).split()  # type: ignore[arg-type]
+            parts = loader.construct_scalar(node).split()
             var = parts[0]
             default = parts[1] if len(parts) > 1 else None
             return os.environ.get(var, default)
@@ -84,7 +85,7 @@ def _make_env_loader() -> yaml.SafeLoader:
     def _ignore(loader: yaml.SafeLoader, tag_suffix: str, node: yaml.Node) -> None:
         return None
 
-    _Loader.add_multi_constructor("", _ignore)
+    _Loader.add_multi_constructor("", _ignore)  # type: ignore[no-untyped-call]
     return _Loader
 
 

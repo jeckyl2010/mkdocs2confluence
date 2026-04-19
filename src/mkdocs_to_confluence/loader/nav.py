@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from mkdocs_to_confluence.loader.config import MkDocsConfig
 
@@ -75,7 +76,7 @@ def _discover(docs_dir: Path) -> list[NavNode]:
     return nodes
 
 
-def _traverse(nav: list, docs_dir: Path, level: int) -> list[NavNode]:
+def _traverse(nav: list[Any], docs_dir: Path, level: int) -> list[NavNode]:
     nodes: list[NavNode] = []
     for item in nav:
         if not isinstance(item, dict):

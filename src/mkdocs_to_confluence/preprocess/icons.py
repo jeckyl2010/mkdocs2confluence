@@ -20,7 +20,7 @@ _ICON_RE = re.compile(
 
 # Keyword → emoji.  Keys must be lowercase single words (icon name segments).
 # Ordered so earlier, more-specific entries take priority where ambiguous.
-_KEYWORD_MAP: dict[str, str] = {
+_KEYWORD_MAP: dict[str, str | None] = {
     # Status / validation
     "check": "✅",
     "done": "✅",
