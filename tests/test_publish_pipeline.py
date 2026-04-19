@@ -30,6 +30,7 @@ def _make_config(docs_dir: Path) -> MkDocsConfig:
         site_name="Test",
         docs_dir=docs_dir,
         repo_url=None,
+        edit_uri=None,
         nav=None,
     )
 

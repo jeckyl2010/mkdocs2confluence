@@ -35,6 +35,7 @@ from mkdocs_to_confluence.preprocess.includes import (
 )
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import resolve_local_assets
+from mkdocs_to_confluence.transforms.editlink import inject_edit_link
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
@@ -112,6 +113,9 @@ def compile_page(node: NavNode, config: MkDocsConfig) -> tuple[str, list[Path]]:
         page_path=node.source_path,
         docs_dir=config.docs_dir,
     )
+    edit_url = config.page_edit_url(node.docs_path or "")
+    if edit_url:
+        ir_nodes = inject_edit_link(ir_nodes, edit_url, repo_url=config.repo_url)
     if front_matter is not None:
         ir_nodes = (front_matter,) + ir_nodes
 
