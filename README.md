@@ -249,7 +249,7 @@ Planned features, roughly in priority order:
   - **Parent page** derived from the nav hierarchy to mirror the MkDocs site structure
   - **Title** from front matter `title` field
 - [ ] **Material icon shortcodes** — map `:material-x:` / `:fontawesome-x:` to Confluence emoticons or Unicode, with graceful fallback
-- [ ] **Mermaid native macro** — target the Confluence Mermaid marketplace macro instead of a plain code block
+- [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the Confluence instance has a Mermaid plugin). Pre-rendering via `mmdc` requires a headless Chrome browser (Puppeteer dependency) which is too heavy. Revisit with a self-hosted [Kroki](https://kroki.io) container (`docker run -p 8000:8000 yuzutech/kroki`) as a lighter alternative — no browser needed, diagram source stays local.
 
 **Completed:**
 
