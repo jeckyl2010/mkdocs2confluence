@@ -241,7 +241,13 @@ Planned features, roughly in priority order:
 
 - [ ] **Internal link resolution** — rewrite `.md` hrefs to Confluence page titles using the nav resolver
 - [ ] **Image attachments** — collect local images and upload as Confluence attachments at publish time
-- [ ] **Publish command** — Confluence REST API client to create/update pages, set labels, and upload attachments; sets **full-width page layout** by default (Confluence Cloud `fullWidth: true`) so content isn't constrained to the narrow default column
+- [ ] **Publish command** — Confluence REST API client to create/update pages with the following defaults, all overridable via CLI flags:
+  - `fullWidth: true` — full-width layout so content isn't constrained to the narrow default column
+  - **View-only restrictions** — edit access locked to the publishing service account by default; Confluence pages are read-only mirrors of the Markdown source of truth and should never be edited in Confluence directly
+  - `status: draft` when `ready: false` in front matter; `status: current` (published) when `ready: true`
+  - **Labels** from front matter `tags` field
+  - **Parent page** derived from the nav hierarchy to mirror the MkDocs site structure
+  - **Title** from front matter `title` field
 - [ ] **Material icon shortcodes** — map `:material-x:` / `:fontawesome-x:` to Confluence emoticons or Unicode, with graceful fallback
 - [ ] **Mermaid native macro** — target the Confluence Mermaid marketplace macro instead of a plain code block
 
