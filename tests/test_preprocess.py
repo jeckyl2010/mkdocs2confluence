@@ -334,3 +334,58 @@ class TestInvalidSyntax:
         src = make_file(tmp_path, "page.md", '--8<-- "snip.md:0:2"\n')
         with pytest.raises(IncludeError, match="invalid line range"):
             preprocess_includes(src.read_text(), src, tmp_path)
+
+
+# ── strip_html_comments ───────────────────────────────────────────────────────
+
+
+from mkdocs_to_confluence.preprocess.includes import strip_html_comments
+
+
+class TestStripHtmlComments:
+    def test_removes_single_line_comment(self) -> None:
+        text = "<!-- a comment -->\n*[IAM]: Identity and Access Management\n"
+        result = strip_html_comments(text)
+        assert "<!--" not in result
+        assert "*[IAM]" in result
+
+    def test_removes_multiline_comment(self) -> None:
+        text = "Before\n<!-- this spans\nmultiple lines -->\nAfter\n"
+        result = strip_html_comments(text)
+        assert "<!--" not in result
+        assert "Before" in result
+        assert "After" in result
+
+    def test_removes_inline_comment(self) -> None:
+        text = "Some text <!-- note --> more text\n"
+        result = strip_html_comments(text)
+        assert "<!--" not in result
+        assert "Some text" in result
+        assert "more text" in result
+
+    def test_leaves_fenced_code_untouched(self) -> None:
+        text = "```html\n<!-- kept -->\n```\n"
+        result = strip_html_comments(text)
+        assert "<!-- kept -->" in result
+
+    def test_no_comments_unchanged(self) -> None:
+        text = "# Heading\n\nParagraph.\n"
+        assert strip_html_comments(text) == text
+
+    def test_multiple_comments_all_removed(self) -> None:
+        text = "<!-- one -->\nContent\n<!-- two -->\n"
+        result = strip_html_comments(text)
+        assert "one" not in result
+        assert "two" not in result
+        assert "Content" in result
+
+    def test_abbreviation_file_pattern(self) -> None:
+        text = (
+            "<!-- Abbreviation tooltips (apply where snippet is included) -->\n"
+            "*[ACID]: Atomicity, Consistency, Isolation, and Durability\n"
+            "*[AD]: Active Directory\n"
+        )
+        result = strip_html_comments(text)
+        assert "<!--" not in result
+        assert "*[ACID]" in result
+        assert "*[AD]" in result

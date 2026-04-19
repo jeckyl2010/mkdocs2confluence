@@ -1,8 +1,8 @@
 """Resolve ``--8<--`` (pymdownx.snippets) include directives in raw markdown.
 
 Also strips unsupported Material for MkDocs HTML layout wrappers (e.g.
-``<div class="grid" markdown>``) that have no Confluence equivalent.  Their
-content is preserved; only the wrapper tags are removed.
+``<div class="grid" markdown>``) and HTML comments (``<!-- ... -->``) that
+have no Confluence equivalent.
 
 Supported syntax
 ----------------
@@ -48,6 +48,71 @@ _STRIP_TAG_RE = re.compile(
     r'|^\s*</div>\s*$',                          # </div>
     re.IGNORECASE,
 )
+
+# HTML comments — single-line and multi-line.
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def strip_html_comments(text: str) -> str:
+    """Remove HTML comments (``<!-- ... -->``) from *text*.
+
+    Both single-line and multi-line comments are stripped.  Comments inside
+    fenced code blocks are left untouched.
+
+    The removal is done in two passes:
+
+    1. Fenced code segments are extracted and protected.
+    2. ``<!-- ... -->`` patterns are removed from non-fenced segments.
+    3. Fenced segments are restored.
+    """
+    # Split into alternating [non-fence, fence, non-fence, fence, ...] segments.
+    # We locate fence boundaries first, then apply the comment regex only to
+    # the non-fenced portions.
+    segments: list[tuple[bool, str]] = []  # (is_fenced, text)
+    pos = 0
+    lines = text.splitlines(keepends=True)
+    buf: list[str] = []
+    in_fence = False
+    fence_char = ""
+    fence_min_len = 0
+
+    for line in lines:
+        stripped = line.rstrip("\n").rstrip("\r")
+        if not in_fence:
+            m = _FENCE_OPEN_RE.match(stripped)
+            if m:
+                # Flush non-fenced buffer.
+                if buf:
+                    segments.append((False, "".join(buf)))
+                    buf = []
+                marker = m.group("char")
+                fence_char = marker[0]
+                fence_min_len = len(marker)
+                in_fence = True
+                buf.append(line)
+            else:
+                buf.append(line)
+        else:
+            buf.append(line)
+            m = _FENCE_CLOSE_RE.match(stripped)
+            if m and m.group("char")[0] == fence_char and len(m.group("char")) >= fence_min_len:
+                in_fence = False
+                fence_char = ""
+                fence_min_len = 0
+                segments.append((True, "".join(buf)))
+                buf = []
+
+    if buf:
+        segments.append((in_fence, "".join(buf)))
+
+    parts: list[str] = []
+    for is_fenced, chunk in segments:
+        if is_fenced:
+            parts.append(chunk)
+        else:
+            parts.append(_HTML_COMMENT_RE.sub("", chunk))
+
+    return "".join(parts)
 
 
 def strip_unsupported_html(text: str) -> str:

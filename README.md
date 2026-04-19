@@ -221,13 +221,27 @@ src/mkdocs_to_confluence/
 
 ---
 
+## Known Confluence Limitations
+
+These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the closest native Confluence equivalent; some visual fidelity is lost by design.
+
+| Feature | MkDocs / Material | Confluence behaviour |
+|---|---|---|
+| **Admonition styling** | Distinct header background + pastel body | Single-block macro with fixed theme styling — no separate header/body colours. Native macros (`tip`, `info`, `warning`, `note`) are used as they are portable, dark-mode safe, and work everywhere. |
+| **Abbreviation tooltips** | `*[ABBR]: definition` hover tooltips | No native tooltip support. First occurrence in body text is expanded inline (`ABBR (definition)`); remaining occurrences are left as-is. A Glossary section is appended for any abbreviations that only appear in headings or other non-expandable contexts. |
+| **Grid cards** (`<div class="grid" markdown>`) | Side-by-side admonition cards | Suppressed — Confluence has no equivalent responsive grid layout. The inner admonitions are still rendered individually. |
+| **Page width** | Full responsive width | Confluence defaults to a narrow fixed-width column. Set **Full width** in page settings (⚙️), or the upcoming `publish` command will set this automatically via the API. |
+| **HTML comments** | Author notes (`<!-- ... -->`) | Stripped — no Confluence equivalent. |
+
+---
+
 ## Roadmap
 
 Planned features, roughly in priority order:
 
 - [ ] **Internal link resolution** — rewrite `.md` hrefs to Confluence page titles using the nav resolver
 - [ ] **Image attachments** — collect local images and upload as Confluence attachments at publish time
-- [ ] **Publish command** — Confluence REST API client to create/update pages, set labels, and upload attachments
+- [ ] **Publish command** — Confluence REST API client to create/update pages, set labels, and upload attachments; sets **full-width page layout** by default (Confluence Cloud `fullWidth: true`) so content isn't constrained to the narrow default column
 - [ ] **Material icon shortcodes** — map `:material-x:` / `:fontawesome-x:` to Confluence emoticons or Unicode, with graceful fallback
 - [ ] **Mermaid native macro** — target the Confluence Mermaid marketplace macro instead of a plain code block
 

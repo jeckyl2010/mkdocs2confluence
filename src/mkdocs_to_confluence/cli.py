@@ -15,7 +15,7 @@ from mkdocs_to_confluence.parser.markdown import parse
 from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.preprocess.abbrevs import extract_abbreviations, strip_abbreviation_defs
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
-from mkdocs_to_confluence.preprocess.includes import preprocess_includes, strip_unsupported_html
+from mkdocs_to_confluence.preprocess.includes import preprocess_includes, strip_html_comments, strip_unsupported_html
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 
 
@@ -117,6 +117,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         docs_dir=config.docs_dir,
     )
     preprocessed = strip_unsupported_html(preprocessed)
+    preprocessed = strip_html_comments(preprocessed)
     front_matter, preprocessed = extract_front_matter(preprocessed)
     abbrevs = extract_abbreviations(preprocessed)
     preprocessed = strip_abbreviation_defs(preprocessed)
