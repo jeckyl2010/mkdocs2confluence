@@ -13,13 +13,13 @@ Requires Python 3.12+.
 **From the latest GitHub release** (recommended):
 
 ```bash
-pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.0/mkdocs_to_confluence-0.1.0-py3-none-any.whl
+pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.4/mkdocs_to_confluence-0.1.4-py3-none-any.whl
 ```
 
 Or with `pipx` for an isolated install (no virtual environment needed):
 
 ```bash
-pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.0/mkdocs_to_confluence-0.1.0-py3-none-any.whl
+pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.4/mkdocs_to_confluence-0.1.4-py3-none-any.whl
 ```
 
 **From source** (see [Setup.md](Setup.md) for the full dev environment guide):
@@ -38,11 +38,14 @@ pip install -e ".[dev]"
 # Print Confluence storage XHTML to stdout
 mk2conf preview --config mkdocs.yml --page index.md
 
-# Write XHTML to a file
-mk2conf preview --config mkdocs.yml --page guide/installation.md --out out.xml
-
-# Open a browser-friendly HTML preview (simulates Confluence rendering)
+# Open a browser-friendly HTML preview
 mk2conf preview --config mkdocs.yml --page index.md --html --out /tmp/preview.html
+
+# Dry-run: see what would be published without touching Confluence
+mk2conf publish --config mkdocs.yml --dry-run
+
+# Publish all nav pages to Confluence
+CONFLUENCE_API_TOKEN=your_token mk2conf publish --config mkdocs.yml
 ```
 
 ---
@@ -75,9 +78,59 @@ mk2conf preview --config docs/mkdocs.yml --page guide/installation.md \
   --html --out /tmp/preview.html && open /tmp/preview.html
 ```
 
+---
+
 ### `mk2conf publish`
 
-> **Not yet implemented.** Planned for a future milestone.
+Compile all pages listed in the `nav:` and publish them to Confluence Cloud.
+
+```
+mk2conf publish [--config PATH] [--page PATH] [--dry-run]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--config PATH` | `./mkdocs.yml` | Path to your `mkdocs.yml` |
+| `--page PATH` | *(all nav pages)* | Publish a single page only |
+| `--dry-run` | off | Print the publish plan without making any API calls |
+
+#### Configuration
+
+Add a `confluence:` block to your `mkdocs.yml`:
+
+```yaml
+confluence:
+  base_url: https://yourorg.atlassian.net
+  space_key: TECH
+  email: user@example.com
+  token: !ENV CONFLUENCE_API_TOKEN   # never hardcode the token
+  parent_page_id: "123456"           # optional root page
+```
+
+The API token is read from (in priority order):
+1. The `token:` field in `mkdocs.yml` (typically via `!ENV CONFLUENCE_API_TOKEN`)
+2. `CONFLUENCE_API_TOKEN` environment variable
+3. `MK2CONF_TOKEN` environment variable
+
+#### Publish rules
+
+- **Only pages in `nav:` are published** — the nav is the publish gate. Pages not listed in the nav are never touched, keeping drafts and WIP content private.
+- Pages with `ready: false` in their YAML front matter are **skipped**, even if listed in the nav.
+- Section nodes (nav groups without a page) are created as empty parent pages in Confluence, mirroring the nav hierarchy.
+- Local images and file links are uploaded as Confluence page attachments automatically.
+
+#### Examples
+
+```bash
+# See exactly what would be published (no API calls)
+CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --dry-run
+
+# Publish everything
+CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml
+
+# Publish a single page
+CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --page guide/setup.md
+```
 
 ---
 
@@ -106,7 +159,8 @@ mk2conf preview --config docs/mkdocs.yml --page guide/installation.md \
 | `~~strikethrough~~` | `<s>` |
 | `` `inline code` `` | `<code>` |
 | `[text](url)` | `<a href="...">` |
-| `![alt](src)` | `<ac:image>` with `<ri:url>` |
+| `[text](file.pdf)` | `<ac:link><ri:attachment .../>` (uploaded as attachment) |
+| `![alt](src)` | `<ac:image>` with `<ri:attachment>` (local) or `<ri:url>` (remote) |
 
 ### MkDocs / Material extensions
 
@@ -200,23 +254,28 @@ The `--html` flag post-processes the Confluence XHTML and renders macros as styl
 src/mkdocs_to_confluence/
 ├── cli.py              # CLI entrypoint (mk2conf)
 ├── loader/
-│   ├── config.py       # mkdocs.yml loader (!ENV + unknown tag support)
+│   ├── config.py       # mkdocs.yml loader (!ENV + confluence: block)
 │   ├── nav.py          # nav resolver (auto-discovers pages when nav: is absent)
 │   └── page.py         # single-page loader (exact + suffix matching)
 ├── preprocess/
-│   ├── includes.py     # --8<-- include/snippet preprocessor
+│   ├── includes.py     # --8<-- include/snippet preprocessor + HTML comment stripping
 │   ├── abbrevs.py      # *[ABBR]: definition extractor and stripper
-│   └── frontmatter.py  # YAML front matter extractor and field mapper
+│   ├── frontmatter.py  # YAML front matter extractor and field mapper
+│   └── icons.py        # :material-x: / :fontawesome-x: shortcode → emoji mapping
 ├── transforms/
-│   └── abbrevs.py      # IR tree transform: abbreviation first-occurrence expansion
+│   ├── abbrevs.py      # IR tree transform: abbreviation first-occurrence expansion
+│   └── assets.py       # IR tree transform: local image/file path resolution + attachment naming
 ├── ir/
 │   └── nodes.py        # immutable IR node types
 ├── parser/
 │   └── markdown.py     # Markdown → IR compiler
 ├── emitter/
 │   └── xhtml.py        # IR → Confluence storage XHTML emitter
-└── preview/
-    └── render.py       # XHTML → browser HTML renderer
+├── preview/
+│   └── render.py       # XHTML → browser HTML renderer (local images as base64)
+└── publisher/
+    ├── client.py       # Confluence Cloud REST client (v2 pages API, v1 attachments)
+    └── pipeline.py     # nav-driven compile + plan/execute publish loop
 ```
 
 ---
@@ -240,19 +299,15 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 Planned features, roughly in priority order:
 
 - [ ] **Internal link resolution** — rewrite `.md` hrefs to Confluence page titles using the nav resolver
-- [ ] **Image attachments** — collect local images and upload as Confluence attachments at publish time
-- [ ] **Publish command** — Confluence REST API client to create/update pages with the following defaults, all overridable via CLI flags:
-  - `fullWidth: true` — full-width layout so content isn't constrained to the narrow default column
-  - **View-only restrictions** — edit access locked to the publishing service account by default; Confluence pages are read-only mirrors of the Markdown source of truth and should never be edited in Confluence directly
-  - `status: draft` when `ready: false` in front matter; `status: current` (published) when `ready: true`
-  - **Labels** from front matter `tags` field
-  - **Parent page** derived from the nav hierarchy to mirror the MkDocs site structure
-  - **Title** from front matter `title` field
-- [ ] **Material icon shortcodes** — map `:material-x:` / `:fontawesome-x:` to Confluence emoticons or Unicode, with graceful fallback
-- [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the Confluence instance has a Mermaid plugin). Pre-rendering via `mmdc` requires a headless Chrome browser (Puppeteer dependency) which is too heavy. Revisit with a self-hosted [Kroki](https://kroki.io) container (`docker run -p 8000:8000 yuzutech/kroki`) as a lighter alternative — no browser needed, diagram source stays local.
+- [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth
+- [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column
+- [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the instance has a Mermaid plugin). Pre-rendering via self-hosted [Kroki](https://kroki.io) (`docker run -p 8000:8000 yuzutech/kroki`) is the preferred future path — no browser dependency.
 
 **Completed:**
 
+- [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support
+- [x] **Local image and file attachments** — local images and file links resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded per-page at publish time; local images embedded as base64 data URIs in the browser preview
+- [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to nearest Unicode emoji; unknown shortcodes stripped cleanly
 - [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
 - [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction
 
