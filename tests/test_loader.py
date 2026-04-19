@@ -98,11 +98,11 @@ class TestLoadConfigErrors:
         with pytest.raises(ConfigError, match="site_name"):
             load_config(yml)
 
-    def test_missing_nav_raises_config_error(self, tmp_path: Path) -> None:
+    def test_missing_nav_returns_none_nav(self, tmp_path: Path) -> None:
         yml = tmp_path / "mkdocs.yml"
         yml.write_text("site_name: Test\n", encoding="utf-8")
-        with pytest.raises(ConfigError, match="nav"):
-            load_config(yml)
+        config = load_config(yml)
+        assert config.nav is None
 
     def test_empty_nav_raises_config_error(self, tmp_path: Path) -> None:
         yml = tmp_path / "mkdocs.yml"

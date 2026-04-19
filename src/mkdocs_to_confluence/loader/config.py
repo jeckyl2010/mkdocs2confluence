@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,10 +21,46 @@ class MkDocsConfig:
     site_name: str
     docs_dir: Path       # absolute path to the docs directory
     repo_url: str | None
-    nav: list            # raw nav structure from YAML; traversed by nav.py
+    nav: list | None     # raw nav structure from YAML; None when using auto-nav plugins
 
 
 _REPO_URL_RE = re.compile(r"^https?://")
+
+
+def _make_env_loader() -> yaml.SafeLoader:
+    """Return a SafeLoader subclass that handles MkDocs ``!ENV`` tags.
+
+    ``!ENV VAR_NAME`` and ``!ENV [VAR_NAME, default]`` are resolved against
+    the process environment.  Unknown variables resolve to ``None`` (or the
+    supplied default) so the loader never crashes on missing env vars.
+    """
+    class _Loader(yaml.SafeLoader):
+        pass
+
+    def _env_constructor(loader: yaml.SafeLoader, node: yaml.Node) -> str | None:
+        # Scalar form:  !ENV MY_VAR  or  !ENV "MY_VAR default_value"
+        if isinstance(node, yaml.ScalarNode):
+            parts = loader.construct_scalar(node).split()  # type: ignore[arg-type]
+            var = parts[0]
+            default = parts[1] if len(parts) > 1 else None
+            return os.environ.get(var, default)
+        # Sequence form:  !ENV [MY_VAR, default]
+        if isinstance(node, yaml.SequenceNode):
+            items = loader.construct_sequence(node)
+            var = str(items[0]) if items else ""
+            default = str(items[1]) if len(items) > 1 else None
+            return os.environ.get(var, default)
+        return None
+
+    _Loader.add_constructor("!ENV", _env_constructor)
+
+    # Catch-all: any other unknown tag (e.g. !!python/name:... used by
+    # MkDocs Material) is silently ignored — we only care about nav/site_name.
+    def _ignore(loader: yaml.SafeLoader, tag_suffix: str, node: yaml.Node) -> None:
+        return None
+
+    _Loader.add_multi_constructor("", _ignore)
+    return _Loader
 
 
 def load_config(mkdocs_yml: Path) -> MkDocsConfig:
@@ -42,7 +79,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         raise FileNotFoundError(f"mkdocs.yml not found: {mkdocs_yml}")
 
     with mkdocs_yml.open(encoding="utf-8") as fh:
-        raw: object = yaml.safe_load(fh)
+        raw: object = yaml.load(fh, Loader=_make_env_loader())
 
     if not isinstance(raw, dict):
         raise ConfigError("mkdocs.yml must be a YAML mapping at the top level.")
@@ -52,10 +89,10 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
     if not isinstance(site_name, str) or not site_name.strip():
         raise ConfigError("mkdocs.yml: 'site_name' is required and must be a non-empty string.")
 
-    # --- nav ---
+    # --- nav (optional — some projects use awesome-pages or literate-nav plugins) ---
     nav = raw.get("nav")
-    if not isinstance(nav, list) or len(nav) == 0:
-        raise ConfigError("mkdocs.yml: 'nav' is required and must be a non-empty list.")
+    if nav is not None and (not isinstance(nav, list) or len(nav) == 0):
+        raise ConfigError("mkdocs.yml: 'nav' must be a non-empty list when present.")
 
     # --- docs_dir (optional; defaults to 'docs' relative to mkdocs.yml) ---
     raw_docs_dir = raw.get("docs_dir", "docs")

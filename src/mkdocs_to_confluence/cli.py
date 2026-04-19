@@ -13,7 +13,7 @@ from mkdocs_to_confluence.loader.nav import resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page, load_page
 from mkdocs_to_confluence.parser.markdown import parse
 from mkdocs_to_confluence.preview.render import render_page
-from mkdocs_to_confluence.preprocess.includes import preprocess_includes
+from mkdocs_to_confluence.preprocess.includes import preprocess_includes, strip_unsupported_html
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -113,6 +113,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         source_path=node.source_path,  # type: ignore[arg-type]
         docs_dir=config.docs_dir,
     )
+    preprocessed = strip_unsupported_html(preprocessed)
     ir_nodes = parse(preprocessed)
     xhtml = emit(ir_nodes)
 

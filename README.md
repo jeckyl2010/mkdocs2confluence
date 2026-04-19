@@ -122,6 +122,12 @@ mk2conf preview --config docs/mkdocs.yml --page guide/installation.md \
 
 Any block the parser does not recognise is preserved as a visible `warning` macro in the output so no content is silently lost.
 
+The following Material for MkDocs features are **intentionally suppressed** (wrapper stripped, inner content preserved):
+
+| Feature | Reason | Behaviour |
+|---|---|---|
+| `<div class="grid" markdown>` | CSS-only multi-column layout — no Confluence equivalent | Wrapper removed; admonitions inside render sequentially |
+
 ---
 
 ## Local browser preview
@@ -169,6 +175,7 @@ Planned features, roughly in priority order:
 - [ ] **Publish command** — Confluence REST API client to create/update pages and upload attachments
 - [ ] **Material icon shortcodes** — map `:material-x:` / `:fontawesome-x:` to Confluence emoticons or Unicode, with graceful fallback
 - [ ] **Mermaid native macro** — target the Confluence Mermaid marketplace macro instead of a plain code block
+- [ ] **Abbreviation expansion** — collect `*[ABBR]: definition` pairs from includes and page body; expand the first occurrence of each acronym in body text (paragraphs, list items, table body cells); skip headings, table/admonition headers, and code blocks; append a Glossary section for acronyms that only appeared in skipped contexts
 
 ---
 

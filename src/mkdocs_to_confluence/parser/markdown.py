@@ -47,6 +47,7 @@ from mkdocs_to_confluence.ir.nodes import (
     BulletList,
     CodeBlock,
     CodeInlineNode,
+    ContentTabs,
     HorizontalRule,
     IRNode,
     ImageNode,
@@ -57,6 +58,7 @@ from mkdocs_to_confluence.ir.nodes import (
     Paragraph,
     Section,
     StrikethroughNode,
+    Tab,
     Table,
     TableCell,
     TableRow,
@@ -142,6 +144,17 @@ class _OrderedListToken:
 
 
 @dataclass
+class _TabData:
+    label: str
+    body_tokens: list["_Token"]
+
+
+@dataclass
+class _ContentTabsToken:
+    tabs: list[_TabData]
+
+
+@dataclass
 class _TableToken:
     header_cells: list[str]
     aligns: list[str | None]
@@ -157,6 +170,7 @@ _Token = Union[
     _BlockQuoteToken,
     _BulletListToken,
     _OrderedListToken,
+    _ContentTabsToken,
     _TableToken,
 ]
 
@@ -173,6 +187,9 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 _ADMONITION_RE = re.compile(
     r'^(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+["\'](?P<title>[^"\']*)["\'])?$'
 )
+
+# Matches a Material for MkDocs content tab opener:  === "Label"
+_TAB_RE = re.compile(r'^===\s+["\'](?P<label>[^"\']*)["\']$')
 
 # Matches a horizontal rule (3+ dashes, stars, or underscores alone on a line).
 _HR_RE = re.compile(r'^(?:-{3,}|\*{3,}|_{3,})\s*$')
@@ -281,6 +298,34 @@ def _tokenize(text: str) -> list[_Token]:
             )
             continue
 
+        # ── Content tabs (=== "Label") ────────────────────────────────────────
+        tab_m = _TAB_RE.match(line)
+        if tab_m:
+            tabs: list[_TabData] = []
+            while i < len(lines):
+                tm = _TAB_RE.match(lines[i])
+                if not tm:
+                    break
+                label = tm.group("label")
+                i += 1
+                body_raw_tab: list[str] = []
+                while i < len(lines):
+                    bl = lines[i]
+                    if not bl.strip():
+                        body_raw_tab.append("")
+                        i += 1
+                    elif bl.startswith("    ") or bl.startswith("\t"):
+                        body_raw_tab.append(bl[4:] if bl.startswith("    ") else bl[1:])
+                        i += 1
+                    else:
+                        break
+                while body_raw_tab and not body_raw_tab[-1].strip():
+                    body_raw_tab.pop()
+                tabs.append(_TabData(label=label, body_tokens=_tokenize("\n".join(body_raw_tab))))
+            if tabs:
+                tokens.append(_ContentTabsToken(tabs=tabs))
+            continue
+
         # ── Horizontal rule ───────────────────────────────────────────────────
         if _HR_RE.match(line):
             tokens.append(_HRToken())
@@ -372,6 +417,8 @@ def _tokenize(text: str) -> list[_Token]:
             if _ORDERED_RE.match(current) and not _ORDERED_RE.match(current).group("indent"):  # type: ignore[union-attr]
                 break
             if current.strip().startswith("|"):
+                break
+            if _TAB_RE.match(current):
                 break
             para_lines.append(current)
             i += 1
@@ -663,6 +710,13 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
                 for row in token.rows
             )
             _append_content(Table(header=header, rows=body_rows), stack, root)
+
+        elif isinstance(token, _ContentTabsToken):
+            tab_nodes = tuple(
+                Tab(label=t.label, children=_build_tree(t.body_tokens))
+                for t in token.tabs
+            )
+            _append_content(ContentTabs(tabs=tab_nodes), stack, root)
 
     # Close all remaining open sections.
     _close_from_level(0, stack, root)

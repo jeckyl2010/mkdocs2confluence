@@ -39,8 +39,9 @@ class NavNode:
 def resolve_nav(config: MkDocsConfig, mkdocs_root: Path | None = None) -> list[NavNode]:
     """Resolve *config.nav* into a list of top-level :class:`NavNode` objects.
 
-    The returned list preserves the full hierarchy: sections contain children,
-    which may themselves be sections or leaf pages.
+    When ``config.nav`` is ``None`` (e.g. projects using ``awesome-pages`` or
+    ``literate-nav`` plugins), all ``.md`` files under ``docs_dir`` are
+    discovered recursively and returned as a flat nav in sorted order.
 
     Args:
         config: Parsed :class:`~mkdocs_to_confluence.loader.config.MkDocsConfig`.
@@ -51,7 +52,27 @@ def resolve_nav(config: MkDocsConfig, mkdocs_root: Path | None = None) -> list[N
         List of top-level :class:`NavNode` instances.
     """
     docs_dir = config.docs_dir
+
+    if config.nav is None:
+        return _discover(docs_dir)
+
     return _traverse(config.nav, docs_dir, level=0)
+
+
+def _discover(docs_dir: Path) -> list[NavNode]:
+    """Auto-discover all .md files under *docs_dir* as a flat nav."""
+    nodes: list[NavNode] = []
+    for md_file in sorted(docs_dir.rglob("*.md")):
+        docs_path = md_file.relative_to(docs_dir).as_posix()
+        nodes.append(
+            NavNode(
+                title=md_file.stem.replace("-", " ").replace("_", " ").title(),
+                docs_path=docs_path,
+                source_path=md_file,
+                level=0,
+            )
+        )
+    return nodes
 
 
 def _traverse(nav: list, docs_dir: Path, level: int) -> list[NavNode]:
