@@ -18,8 +18,8 @@ from mkdocs_to_confluence.ir import (
     Document,
     Expandable,
     HorizontalRule,
-    IRNode,
     ImageNode,
+    IRNode,
     ItalicNode,
     LinkNode,
     ListItem,
@@ -39,7 +39,6 @@ from mkdocs_to_confluence.ir import (
     compute_sha,
     walk,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -514,7 +513,6 @@ class TestWalk:
         assert leaf in nodes
 
     def test_generator_type(self) -> None:
-        import types
         node = TextNode("x")
         assert isinstance(walk(node), Iterator)
 

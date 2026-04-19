@@ -20,7 +20,6 @@ from mkdocs_to_confluence.ir.nodes import (
     UnsupportedBlock,
 )
 
-
 # ── Inline nodes ──────────────────────────────────────────────────────────────
 
 

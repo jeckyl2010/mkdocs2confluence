@@ -12,10 +12,17 @@ from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page, load_page
 from mkdocs_to_confluence.parser.markdown import parse
-from mkdocs_to_confluence.preview.render import render_page
-from mkdocs_to_confluence.preprocess.abbrevs import extract_abbreviations, strip_abbreviation_defs
+from mkdocs_to_confluence.preprocess.abbrevs import (
+    extract_abbreviations,
+    strip_abbreviation_defs,
+)
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
-from mkdocs_to_confluence.preprocess.includes import preprocess_includes, strip_html_comments, strip_unsupported_html
+from mkdocs_to_confluence.preprocess.includes import (
+    preprocess_includes,
+    strip_html_comments,
+    strip_unsupported_html,
+)
+from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 
 

@@ -30,8 +30,8 @@ from mkdocs_to_confluence.ir.nodes import (
     Expandable,
     FrontMatter,
     HorizontalRule,
-    IRNode,
     ImageNode,
+    IRNode,
     ItalicNode,
     LinkNode,
     ListItem,
@@ -47,7 +47,6 @@ from mkdocs_to_confluence.ir.nodes import (
     TextNode,
     UnsupportedBlock,
 )
-
 
 # ── Admonition kind → Confluence macro name ───────────────────────────────────
 
