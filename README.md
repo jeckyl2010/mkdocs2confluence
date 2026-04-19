@@ -10,11 +10,19 @@ It is a **compiler/transpiler**, not an HTML converter — every Markdown constr
 
 Requires Python 3.12+.
 
+**From the latest GitHub release** (recommended):
+
 ```bash
-pip install mkdocs-to-confluence
+pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.0/mkdocs_to_confluence-0.1.0-py3-none-any.whl
 ```
 
-Or install from source in editable mode (see [Setup.md](Setup.md) for the full dev environment guide):
+Or with `pipx` for an isolated install (no virtual environment needed):
+
+```bash
+pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.0/mkdocs_to_confluence-0.1.0-py3-none-any.whl
+```
+
+**From source** (see [Setup.md](Setup.md) for the full dev environment guide):
 
 ```bash
 git clone https://github.com/jeckyl2010/mkdocs2confluence.git
