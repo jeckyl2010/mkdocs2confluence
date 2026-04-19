@@ -32,8 +32,21 @@ class MkDocsConfig:
     site_name: str
     docs_dir: Path       # absolute path to the docs directory
     repo_url: str | None
+    edit_uri: str | None  # e.g. "edit/main/docs/" — None means no edit link
     nav: list | None     # raw nav structure from YAML; None when using auto-nav plugins
     confluence: ConfluenceConfig | None = None
+
+    def page_edit_url(self, docs_path: str) -> str | None:
+        """Return the full edit URL for *docs_path*, or ``None`` if not configured."""
+        if not self.edit_uri:
+            return None
+        # Absolute edit_uri (e.g. a GitLab instance with custom domain)
+        if self.edit_uri.startswith(("http://", "https://")):
+            return self.edit_uri.rstrip("/") + "/" + docs_path
+        # Relative edit_uri — prepend repo_url
+        if not self.repo_url:
+            return None
+        return self.repo_url.rstrip("/") + "/" + self.edit_uri.rstrip("/") + "/" + docs_path
 
 
 _REPO_URL_RE = re.compile(r"^https?://")
@@ -73,6 +86,17 @@ def _make_env_loader() -> yaml.SafeLoader:
 
     _Loader.add_multi_constructor("", _ignore)
     return _Loader
+
+
+def _default_edit_uri(repo_url: str | None) -> str | None:
+    """Return a sensible default ``edit_uri`` based on the hosting platform."""
+    if not repo_url:
+        return None
+    if "github.com" in repo_url:
+        return "edit/main/docs/"
+    if "gitlab.com" in repo_url or "gitlab." in repo_url:
+        return "-/edit/master/docs/"
+    return None
 
 
 def load_config(mkdocs_yml: Path) -> MkDocsConfig:
@@ -120,6 +144,12 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
                 "mkdocs.yml: 'repo_url' must be an http/https URL when provided."
             )
 
+    # --- edit_uri (optional; sensible defaults for GitHub/GitLab) ---
+    _raw_edit_uri = raw.get("edit_uri", _default_edit_uri(repo_url))
+    if _raw_edit_uri is not None and not isinstance(_raw_edit_uri, str):
+        raise ConfigError("mkdocs.yml: 'edit_uri' must be a string when provided.")
+    edit_uri: str | None = _raw_edit_uri or None
+
     # --- confluence (optional) ---
     confluence: ConfluenceConfig | None = None
     raw_conf = raw.get("confluence")
@@ -163,6 +193,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         site_name=site_name.strip(),
         docs_dir=docs_dir,
         repo_url=repo_url,
+        edit_uri=edit_uri,
         nav=nav,
         confluence=confluence,
     )
