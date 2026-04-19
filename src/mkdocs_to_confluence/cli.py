@@ -27,6 +27,7 @@ from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import inject_edit_link
+from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -145,6 +146,8 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         page_path=node.source_path,  # type: ignore[arg-type]
         docs_dir=config.docs_dir,
     )
+    link_map = build_link_map(nodes)
+    ir_nodes = resolve_internal_links(ir_nodes, link_map, node.docs_path or "")
     edit_url = config.page_edit_url(node.docs_path or "")
     if edit_url:
         ir_nodes = inject_edit_link(ir_nodes, edit_url, repo_url=config.repo_url)

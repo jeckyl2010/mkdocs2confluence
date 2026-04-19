@@ -82,6 +82,7 @@ class LinkNode(IRNode):
     children: tuple[IRNode, ...]
     is_internal: bool = False
     attachment_name: str | None = None
+    anchor: str | None = None  # fragment identifier for internal page links
 
 
 @dataclass(frozen=True)
