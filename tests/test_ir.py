@@ -501,6 +501,32 @@ class TestWalk:
         assert cell in nodes
         assert row in nodes
 
+    def test_walk_table_header_cells_are_visited(self) -> None:
+        """walk() must descend into Table.header (single IRNode field, not tuple)."""
+        header_text = TextNode("Head")
+        header_cell = TableCell(children=(header_text,), is_header=True)
+        header_row = TableRow(cells=(header_cell,))
+        body_text = TextNode("Body")
+        body_cell = TableCell(children=(body_text,))
+        body_row = TableRow(cells=(body_cell,))
+        table = Table(header=header_row, rows=(body_row,))
+        nodes = list(walk(table))
+        # All nodes — including those inside the header — must be visited.
+        assert header_row in nodes
+        assert header_cell in nodes
+        assert header_text in nodes
+        assert body_row in nodes
+        assert body_text in nodes
+
+    def test_walk_link_in_table_header_found(self) -> None:
+        """LinkNode inside a table header cell must be reachable via walk()."""
+        link = LinkNode(href="https://example.com", children=(TextNode("click"),))
+        header_cell = TableCell(children=(link,), is_header=True)
+        header_row = TableRow(cells=(header_cell,))
+        table = Table(header=header_row, rows=())
+        links = [n for n in walk(table) if isinstance(n, LinkNode)]
+        assert links == [link]
+
     def test_walk_unsupported_block(self) -> None:
         node = UnsupportedBlock(raw="x", reason="y")
         assert list(walk(node)) == [node]

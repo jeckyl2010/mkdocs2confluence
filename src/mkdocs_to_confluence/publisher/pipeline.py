@@ -118,8 +118,9 @@ def compile_page(
         page_path=node.source_path,
         docs_dir=config.docs_dir,
     )
-    if link_map is not None and node.docs_path:
-        ir_nodes = resolve_internal_links(ir_nodes, link_map, node.docs_path)
+    effective_link_map = link_map if link_map is not None else {}
+    if node.docs_path:
+        ir_nodes = resolve_internal_links(ir_nodes, effective_link_map, node.docs_path)
     edit_url = config.page_edit_url(node.docs_path or "")
     if edit_url:
         ir_nodes = inject_edit_link(ir_nodes, edit_url, repo_url=config.repo_url)

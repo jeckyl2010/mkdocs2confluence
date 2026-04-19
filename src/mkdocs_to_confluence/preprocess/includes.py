@@ -26,6 +26,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from mkdocs_to_confluence.preprocess.fence import FenceTracker
+
 
 class IncludeError(Exception):
     """Raised when an include directive cannot be resolved.
@@ -35,8 +37,6 @@ class IncludeError(Exception):
     """
 
 
-_FENCE_OPEN_RE = re.compile(r"^(?P<char>`{3,}|~{3,})")
-_FENCE_CLOSE_RE = re.compile(r"^(?P<char>`{3,}|~{3,})\s*$")
 
 # Snippet directive
 _SNIPPET_RE = re.compile(r'^--8<--\s+"(?P<path>[^"]+)"\s*$')
@@ -71,38 +71,30 @@ def strip_html_comments(text: str) -> str:
     segments: list[tuple[bool, str]] = []  # (is_fenced, text)
     lines = text.splitlines(keepends=True)
     buf: list[str] = []
-    in_fence = False
-    fence_char = ""
-    fence_min_len = 0
+    tracker = FenceTracker()
 
     for line in lines:
         stripped = line.rstrip("\n").rstrip("\r")
-        if not in_fence:
-            m = _FENCE_OPEN_RE.match(stripped)
-            if m:
-                # Flush non-fenced buffer.
-                if buf:
-                    segments.append((False, "".join(buf)))
-                    buf = []
-                marker = m.group("char")
-                fence_char = marker[0]
-                fence_min_len = len(marker)
-                in_fence = True
-                buf.append(line)
-            else:
-                buf.append(line)
+        was_in_fence = tracker.in_fence
+        tracker.update(stripped)
+        now_in_fence = tracker.in_fence
+
+        if not was_in_fence and now_in_fence:
+            # Opening fence: flush non-fenced buffer, add opener to new buffer.
+            if buf:
+                segments.append((False, "".join(buf)))
+                buf = []
+            buf.append(line)
+        elif was_in_fence and not now_in_fence:
+            # Closing fence: add closer to fenced buffer and flush it.
+            buf.append(line)
+            segments.append((True, "".join(buf)))
+            buf = []
         else:
             buf.append(line)
-            m = _FENCE_CLOSE_RE.match(stripped)
-            if m and m.group("char")[0] == fence_char and len(m.group("char")) >= fence_min_len:
-                in_fence = False
-                fence_char = ""
-                fence_min_len = 0
-                segments.append((True, "".join(buf)))
-                buf = []
 
     if buf:
-        segments.append((in_fence, "".join(buf)))
+        segments.append((tracker.in_fence, "".join(buf)))
 
     parts: list[str] = []
     for is_fenced, chunk in segments:
@@ -123,29 +115,18 @@ def strip_unsupported_html(text: str) -> str:
     """
     lines = text.splitlines(keepends=True)
     result: list[str] = []
-    in_fence = False
-    fence_char = ""
-    fence_min_len = 0
+    tracker = FenceTracker()
 
     for line in lines:
         stripped = line.rstrip("\n").rstrip("\r")
-        if not in_fence:
-            m = _FENCE_OPEN_RE.match(stripped)
-            if m:
-                marker = m.group("char")
-                fence_char = marker[0]
-                fence_min_len = len(marker)
-                in_fence = True
-                result.append(line)
-                continue
-            if _STRIP_TAG_RE.match(stripped):
-                continue  # drop the wrapper line silently
-        else:
-            m = _FENCE_CLOSE_RE.match(stripped)
-            if m and m.group("char")[0] == fence_char and len(m.group("char")) >= fence_min_len:
-                in_fence = False
-                fence_char = ""
-                fence_min_len = 0
+        was_in_fence = tracker.in_fence
+        tracker.update(stripped)
+        # Inside fence (including opener and closer): pass through unchanged.
+        if was_in_fence or tracker.in_fence:
+            result.append(line)
+            continue
+        if _STRIP_TAG_RE.match(stripped):
+            continue  # drop the wrapper line silently
         result.append(line)
 
     return "".join(result)
@@ -184,34 +165,16 @@ def preprocess_includes(
 
     lines = text.splitlines(keepends=True)
     result: list[str] = []
-
-    in_fence = False
-    fence_char: str = ""
-    fence_min_len: int = 0
+    tracker = FenceTracker()
 
     for lineno, line in enumerate(lines, start=1):
         stripped = line.rstrip("\n").rstrip("\r")
 
         # ── Fence tracking ──────────────────────────────────────────────────
-        if not in_fence:
-            m = _FENCE_OPEN_RE.match(stripped)
-            if m:
-                marker = m.group("char")
-                fence_char = marker[0]
-                fence_min_len = len(marker)
-                in_fence = True
-                result.append(line)
-                continue
-        else:
-            m = _FENCE_CLOSE_RE.match(stripped)
-            if (
-                m
-                and m.group("char")[0] == fence_char
-                and len(m.group("char")) >= fence_min_len
-            ):
-                in_fence = False
-                fence_char = ""
-                fence_min_len = 0
+        was_in_fence = tracker.in_fence
+        tracker.update(stripped)
+        # Fence opener, lines inside fence, and fence closer: pass through.
+        if was_in_fence or tracker.in_fence:
             result.append(line)
             continue
 
