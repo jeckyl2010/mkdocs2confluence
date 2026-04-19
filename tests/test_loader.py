@@ -274,11 +274,10 @@ class TestFlatPages:
         config = load_config(nested_config_path)
         nodes = resolve_nav(config)
         pages = flat_pages(nodes)
-        # Home + Getting Started (About is missing from fixtures, so 2 or 1)
-        # Home is present; About is absent (not in fixtures)
         titles = [p.title for p in pages]
         assert "Home" in titles
         assert "Getting Started" in titles
+        assert "About" in titles
         # sections must not appear in flat list
         assert all(p.is_page for p in pages)
 
