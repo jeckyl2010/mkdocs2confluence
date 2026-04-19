@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from mkdocs_to_confluence.ir import (
+    Admonition,
     CodeBlock,
     IRNode,
     Paragraph,
@@ -453,6 +454,159 @@ class TestSectionTree:
             nodes[0].level = 99  # type: ignore[misc]
 
 
+# ── Admonition parsing ────────────────────────────────────────────────────────
+
+
+class TestAdmonitions:
+    def test_basic_note_is_admonition(self) -> None:
+        nodes = parse("!!! note\n    Body text.\n")
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], Admonition)
+
+    def test_kind_parsed(self) -> None:
+        adm = first(parse("!!! warning\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.kind == "warning"
+
+    def test_all_known_kinds(self) -> None:
+        kinds = ["note", "tip", "warning", "danger", "info", "success",
+                 "failure", "bug", "abstract", "quote", "example"]
+        for kind in kinds:
+            adm = first(parse(f"!!! {kind}\n    Body.\n"), Admonition)
+            assert isinstance(adm, Admonition)
+            assert adm.kind == kind
+
+    def test_no_title_gives_none(self) -> None:
+        adm = first(parse("!!! note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.title is None
+
+    def test_double_quoted_title(self) -> None:
+        adm = first(parse('!!! warning "Be careful"\n    Body.\n'), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.title == "Be careful"
+
+    def test_single_quoted_title(self) -> None:
+        adm = first(parse("!!! tip 'Pro tip'\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.title == "Pro tip"
+
+    def test_bang_not_collapsible(self) -> None:
+        adm = first(parse("!!! note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.collapsible is False
+
+    def test_question_mark_is_collapsible(self) -> None:
+        adm = first(parse("??? note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.collapsible is True
+
+    def test_question_mark_plus_is_collapsible(self) -> None:
+        adm = first(parse("???+ note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.collapsible is True
+
+    def test_body_paragraph_parsed(self) -> None:
+        adm = first(parse("!!! note\n    Body text here.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert len(adm.children) == 1
+        assert isinstance(adm.children[0], Paragraph)
+
+    def test_body_paragraph_text(self) -> None:
+        adm = first(parse("!!! note\n    Hello world.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        para = adm.children[0]
+        assert isinstance(para, Paragraph)
+        assert para.children[0].text == "Hello world."
+
+    def test_body_two_paragraphs(self) -> None:
+        md = "!!! note\n    First para.\n\n    Second para.\n"
+        adm = first(parse(md), Admonition)
+        assert isinstance(adm, Admonition)
+        paras = [c for c in adm.children if isinstance(c, Paragraph)]
+        assert len(paras) == 2
+
+    def test_body_code_block(self) -> None:
+        md = (
+            "!!! info\n"
+            "    ```python\n"
+            "    print('hi')\n"
+            "    ```\n"
+        )
+        adm = first(parse(md), Admonition)
+        assert isinstance(adm, Admonition)
+        cb = adm.children[0]
+        assert isinstance(cb, CodeBlock)
+        assert cb.language == "python"
+
+    def test_body_paragraph_then_code_block(self) -> None:
+        md = (
+            "!!! warning\n"
+            "    Read this first.\n"
+            "\n"
+            "    ```bash\n"
+            "    rm -rf /\n"
+            "    ```\n"
+        )
+        adm = first(parse(md), Admonition)
+        assert isinstance(adm, Admonition)
+        assert len(adm.children) == 2
+        assert isinstance(adm.children[0], Paragraph)
+        assert isinstance(adm.children[1], CodeBlock)
+
+    def test_empty_body_gives_empty_children(self) -> None:
+        adm = first(parse("!!! note\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.children == ()
+
+    def test_admonition_followed_by_paragraph(self) -> None:
+        md = "!!! note\n    Body.\n\nFollowing paragraph.\n"
+        nodes = parse(md)
+        assert len(nodes) == 2
+        assert isinstance(nodes[0], Admonition)
+        assert isinstance(nodes[1], Paragraph)
+
+    def test_admonition_inside_section(self) -> None:
+        md = "# Heading\n\n!!! tip\n    Tip body.\n"
+        nodes = parse(md)
+        section = nodes[0]
+        assert isinstance(section, Section)
+        adm = section.children[0]
+        assert isinstance(adm, Admonition)
+
+    def test_multiple_admonitions(self) -> None:
+        md = "!!! note\n    Note body.\n\n!!! warning\n    Warning body.\n"
+        nodes = parse(md)
+        assert len(nodes) == 2
+        assert all(isinstance(n, Admonition) for n in nodes)
+        assert nodes[0].kind == "note"  # type: ignore[union-attr]
+        assert nodes[1].kind == "warning"  # type: ignore[union-attr]
+
+    def test_walk_finds_nested_code_in_admonition(self) -> None:
+        md = "!!! info\n    ```python\n    pass\n    ```\n"
+        nodes = parse(md)
+        blocks = only(nodes, CodeBlock)
+        assert len(blocks) == 1
+
+    def test_admonition_is_immutable(self) -> None:
+        import dataclasses
+        adm = first(parse("!!! note\n    Body.\n"), Admonition)
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
+            adm.kind = "warning"  # type: ignore[misc]
+
+    def test_unknown_kind_still_parsed(self) -> None:
+        adm = first(parse("!!! mycustomtype\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.kind == "mycustomtype"
+
+    def test_paragraph_before_admonition_not_merged(self) -> None:
+        md = "Intro text.\n!!! note\n    Body.\n"
+        nodes = parse(md)
+        assert len(nodes) == 2
+        assert isinstance(nodes[0], Paragraph)
+        assert isinstance(nodes[1], Admonition)
+
+
 # ── Integration: real fixture files ──────────────────────────────────────────
 
 
@@ -530,3 +684,41 @@ class TestFixtureIntegration:
         blocks = only(nodes, CodeBlock)
         assert len(sections) >= 1
         assert len(blocks) >= 1
+
+    def test_admonitions_fixture(self, docs_dir: Path) -> None:
+        text = (docs_dir / "admonitions.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        admonitions = only(nodes, Admonition)
+        assert len(admonitions) >= 8  # fixture has many admonition types
+
+    def test_admonitions_fixture_has_collapsible(self, docs_dir: Path) -> None:
+        text = (docs_dir / "admonitions.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        admonitions = only(nodes, Admonition)
+        collapsible = [a for a in admonitions if isinstance(a, Admonition) and a.collapsible]
+        assert len(collapsible) >= 1
+
+    def test_admonitions_fixture_nested_code_block(self, docs_dir: Path) -> None:
+        text = (docs_dir / "admonitions.md").read_text(encoding="utf-8")
+        nodes = parse(text)
+        # The info admonition contains a fenced code block inside
+        info_adm = next(
+            a for a in only(nodes, Admonition)
+            if isinstance(a, Admonition) and a.kind == "info"
+        )
+        nested_blocks = [c for c in info_adm.children if isinstance(c, CodeBlock)]
+        assert len(nested_blocks) == 1
+        assert nested_blocks[0].language == "python"
+
+    def test_sample_getting_started_has_admonition(self) -> None:
+        path = (
+            Path(__file__).parent.parent
+            / "samples"
+            / "tech-docs"
+            / "docs"
+            / "getting-started.md"
+        )
+        text = path.read_text(encoding="utf-8")
+        nodes = parse(text)
+        admonitions = only(nodes, Admonition)
+        assert len(admonitions) >= 1

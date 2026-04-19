@@ -6,11 +6,13 @@ Supported in this milestone
 * Fenced code blocks (`` ``` `` or ``~~~``) → :class:`~ir.CodeBlock`
   with full Material attribute parsing (language, title, linenums, hl_lines)
 * Paragraphs (consecutive non-blank lines) → :class:`~ir.Paragraph`
+* Admonitions (``!!!``/``???``/``???+``) → :class:`~ir.Admonition`
+  Body is recursively tokenized, so nested code blocks and paragraphs work.
 
 Not yet supported (later milestones)
 --------------------------------------
 * Inline formatting (bold, italic, links, images)
-* Admonitions, content tabs, mermaid diagrams
+* Content tabs, mermaid diagrams
 * Setext headings (underline style)
 * Block quotes, lists, tables, horizontal rules
 
@@ -39,6 +41,7 @@ from dataclasses import dataclass, field
 from typing import Union
 
 from mkdocs_to_confluence.ir.nodes import (
+    Admonition,
     CodeBlock,
     IRNode,
     Paragraph,
@@ -89,7 +92,15 @@ class _ParagraphToken:
     lines: list[str]  # non-blank lines forming one paragraph
 
 
-_Token = Union[_HeadingToken, _CodeToken, _ParagraphToken]
+@dataclass
+class _AdmonitionToken:
+    kind: str
+    title: str | None       # None → use the kind's default Confluence title
+    collapsible: bool       # True for ??? and ???+
+    body_tokens: list[_Token]
+
+
+_Token = Union[_HeadingToken, _CodeToken, _ParagraphToken, _AdmonitionToken]
 
 
 # ── Tokenizer ─────────────────────────────────────────────────────────────────
@@ -99,6 +110,11 @@ _HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.+?)(?:\s+#+\s*)?$")
 
 # Matches the opening line of a fenced code block.
 _FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+
+# Matches an admonition opener:  !!! kind  /  !!! kind "title"  /  ??? kind  /  ???+ kind
+_ADMONITION_RE = re.compile(
+    r'^(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+["\'](?P<title>[^"\']*)["\'])?$'
+)
 
 
 def _tokenize(text: str) -> list[_Token]:
@@ -161,16 +177,52 @@ def _tokenize(text: str) -> list[_Token]:
             i += 1
             continue
 
+        # ── Admonition ───────────────────────────────────────────────────────
+        adm_m = _ADMONITION_RE.match(line)
+        if adm_m:
+            marker = adm_m.group("marker")
+            kind = adm_m.group("kind")
+            title = adm_m.group("title")    # None if no quoted title given
+            collapsible = marker.startswith("?")
+            i += 1
+            # Collect body: blank lines or lines indented by ≥4 spaces / 1 tab.
+            body_raw: list[str] = []
+            while i < len(lines):
+                bl = lines[i]
+                if not bl.strip():
+                    body_raw.append("")
+                    i += 1
+                elif bl.startswith("    ") or bl.startswith("\t"):
+                    body_raw.append(bl[4:] if bl.startswith("    ") else bl[1:])
+                    i += 1
+                else:
+                    break
+            # Drop trailing blank lines so the recursive tokenizer stays clean.
+            while body_raw and not body_raw[-1].strip():
+                body_raw.pop()
+            body_tokens = _tokenize("\n".join(body_raw))
+            tokens.append(
+                _AdmonitionToken(
+                    kind=kind,
+                    title=title,
+                    collapsible=collapsible,
+                    body_tokens=body_tokens,
+                )
+            )
+            continue
+
         # ── Paragraph accumulation ───────────────────────────────────────────
         para_lines: list[str] = []
         while i < len(lines):
             current = lines[i]
-            # Stop on blank line, heading, or fence opening
+            # Stop on blank line, heading, fence opening, or admonition opener
             if not current.strip():
                 break
             if _HEADING_RE.match(current):
                 break
             if _FENCE_OPEN_RE.match(current):
+                break
+            if _ADMONITION_RE.match(current):
                 break
             para_lines.append(current)
             i += 1
@@ -274,6 +326,16 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
                 linenums=token.linenums,
                 linenums_start=token.linenums_start,
                 highlight_lines=token.highlight_lines,
+            )
+            _append_content(node, stack, root)
+
+        elif isinstance(token, _AdmonitionToken):
+            body_nodes = _build_tree(token.body_tokens)
+            node = Admonition(
+                kind=token.kind,
+                title=token.title,
+                collapsible=token.collapsible,
+                children=body_nodes,
             )
             _append_content(node, stack, root)
 
