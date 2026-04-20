@@ -40,6 +40,17 @@ You are building a Python CLI tool that compiles MkDocs-flavoured Markdown into 
 12. local Confluence XHTML preview
 13. publish/update to Confluence
 
+## Developer tooling
+
+### Graphify (Copilot CLI skill)
+Installed via `uvx --from graphifyy graphify copilot install` into `~/.copilot/skills/graphify/`.
+Use `/graphify .` from within the Copilot CLI after significant milestones to build a queryable knowledge graph of the codebase (`graphify-out/graph.html`, `GRAPH_REPORT.md`, `graph.json`).
+The `graphify-out/` directory is git-ignored — regenerate as needed.
+
+### Context7 (MCP server)
+Configured in `~/.copilot/mcp-config.json`. Available automatically in all Copilot CLI sessions via `/mcp`.
+Provides live, version-accurate documentation for external libraries (MkDocs, Confluence REST API, Python-Markdown) — prevents hallucinated or outdated API details.
+
 ## External inspiration
 The GitHub project `Workable/confluence-docs-as-code` may be used as feature inspiration only.
 

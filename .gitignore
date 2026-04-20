@@ -25,3 +25,9 @@ htmlcov/
 # IDE
 .vscode/
 .idea/
+
+# Graphify knowledge graph outputs
+graphify-out/
+
+# macOS
+.DS_Store
