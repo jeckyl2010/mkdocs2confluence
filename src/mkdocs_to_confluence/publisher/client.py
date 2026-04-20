@@ -35,7 +35,10 @@ class ConfluenceClient:
             headers={
                 "Authorization": f"Basic {encoded}",
                 "Accept": "application/json",
-                "Content-Type": "application/json",
+                # Content-Type is intentionally NOT set globally — httpx
+                # sets it per-request (application/json for json=, multipart
+                # for files=).  A global Content-Type would prevent httpx from
+                # auto-setting the correct multipart boundary on uploads.
             },
             timeout=30.0,
         )
@@ -88,7 +91,11 @@ class ConfluenceClient:
     # ── Pages ──────────────────────────────────────────────────────────────────
 
     def find_page(self, space_id: str, title: str) -> dict[str, Any] | None:
-        """Return the page dict for *title* in *space_id*, or ``None``."""
+        """Return the page dict for *title* in *space_id*, or ``None``.
+
+        Only metadata (including ``version.number``) is requested — the body
+        is intentionally omitted to reduce response size.
+        """
         url = self._v2("/pages")
         resp = self._http.get(
             url,
@@ -96,7 +103,6 @@ class ConfluenceClient:
                 "spaceId": space_id,
                 "title": title,
                 "status": "current",
-                "body-format": "storage",
                 "limit": 1,
             },
         )
@@ -130,9 +136,12 @@ class ConfluenceClient:
         return resp.json()  # type: ignore[no-any-return]
 
     def update_page(self, page_id: str, title: str, body: str, version: int) -> dict[str, Any]:
-        """Update an existing page to a new version and return the page dict."""
+        """Update an existing page to a new version and return the page dict.
+
+        ``minorEdit`` is set so Confluence does not notify all page watchers
+        on every automated CI/CD publish.
+        """
         payload: dict[str, Any] = {
-            "id": page_id,
             "status": "current",
             "title": title,
             "body": {
@@ -142,6 +151,7 @@ class ConfluenceClient:
             "version": {
                 "number": version,
                 "message": "Updated by mk2conf",
+                "minorEdit": True,
             },
         }
         resp = self._http.put(self._v2(f"/pages/{page_id}"), json=payload)
@@ -151,9 +161,12 @@ class ConfluenceClient:
     # ── Attachments ────────────────────────────────────────────────────────────
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
-        """Return a ``{filename: metadata}`` mapping of all page attachments."""
-        url = self._v1(f"/content/{page_id}/child/attachment")
-        resp = self._http.get(url, params={"limit": 200})
+        """Return a ``{filename: metadata}`` mapping of all page attachments.
+
+        Uses the v2 ``GET /pages/{id}/attachments`` endpoint.
+        """
+        url = self._v2(f"/pages/{page_id}/attachments")
+        resp = self._http.get(url, params={"limit": 250})
         self._raise_for_status(resp, f"list_attachments({page_id!r})")
         results: list[dict[str, Any]] = resp.json().get("results", [])
         return {r["title"]: r for r in results}
@@ -162,27 +175,17 @@ class ConfluenceClient:
         """Upload (or replace) a file attachment on *page_id*.
 
         Confluence requires the ``X-Atlassian-Token: no-check`` header to
-        disable XSRF protection for attachment uploads.
+        disable XSRF protection for attachment uploads.  The v2 API has no
+        upload endpoint, so v1 is used here.
         """
         url = self._v1(f"/content/{page_id}/child/attachment")
         with path.open("rb") as fh:
             content = fh.read()
-
-        # Build multipart without the json Content-Type header
-        files = {"file": (filename, content)}
-        headers = {"X-Atlassian-Token": "no-check"}
-        # Remove Content-Type so httpx sets it correctly for multipart
-        upload_client = httpx.Client(
-            headers={
-                "Authorization": self._http.headers["Authorization"],
-                "Accept": "application/json",
-                "X-Atlassian-Token": "no-check",
-            },
-            timeout=60.0,
+        # Pass files= so httpx sets the correct multipart Content-Type boundary.
+        # X-Atlassian-Token is added per-request (not in the session headers).
+        resp = self._http.post(
+            url,
+            files={"file": (filename, content)},
+            headers={"X-Atlassian-Token": "no-check"},
         )
-        with upload_client:
-            resp = upload_client.post(url, files=files)
-        if resp.is_error:
-            raise ConfluenceError(
-                f"upload_attachment({filename!r}): HTTP {resp.status_code} — {resp.text[:400]}"
-            )
+        self._raise_for_status(resp, f"upload_attachment({filename!r})")
