@@ -163,12 +163,15 @@ def _plan_nodes(
     link_map: dict[str, str] | None = None,
 ) -> None:
     for node in nodes:
+        # Strip icon shortcodes from titles — nav titles bypass the body
+        # preprocessor and raw shortcodes render as ??? in Confluence.
+        clean_title = strip_icon_shortcodes(node.title).strip()
         if node.is_section:
-            existing = client.find_page(space_id, node.title)
+            existing = client.find_page(space_id, clean_title)
             action_kind: _Action = "create" if existing is None else "update"
             page_action = PageAction(
                 node=node,
-                title=node.title,
+                title=clean_title,
                 action=action_kind,
                 parent_id=parent_id,
                 xhtml="",  # section pages are empty
@@ -196,7 +199,7 @@ def _plan_nodes(
                 actions.append(
                     PageAction(
                         node=node,
-                        title=node.title,
+                        title=clean_title,
                         action="skip",
                         parent_id=parent_id,
                     )
@@ -209,17 +212,17 @@ def _plan_nodes(
                 actions.append(
                     PageAction(
                         node=node,
-                        title=node.title,
+                        title=clean_title,
                         action="skip",
                         parent_id=parent_id,
                     )
                 )
                 continue
 
-            existing = client.find_page(space_id, node.title)
+            existing = client.find_page(space_id, clean_title)
             page_action = PageAction(
                 node=node,
-                title=node.title,
+                title=clean_title,
                 action="create" if existing is None else "update",
                 parent_id=parent_id,
                 xhtml=xhtml,

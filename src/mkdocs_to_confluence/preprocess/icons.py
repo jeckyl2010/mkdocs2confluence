@@ -1,12 +1,18 @@
 """Icon shortcode preprocessing.
 
 Replaces MkDocs Material / FontAwesome / Octicons / Simple icon shortcodes
-(e.g. ``:material-check-circle:``) with the closest Unicode/emoji equivalent,
+(e.g. ``:material-check-circle:``) with the closest Unicode symbol equivalent,
 or strips them silently when no mapping is found.
 
 Strategy: split the icon name on ``-`` and test each part against a small
-keyword→emoji table.  The first matching keyword wins.  This keeps the
+keyword→symbol table.  The first matching keyword wins.  This keeps the
 mapping set tiny and maintainable without requiring a full icon inventory.
+
+**BMP-only constraint**: all mapped symbols must lie in the Unicode Basic
+Multilingual Plane (U+0000–U+FFFF, ≤ 3-byte UTF-8).  Supplementary-plane
+emoji (U+10000+, 4-byte UTF-8) are not stored correctly by Confluence
+deployments that use MySQL ``utf8`` (not ``utf8mb4``) and render as ``???``.
+Where no good BMP symbol exists the shortcode is stripped silently (``""``).
 """
 
 from __future__ import annotations
@@ -18,121 +24,130 @@ _ICON_RE = re.compile(
     r":(?:material|fontawesome|octicons|simple|twemoji)-[a-z0-9-]+:"
 )
 
-# Keyword → emoji.  Keys must be lowercase single words (icon name segments).
+# Keyword → symbol.  Keys must be lowercase single words (icon name segments).
+# ALL values must be BMP characters (U+0000–U+FFFF) or "" (strip silently).
 # Ordered so earlier, more-specific entries take priority where ambiguous.
 _KEYWORD_MAP: dict[str, str | None] = {
-    # Status / validation
-    "check": "✅",
-    "done": "✅",
-    "complete": "✅",
-    "success": "✅",
-    "verified": "✅",
-    "close": "❌",
-    "cancel": "❌",
-    "times": "❌",
-    "alert": "⚠️",
-    "warning": "⚠️",
-    "warn": "⚠️",
-    "caution": "⚠️",
-    "information": "ℹ️",
-    "info": "ℹ️",
-    "question": "❓",
-    "help": "❓",
-    "exclamation": "❗",
+    # Status / validation  (all BMP ✓)
+    "check": "✓",       # U+2713
+    "done": "✓",
+    "complete": "✓",
+    "success": "✓",
+    "verified": "✓",
+    "close": "✗",       # U+2717
+    "cancel": "✗",
+    "times": "✗",
+    "alert": "⚠",       # U+26A0
+    "warning": "⚠",
+    "warn": "⚠",
+    "caution": "⚠",
+    "information": "ℹ",  # U+2139
+    "info": "ℹ",
+    "question": "?",
+    "help": "?",
+    "exclamation": "!",
     # Navigation / directional
     "arrow": None,          # resolved with next segment — see _resolve()
     "chevron": None,
-    # Security
-    "lock": "🔒",
-    "security": "🔒",
-    "shield": "🔒",
-    "unlock": "🔓",
-    "key": "🔑",
+    # Security — no good BMP glyph; strip silently
+    "lock": "",
+    "security": "",
+    "shield": "",
+    "unlock": "",
+    "key": "",
     # Actions
-    "download": "⬇️",
-    "upload": "⬆️",
-    "refresh": "🔄",
-    "sync": "🔄",
-    "reload": "🔄",
-    "search": "🔍",
-    "magnify": "🔍",
-    "edit": "✏️",
-    "pencil": "✏️",
-    "pen": "✏️",
-    "copy": "📋",
-    "clipboard": "📋",
-    "trash": "🗑️",
-    "delete": "🗑️",
-    "add": "➕",
-    "plus": "➕",
-    "minus": "➖",
-    "link": "🔗",
-    "chain": "🔗",
+    "download": "↓",    # U+2193
+    "upload": "↑",      # U+2191
+    "refresh": "↻",     # U+21BB  (BMP)
+    "sync": "↻",
+    "reload": "↻",
+    "search": "",       # no reliable BMP magnifier glyph; strip
+    "magnify": "",
+    "edit": "✎",        # U+270E  (BMP pencil)
+    "pencil": "✎",
+    "pen": "✎",
+    "copy": "",         # strip
+    "clipboard": "",
+    "trash": "",        # strip
+    "delete": "",
+    "add": "+",
+    "plus": "+",
+    "minus": "−",       # U+2212 minus sign
+    "link": "",         # strip — no reliable BMP link-chain glyph
+    "chain": "",
     # Objects / content
-    "star": "⭐",
-    "favorite": "⭐",
-    "bookmark": "🔖",
-    "heart": "❤️",
-    "fire": "🔥",
-    "rocket": "🚀",
-    "launch": "🚀",
-    "home": "🏠",
-    "settings": "⚙️",
-    "cog": "⚙️",
-    "gear": "⚙️",
-    "wrench": "🔧",
-    "email": "📧",
-    "mail": "📧",
-    "envelope": "📧",
-    "phone": "📞",
-    "clock": "🕐",
-    "time": "🕐",
-    "calendar": "📅",
-    "date": "📅",
-    "folder": "📁",
-    "file": "📄",
-    "document": "📄",
-    "code": "💻",
-    "terminal": "💻",
-    "database": "🗄️",
-    "cloud": "☁️",
-    "globe": "🌍",
-    "world": "🌍",
-    "earth": "🌍",
-    "chart": "📊",
-    "graph": "📊",
-    "book": "📖",
-    "docs": "📖",
-    "note": "📝",
-    "tag": "🏷️",
-    "label": "🏷️",
-    "flag": "🚩",
-    "eye": "👁️",
-    "view": "👁️",
-    "user": "👤",
-    "account": "👤",
-    "person": "👤",
-    "group": "👥",
-    "people": "👥",
-    "team": "👥",
-    "robot": "🤖",
-    "bug": "🐛",
-    "test": "🧪",
-    "flask": "🧪",
-    "lightbulb": "💡",
-    "idea": "💡",
-    "package": "📦",
-    "server": "🖥️",
-    "network": "🌐",
-    "wifi": "📶",
-    "battery": "🔋",
-    "image": "🖼️",
-    "video": "🎬",
-    "music": "🎵",
-    "printer": "🖨️",
-    "keyboard": "⌨️",
-    "mouse": "🖱️",
-    "monitor": "🖥️",
+    "star": "★",        # U+2605  (BMP)
+    "favorite": "★",
+    "bookmark": "",     # strip
+    "heart": "♥",       # U+2665  (BMP)
+    "fire": "",         # strip
+    "rocket": "",       # strip
+    "launch": "",
+    "home": "",         # strip — ⌂ U+2302 exists but renders poorly
+    "settings": "⚙",   # U+2699  (BMP)
+    "cog": "⚙",
+    "gear": "⚙",
+    "wrench": "",       # strip
+    "email": "✉",       # U+2709  (BMP envelope)
+    "mail": "✉",
+    "envelope": "✉",
+    "phone": "☎",       # U+260E  (BMP telephone)
+    "clock": "",        # strip
+    "time": "",
+    "calendar": "",     # strip
+    "date": "",
+    "folder": "",       # strip
+    "file": "",
+    "document": "",
+    "code": "",         # strip
+    "terminal": "",
+    "database": "",     # strip
+    "cloud": "☁",       # U+2601  (BMP)
+    "globe": "",        # strip
+    "world": "",
+    "earth": "",
+    "chart": "",        # strip
+    "graph": "",
+    "book": "",         # strip
+    "docs": "",
+    "note": "",         # strip
+    "tag": "",          # strip
+    "label": "",
+    "flag": "",         # strip
+    "eye": "",          # strip — was wrongly matching grid/view icons
+    "view": "",         # strip — semantically ambiguous (grid-view ≠ eye)
+    "grid": "",         # strip — layout/grid icons have no BMP analogue
+    "user": "",         # strip
+    "account": "",
+    "person": "",
+    "group": "",        # strip
+    "people": "",
+    "team": "",
+    "robot": "",        # strip
+    "bug": "",          # strip
+    "test": "",         # strip
+    "flask": "",
+    "lightbulb": "",    # strip
+    "idea": "",
+    "package": "",      # strip
+    "server": "",
+    "network": "",      # strip
+    "wifi": "",
+    "battery": "",      # strip
+    "image": "",        # strip
+    "video": "",
+    "music": "♪",       # U+266A  (BMP)
+    "printer": "",      # strip
+    "keyboard": "⌨",   # U+2328  (BMP)
+    "mouse": "",        # strip
+    "monitor": "",      # strip
+    # Modifier suffixes — never meaningful on their own; always strip
+    "outline": "",
+    "variant": "",
+    "filled": "",
+    "sharp": "",
+    "circle": "",
+    "rounded": "",
 }
 
 # Directional arrows resolved from two-segment pairs like arrow-right
