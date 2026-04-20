@@ -188,12 +188,20 @@ def _emit_front_matter(node: FrontMatter) -> str:
     if node.subtitle:
         parts.append(f"<p><em>{html.escape(node.subtitle)}</em></p>\n")
 
-    if node.properties:
+    has_table = node.properties or node.source_url
+    if has_table:
         rows = "".join(
             f"    <tr><th>{html.escape(display)}</th>"
             f"<td>{html.escape(value)}</td></tr>\n"
             for display, value in node.properties
         )
+        if node.source_url:
+            label = html.escape("Edit source ↗")
+            href = html.escape(node.source_url)
+            rows += (
+                f'    <tr><th>Source</th>'
+                f'<td><a href="{href}">{label}</a></td></tr>\n'
+            )
         parts.append(
             '<ac:structured-macro ac:name="details">\n'
             "  <ac:rich-text-body>\n"

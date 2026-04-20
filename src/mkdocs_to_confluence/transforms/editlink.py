@@ -1,34 +1,32 @@
 """Edit-link injection transform.
 
-Prepends a Confluence ``info`` macro to the page containing a link back to the
-source file in the version-control repository.  This reinforces the
-"Confluence is read-only" contract — readers see an immediate prompt to edit
-the source rather than the Confluence page.
+Attaches the source-file URL to the page's :class:`~ir.nodes.FrontMatter`
+node so it appears as a **"Source"** row in the Confluence Page Properties
+table.  This keeps the link as structured metadata rather than a noisy
+banner admonition in the page body.
 
-The banner is only injected when :meth:`~loader.config.MkDocsConfig.page_edit_url`
-returns a non-empty URL (i.e. ``repo_url`` and ``edit_uri`` are both configured).
+If the page has no front matter a minimal :class:`~ir.nodes.FrontMatter`
+node is created and prepended so the row always appears.
+
+The link is only injected when :meth:`~loader.config.MkDocsConfig.page_edit_url`
+returns a non-empty URL (i.e. ``repo_url`` and ``edit_uri`` are both
+configured).
 """
 
 from __future__ import annotations
 
-from mkdocs_to_confluence.ir.nodes import (
-    Admonition,
-    IRNode,
-    LinkNode,
-    Paragraph,
-    TextNode,
-)
-
-_EDIT_TITLE = "Auto-generated page"
+from mkdocs_to_confluence.ir.nodes import FrontMatter, IRNode
 
 
-def inject_edit_link(
+def attach_source_url(
     nodes: tuple[IRNode, ...],
     edit_url: str,
-    *,
-    repo_url: str | None = None,
 ) -> tuple[IRNode, ...]:
-    """Prepend an ``info`` admonition with a source-edit link to *nodes*.
+    """Attach *edit_url* to the page's FrontMatter as a Source row.
+
+    If the first node is already a :class:`FrontMatter`, it is replaced with
+    a copy that has ``source_url`` set.  Otherwise a minimal
+    :class:`FrontMatter` is prepended.
 
     Parameters
     ----------
@@ -36,39 +34,28 @@ def inject_edit_link(
         Top-level IR nodes for the page.
     edit_url:
         Full URL to the source file edit view (e.g. GitHub edit URL).
-    repo_url:
-        Optional repository URL used to derive a short label like
-        ``"Edit on GitHub"`` or ``"Edit on GitLab"``.
 
     Returns
     -------
     tuple[IRNode, ...]
-        New nodes tuple with the banner prepended.
+        New nodes tuple with ``source_url`` attached to the FrontMatter.
     """
-    label = _edit_label(repo_url)
-    banner = _make_banner(edit_url, label)
-    return (banner,) + nodes
+    if nodes and isinstance(nodes[0], FrontMatter):
+        updated = FrontMatter(
+            title=nodes[0].title,
+            subtitle=nodes[0].subtitle,
+            properties=nodes[0].properties,
+            labels=nodes[0].labels,
+            source_url=edit_url,
+        )
+        return (updated,) + nodes[1:]
 
-
-def _edit_label(repo_url: str | None) -> str:
-    if repo_url:
-        if "github.com" in repo_url:
-            return "Edit on GitHub ↗"
-        if "gitlab.com" in repo_url or "gitlab." in repo_url:
-            return "Edit on GitLab ↗"
-        if "bitbucket.org" in repo_url:
-            return "Edit on Bitbucket ↗"
-    return "Edit source ↗"
-
-
-def _make_banner(edit_url: str, label: str) -> Admonition:
-    """Return an ``info`` admonition containing the edit link."""
-    link = LinkNode(href=edit_url, children=(TextNode(text=label),))
-    intro = TextNode(text="This page is auto-generated from source.  ")
-    body = Paragraph(children=(intro, link))
-    return Admonition(
-        kind="info",
-        title=_EDIT_TITLE,
-        children=(body,),
-        collapsible=False,
+    # No existing front matter — create a minimal one just for the source row.
+    minimal = FrontMatter(
+        title=None,
+        subtitle=None,
+        properties=(),
+        labels=(),
+        source_url=edit_url,
     )
+    return (minimal,) + nodes

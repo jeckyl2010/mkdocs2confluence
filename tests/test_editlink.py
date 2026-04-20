@@ -1,80 +1,58 @@
-"""Tests for the edit-link injection transform."""
+"""Tests for the edit-link / source-url attachment transform."""
 
 from __future__ import annotations
 
-from mkdocs_to_confluence.ir.nodes import Admonition, Paragraph, TextNode
-from mkdocs_to_confluence.transforms.editlink import inject_edit_link, _edit_label
+from mkdocs_to_confluence.ir.nodes import FrontMatter, Paragraph, TextNode
+from mkdocs_to_confluence.transforms.editlink import attach_source_url
 
 
-# ── _edit_label ───────────────────────────────────────────────────────────────
+# ── attach_source_url ─────────────────────────────────────────────────────────
 
 
-def test_label_github():
-    assert _edit_label("https://github.com/org/repo") == "Edit on GitHub ↗"
+def test_source_url_added_to_existing_front_matter():
+    """source_url is set on an existing FrontMatter node."""
+    fm = FrontMatter(title="My Page", subtitle=None, properties=(), labels=())
+    original = (fm, Paragraph(children=(TextNode(text="Hello"),)))
+    result = attach_source_url(original, "https://github.com/org/repo/edit/main/docs/index.md")
+    assert isinstance(result[0], FrontMatter)
+    assert result[0].source_url == "https://github.com/org/repo/edit/main/docs/index.md"
+    assert result[1] is original[1]
 
 
-def test_label_gitlab():
-    assert _edit_label("https://gitlab.com/org/repo") == "Edit on GitLab ↗"
-
-
-def test_label_bitbucket():
-    assert _edit_label("https://bitbucket.org/org/repo") == "Edit on Bitbucket ↗"
-
-
-def test_label_unknown():
-    assert _edit_label("https://custom.example.com/repo") == "Edit source ↗"
-
-
-def test_label_none():
-    assert _edit_label(None) == "Edit source ↗"
-
-
-# ── inject_edit_link ──────────────────────────────────────────────────────────
-
-
-def test_banner_prepended():
-    """Banner is the first node in the returned tuple."""
-    original = (Paragraph(children=(TextNode(text="Hello"),)),)
-    result = inject_edit_link(original, "https://github.com/org/repo/edit/main/docs/index.md")
-    assert len(result) == 2
-    assert isinstance(result[0], Admonition)
-    assert result[1] is original[0]
-
-
-def test_banner_kind_is_info():
-    result = inject_edit_link((), "https://example.com/edit/index.md")
-    assert result[0].kind == "info"  # type: ignore[attr-defined]
-
-
-def test_banner_contains_link():
-    """Banner body paragraph contains a link with the edit URL."""
-    from mkdocs_to_confluence.ir.nodes import LinkNode
-    result = inject_edit_link((), "https://github.com/org/repo/edit/main/docs/guide.md")
-    banner: Admonition = result[0]  # type: ignore[assignment]
-    para: Paragraph = banner.children[0]  # type: ignore[assignment]
-    links = [n for n in para.children if isinstance(n, LinkNode)]
-    assert len(links) == 1
-    assert links[0].href == "https://github.com/org/repo/edit/main/docs/guide.md"
-
-
-def test_banner_link_label_github():
-    from mkdocs_to_confluence.ir.nodes import LinkNode, TextNode as TN
-    result = inject_edit_link(
-        (), "https://github.com/org/repo/edit/main/docs/index.md",
-        repo_url="https://github.com/org/repo",
+def test_existing_front_matter_fields_preserved():
+    """Attaching source_url does not lose other FrontMatter fields."""
+    fm = FrontMatter(
+        title="My Page",
+        subtitle="A subtitle",
+        properties=(("Version", "1.0"),),
+        labels=("arch",),
     )
-    banner: Admonition = result[0]  # type: ignore[assignment]
-    para: Paragraph = banner.children[0]  # type: ignore[assignment]
-    link = next(n for n in para.children if isinstance(n, LinkNode))
-    label_text = link.children[0]
-    assert isinstance(label_text, TN)
-    assert "GitHub" in label_text.text
+    result = attach_source_url((fm,), "https://example.com/edit")
+    updated: FrontMatter = result[0]  # type: ignore[assignment]
+    assert updated.title == "My Page"
+    assert updated.subtitle == "A subtitle"
+    assert updated.properties == (("Version", "1.0"),)
+    assert updated.labels == ("arch",)
+    assert updated.source_url == "https://example.com/edit"
 
 
-def test_empty_nodes_still_gets_banner():
-    result = inject_edit_link((), "https://example.com/edit")
+def test_minimal_front_matter_created_when_none_present():
+    """A minimal FrontMatter is prepended when the page has no front matter."""
+    body = (Paragraph(children=(TextNode(text="Content"),)),)
+    result = attach_source_url(body, "https://example.com/edit")
+    assert len(result) == 2
+    assert isinstance(result[0], FrontMatter)
+    assert result[0].source_url == "https://example.com/edit"
+    assert result[0].title is None
+    assert result[0].properties == ()
+    assert result[1] is body[0]
+
+
+def test_empty_nodes_gets_minimal_front_matter():
+    result = attach_source_url((), "https://example.com/edit")
     assert len(result) == 1
-    assert isinstance(result[0], Admonition)
+    assert isinstance(result[0], FrontMatter)
+    assert result[0].source_url == "https://example.com/edit"
 
 
 # ── page_edit_url ─────────────────────────────────────────────────────────────
