@@ -35,7 +35,7 @@ from mkdocs_to_confluence.preprocess.includes import (
 )
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import _make_attachment_name, resolve_local_assets
-from mkdocs_to_confluence.transforms.editlink import inject_edit_link
+from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 
 if TYPE_CHECKING:
@@ -121,11 +121,11 @@ def compile_page(
     effective_link_map = link_map if link_map is not None else {}
     if node.docs_path:
         ir_nodes = resolve_internal_links(ir_nodes, effective_link_map, node.docs_path)
-    edit_url = config.page_edit_url(node.docs_path or "")
-    if edit_url:
-        ir_nodes = inject_edit_link(ir_nodes, edit_url, repo_url=config.repo_url)
     if front_matter is not None:
         ir_nodes = (front_matter,) + ir_nodes
+    edit_url = config.page_edit_url(node.docs_path or "")
+    if edit_url:
+        ir_nodes = attach_source_url(ir_nodes, edit_url)
 
     xhtml = emit(ir_nodes)
     return xhtml, attachments

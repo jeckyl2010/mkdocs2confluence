@@ -336,12 +336,16 @@ class FrontMatter(IRNode):
                     front matter extractor.
         labels:     Confluence page labels derived from the ``tags:`` field.
                     Applied via the REST API at publish time (not in XHTML).
+        source_url: Optional URL to the source file in the version-control
+                    repository.  Rendered as a clickable link row ("Source")
+                    at the bottom of the Page Properties table.
     """
 
     title: str | None
     subtitle: str | None
     properties: tuple[tuple[str, str], ...]
     labels: tuple[str, ...]
+    source_url: str | None = None
 
 
 # ── Graceful degradation ──────────────────────────────────────────────────────

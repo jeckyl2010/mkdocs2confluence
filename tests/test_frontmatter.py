@@ -176,3 +176,39 @@ def test_special_chars_escaped_in_properties():
     assert "&amp;" in xhtml
     assert "&lt;" in xhtml
     assert "O&#x27;Brien" in xhtml or "O&apos;Brien" in xhtml or "O&#39;" in xhtml or "O'" not in xhtml
+
+
+def test_source_url_renders_as_link_row():
+    fm = FrontMatter(
+        title=None,
+        subtitle=None,
+        properties=(),
+        labels=(),
+        source_url="https://github.com/org/repo/edit/main/docs/index.md",
+    )
+    xhtml = emit((fm,))
+    assert 'ac:name="details"' in xhtml
+    assert "<th>Source</th>" in xhtml
+    assert 'href="https://github.com/org/repo/edit/main/docs/index.md"' in xhtml
+
+
+def test_source_url_appears_after_other_properties():
+    fm = FrontMatter(
+        title=None,
+        subtitle=None,
+        properties=(("Version", "2.0"),),
+        labels=(),
+        source_url="https://example.com/edit",
+    )
+    xhtml = emit((fm,))
+    version_pos = xhtml.index("Version")
+    source_pos = xhtml.index("Source")
+    assert source_pos > version_pos, "Source row should appear after other properties"
+
+
+def test_source_url_alone_still_emits_details_macro():
+    """A page with no front matter but a source_url should show the table."""
+    fm = FrontMatter(title=None, subtitle=None, properties=(), labels=(), source_url="https://example.com/edit")
+    xhtml = emit((fm,))
+    assert 'ac:name="details"' in xhtml
+    assert "<th>Source</th>" in xhtml
