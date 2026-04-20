@@ -836,6 +836,30 @@ class TestListParsing:
         assert isinstance(ol, OrderedList)
         assert ol.start == 5
 
+    def test_loose_ordered_list_is_single_node(self) -> None:
+        """Blank lines between items (loose list) must not split into multiple OLs."""
+        nodes = parse("1. First\n\n1. Second\n\n1. Third\n")
+        ols = only(nodes, OrderedList)
+        assert len(ols) == 1, "loose ordered list must produce exactly one OrderedList"
+        assert len(ols[0].items) == 3
+
+    def test_loose_bullet_list_is_single_node(self) -> None:
+        """Blank lines between items (loose list) must not split into multiple ULs."""
+        nodes = parse("- Apple\n\n- Banana\n\n- Cherry\n")
+        uls = only(nodes, BulletList)
+        assert len(uls) == 1, "loose bullet list must produce exactly one BulletList"
+        assert len(uls[0].items) == 3
+
+    def test_loose_ordered_list_in_admonition(self) -> None:
+        """Loose ordered list inside an admonition must stay as one OrderedList."""
+        md = "!!! note\n    1. First\n\n    1. Second\n\n    1. Third\n"
+        nodes = parse(md)
+        adm = first(nodes, Admonition)
+        assert adm is not None
+        ols = only(adm.children, OrderedList)
+        assert len(ols) == 1, "loose ordered list in admonition must be a single OrderedList"
+        assert len(ols[0].items) == 3
+
 
 # ── Table parsing ─────────────────────────────────────────────────────────────
 

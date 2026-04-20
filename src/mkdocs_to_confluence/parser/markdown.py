@@ -349,6 +349,16 @@ def _tokenize(text: str) -> list[_Token]:
             while i < len(lines):
                 bm = _BULLET_RE.match(lines[i])
                 if not bm or bm.group("indent"):
+                    # Loose list: blank line(s) followed by another bullet item.
+                    if not lines[i].strip():
+                        j = i + 1
+                        while j < len(lines) and not lines[j].strip():
+                            j += 1
+                        if j < len(lines):
+                            peek = _BULLET_RE.match(lines[j])
+                            if peek and not peek.group("indent"):
+                                i = j  # skip blanks, resume at next item
+                                continue
                     break
                 item_text = bm.group("text")
                 task: bool | None = None
@@ -369,6 +379,16 @@ def _tokenize(text: str) -> list[_Token]:
             while i < len(lines):
                 om = _ORDERED_RE.match(lines[i])
                 if not om or om.group("indent"):
+                    # Loose list: blank line(s) followed by another ordered item.
+                    if not lines[i].strip():
+                        j = i + 1
+                        while j < len(lines) and not lines[j].strip():
+                            j += 1
+                        if j < len(lines):
+                            peek = _ORDERED_RE.match(lines[j])
+                            if peek and not peek.group("indent"):
+                                i = j  # skip blanks, resume at next item
+                                continue
                     break
                 ord_items.append(_ListItemData(text=om.group("text")))
                 i += 1
