@@ -181,6 +181,26 @@ def _emit_section(node: Section) -> str:
     return heading + body
 
 
+def _source_link_label(url: str) -> str:
+    """Return a platform-aware label for the source edit link.
+
+    Detects GitHub, GitLab and Bitbucket from the URL hostname and returns
+    "Edit in <Platform> ↗".  Falls back to "Edit source ↗" for anything else.
+    Only the proven-safe ↗ arrow is used — no emoji that may render as ??? on
+    Confluence Cloud.
+    """
+    lurl = url.lower()
+    if "github.com" in lurl:
+        platform = "GitHub"
+    elif "gitlab.com" in lurl or "gitlab." in lurl:
+        platform = "GitLab"
+    elif "bitbucket.org" in lurl:
+        platform = "Bitbucket"
+    else:
+        return "Edit source \u2197"
+    return f"Edit in {platform} \u2197"
+
+
 def _emit_front_matter(node: FrontMatter) -> str:
     """Emit front matter as an optional subtitle paragraph + Page Properties macro."""
     parts: list[str] = []
@@ -196,7 +216,7 @@ def _emit_front_matter(node: FrontMatter) -> str:
             for display, value in node.properties
         )
         if node.source_url:
-            label = html.escape("Edit source ↗")
+            label = html.escape(_source_link_label(node.source_url))
             href = html.escape(node.source_url)
             rows += (
                 f'    <tr><th>Source</th>'
