@@ -260,3 +260,40 @@ def test_asset_in_table_header_is_resolved(tmp_path: Path):
     assert len(images) == 1
     assert images[0].attachment_name == "assets_logo.png"
     assert len(attachments) == 1
+
+
+# ── URL-encoding ──────────────────────────────────────────────────────────────
+
+
+def test_url_encoded_internal_link():
+    """Percent-encoded hrefs like 'my%20page.md' resolve against real file paths."""
+    nav = _make_nav([("my page.md", "My Page")])
+    link_map = build_link_map(nav)
+    nodes = _nodes_with_link("my%20page.md")
+    result = resolve_internal_links(nodes, link_map, "index.md")
+    link = result[0].children[0]
+    assert link.is_internal is True
+    assert link.href == "My Page"
+
+
+def test_url_encoded_path_segment():
+    """Percent-encoded path segments are decoded before lookup."""
+    nav = _make_nav([("sub folder/page.md", "Sub Page")])
+    link_map = build_link_map(nav)
+    nodes = _nodes_with_link("sub%20folder/page.md")
+    result = resolve_internal_links(nodes, link_map, "index.md")
+    link = result[0].children[0]
+    assert link.is_internal is True
+    assert link.href == "Sub Page"
+
+
+def test_url_encoded_with_anchor():
+    """Percent-encoded href with fragment decodes before lookup; anchor is kept."""
+    nav = _make_nav([("my page.md", "My Page")])
+    link_map = build_link_map(nav)
+    nodes = _nodes_with_link("my%20page.md#section-one")
+    result = resolve_internal_links(nodes, link_map, "index.md")
+    link = result[0].children[0]
+    assert link.is_internal is True
+    assert link.href == "My Page"
+    assert link.anchor == "section-one"
