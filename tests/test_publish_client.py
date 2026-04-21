@@ -34,15 +34,17 @@ def _json_response(data: object, status_code: int = 200) -> httpx.Response:
 
 
 class _MockTransport(httpx.BaseTransport):
-    """Simple transport that returns a pre-configured response."""
+    """Simple transport that returns pre-configured responses in order."""
 
-    def __init__(self, response: httpx.Response) -> None:
-        self._response = response
+    def __init__(self, *responses: httpx.Response) -> None:
+        self._responses = list(responses)
         self.requests: list[httpx.Request] = []
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
-        return self._response
+        if len(self._responses) == 1:
+            return self._responses[0]
+        return self._responses[len(self.requests) - 1]
 
 
 # ── get_space_id ──────────────────────────────────────────────────────────────
@@ -97,7 +99,40 @@ def test_get_space_id_from_page_missing_raises() -> None:
             client.get_space_id_from_page("999")
 
 
-# ── find_page ─────────────────────────────────────────────────────────────────
+# ── set_page_full_width ───────────────────────────────────────────────────────
+
+
+def test_set_page_full_width_creates_property_when_absent() -> None:
+    """When GET returns 404, a POST is made to create the property."""
+    responses = [
+        httpx.Response(404, text="not found"),  # GET — property doesn't exist
+        httpx.Response(200, json={}),            # POST — create property
+    ]
+    transport = _MockTransport(*responses)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_full_width("42")
+    assert transport.requests[0].method == "GET"
+    assert transport.requests[1].method == "POST"
+
+
+def test_set_page_full_width_updates_property_when_present() -> None:
+    """When GET returns 200, a PUT is made with version + 1."""
+    existing = {"key": "content-appearance-published", "value": "default", "version": {"number": 3}}
+    responses = [
+        httpx.Response(200, json=existing),  # GET — property exists
+        httpx.Response(200, json={}),        # PUT — update property
+    ]
+    transport = _MockTransport(*responses)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_full_width("42")
+    assert transport.requests[1].method == "PUT"
+    import json
+    body = json.loads(transport.requests[1].content)
+    assert body["version"]["number"] == 4
 
 
 def test_find_page_returns_page_dict() -> None:

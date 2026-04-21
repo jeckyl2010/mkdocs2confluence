@@ -307,6 +307,7 @@ def execute_publish(
     dry_run: bool = False,
     space_id: str,
     docs_dir: Path,
+    full_width: bool = True,
 ) -> PublishReport:
     """Execute the publish plan.
 
@@ -369,6 +370,13 @@ def execute_publish(
                 child_action = action_by_node.get(id(child_node))
                 if child_action is not None:
                     child_action.parent_id = action.page_id
+
+        # Set full-width layout on newly created or updated pages.
+        if full_width and action.page_id:
+            try:
+                client.set_page_full_width(action.page_id)
+            except Exception:
+                pass  # non-fatal — page is published, layout is cosmetic
 
         # Upload all assets in parallel — always re-upload so updated files
         # (images, PDFs, Word, Excel, etc.) are never stale in Confluence.

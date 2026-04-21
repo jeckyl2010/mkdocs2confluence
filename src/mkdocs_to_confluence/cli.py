@@ -216,7 +216,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             print("error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml", file=sys.stderr)
             sys.exit(1)
         plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
-        report = execute_publish(plan, client, dry_run=False, space_id=space_id, docs_dir=config.docs_dir)
+        report = execute_publish(plan, client, dry_run=False, space_id=space_id, docs_dir=config.docs_dir, full_width=conf_config.full_width)
 
     print(str(report))
 
