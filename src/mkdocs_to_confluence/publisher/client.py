@@ -222,17 +222,29 @@ class ConfluenceClient:
         return {r["title"]: r for r in results}
 
     def upload_attachment(self, page_id: str, path: Path, filename: str) -> None:
-        """Upload (or replace) a file attachment on *page_id*.
+        """Upload or update a file attachment on *page_id*.
+
+        If an attachment with *filename* already exists on the page, its data
+        is replaced via the v1 update endpoint.  Otherwise a new attachment is
+        created.
 
         Confluence requires the ``X-Atlassian-Token: no-check`` header to
         disable XSRF protection for attachment uploads.  The v2 API has no
         upload endpoint, so v1 is used here.
         """
-        url = self._v1(f"/content/{page_id}/child/attachment")
         with path.open("rb") as fh:
             content = fh.read()
-        # Pass files= so httpx sets the correct multipart Content-Type boundary.
-        # X-Atlassian-Token is added per-request (not in the session headers).
+
+        # Check whether this filename already exists on the page.
+        existing = self.list_attachments(page_id)
+        existing_meta = existing.get(filename)
+
+        if existing_meta:
+            attachment_id = existing_meta["id"]
+            url = self._v1(f"/content/{page_id}/child/attachment/{attachment_id}/data")
+        else:
+            url = self._v1(f"/content/{page_id}/child/attachment")
+
         resp = self._http.post(
             url,
             files={"file": (filename, content)},

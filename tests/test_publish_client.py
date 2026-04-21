@@ -313,12 +313,16 @@ def test_upload_attachment_uses_multipart_content_type(tmp_path: Path) -> None:
     """The upload request must use multipart/form-data, not application/json."""
     img = tmp_path / "photo.png"
     img.write_bytes(b"\x89PNG\r\n")
-    transport = _MockTransport(_json_response({"results": []}, status_code=200))
+    # First response: list_attachments (empty), second: the upload itself
+    transport = _MockTransport(
+        _json_response({"results": []}),
+        _json_response({"results": []}, status_code=200),
+    )
     config = _make_config()
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         client.upload_attachment("99", img, "photo.png")
-    req = transport.requests[0]
+    req = transport.requests[1]  # second request is the upload
     content_type = req.headers.get("content-type", "")
     assert "multipart/form-data" in content_type, (
         f"Expected multipart/form-data but got: {content_type!r}"
@@ -328,19 +332,42 @@ def test_upload_attachment_uses_multipart_content_type(tmp_path: Path) -> None:
 def test_upload_attachment_sends_no_check_token(tmp_path: Path) -> None:
     img = tmp_path / "img.png"
     img.write_bytes(b"PNG")
-    transport = _MockTransport(_json_response({"results": []}, status_code=200))
+    transport = _MockTransport(
+        _json_response({"results": []}),
+        _json_response({"results": []}, status_code=200),
+    )
     config = _make_config()
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         client.upload_attachment("99", img, "img.png")
-    req = transport.requests[0]
+    req = transport.requests[1]
     assert req.headers.get("x-atlassian-token") == "no-check"
+
+
+def test_upload_attachment_updates_existing(tmp_path: Path) -> None:
+    """When attachment already exists, PUT to the existing attachment's data endpoint."""
+    img = tmp_path / "img.png"
+    img.write_bytes(b"PNG")
+    existing = {"results": [{"title": "img.png", "id": "att-42"}]}
+    transport = _MockTransport(
+        _json_response(existing),
+        _json_response({"id": "att-42"}, status_code=200),
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.upload_attachment("99", img, "img.png")
+    upload_req = transport.requests[1]
+    assert "/attachment/att-42/data" in str(upload_req.url)
 
 
 def test_upload_attachment_error_raises(tmp_path: Path) -> None:
     img = tmp_path / "img.png"
     img.write_bytes(b"PNG")
-    transport = _MockTransport(_json_response({"error": "forbidden"}, status_code=403))
+    transport = _MockTransport(
+        _json_response({"results": []}),
+        _json_response({"error": "forbidden"}, status_code=403),
+    )
     config = _make_config()
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
