@@ -296,7 +296,7 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 | **Abbreviation tooltips** | `*[ABBR]: definition` hover tooltips | No native tooltip support. First occurrence in body text is expanded inline (`ABBR (definition)`); remaining occurrences are left as-is. A Glossary section is appended for any abbreviations that only appear in headings or other non-expandable contexts. |
 | **Grid cards** (`<div class="grid" markdown>`) | Side-by-side admonition cards | Suppressed — Confluence has no equivalent responsive grid layout. The inner admonitions are still rendered individually. |
 | **Page width** | Full responsive width | Confluence defaults to a narrow fixed-width column. Set **Full width** in page settings (⚙️), or the upcoming `publish` command will set this automatically via the API. |
-| **HTML comments** | Author notes (`<!-- ... -->`) | Stripped — no Confluence equivalent. |
+| **Page ordering** | Nav order from `mkdocs.yml` | Confluence sorts child pages alphabetically by default. The Confluence REST API v2 exposes `childPosition` as a readable field but provides no write endpoint to set it. The v1 API has a `PUT /content/{id}/move/{position}/{targetId}` endpoint that can reorder pages, but it is not available in v2 and may be deprecated in future. Until Atlassian adds writable ordering to v2, nav order cannot be reliably enforced. |
 
 ---
 
@@ -312,7 +312,7 @@ Planned features, roughly in priority order:
 
 **Completed:**
 
-- [x] **Parallel asset uploads** — assets (images, PDFs, Word, Excel, etc.) are uploaded concurrently per page via a `ThreadPoolExecutor` (up to 8 workers), replacing the previous sequential loop
+- [x] **Sequential asset uploads** — assets (images, PDFs, Word, Excel, etc.) are uploaded one at a time per page; Confluence holds a page-level write lock per attachment POST so concurrent uploads cause HTTP 500 transaction rollbacks
 - [x] **Publish summary report** — structured output after every run (`N created, N updated, N skipped · N assets uploaded`); `--report FILE` writes a JSON report; non-zero exit on errors
 - [x] **Source link in Page Properties** — each published page includes a link back to its editable source file in GitHub/GitLab as a row in the Page Properties table (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
 - [x] **Confluence REST API v2 compliance** — `minorEdit: true` prevents watcher notifications on automated updates; `find_page` no longer fetches the full page body; `id` removed from PUT body; `list_attachments` migrated to v2 endpoint; session `Content-Type` fixed for multipart uploads
