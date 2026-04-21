@@ -79,6 +79,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Relative path to a single markdown file to publish (optional).",
     )
+    publish.add_argument(
+        "--report",
+        metavar="FILE",
+        default=None,
+        help="Write a JSON publish report to FILE after the run.",
+    )
 
     return parser
 
@@ -165,9 +171,22 @@ def _cmd_publish(args: argparse.Namespace) -> None:
     with ConfluenceClient(conf_config) as client:
         space_id = client.get_space_id(conf_config.space_key)
         plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
-        results = execute_publish(plan, client, dry_run=False, space_id=space_id, docs_dir=config.docs_dir)
+        report = execute_publish(plan, client, dry_run=False, space_id=space_id, docs_dir=config.docs_dir)
 
-    created = sum(1 for r in results if r.action == "create" and r.page_id)
-    updated = sum(1 for r in results if r.action == "update" and r.page_id)
-    skipped = sum(1 for r in results if r.action == "skip")
-    print(f"Published: {created} created, {updated} updated, {skipped} skipped")
+    print(str(report))
+
+    if getattr(args, "report", None):
+        import json as _json
+
+        report_data = {
+            "created": report.created,
+            "updated": report.updated,
+            "skipped": report.skipped,
+            "assets_uploaded": report.assets_uploaded,
+            "errors": [{"page": t, "error": m} for t, m in report.errors],
+        }
+        Path(args.report).write_text(_json.dumps(report_data, indent=2), encoding="utf-8")
+        print(f"Report written to {args.report}")
+
+    if report.errors:
+        sys.exit(1)

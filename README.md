@@ -306,14 +306,14 @@ Planned features, roughly in priority order:
 
 - [ ] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav, so you don't have to publish everything from root or target a single file. Supports nested paths (`"Guide/Setup"`).
 - [ ] **Asset re-upload on every publish** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) are re-uploaded on every run so updated files are never left stale in Confluence. Confluence handles attachment versioning internally.
-- [ ] **Parallel asset uploads** — `asyncio` + `httpx.AsyncClient` to upload multiple attachments concurrently per page instead of sequentially.
-- [ ] **Publish summary report** — structured output after each run (pages created / updated / skipped, attachments uploaded, errors); optional `--report` flag to write a JSON file.
 - [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.
 - [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column.
 - [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the instance has a Mermaid plugin). Pre-rendering via self-hosted [Kroki](https://kroki.io) (`docker run -p 8000:8000 yuzutech/kroki`) is the preferred future path — no browser dependency.
 
 **Completed:**
 
+- [x] **Parallel asset uploads** — assets (images, PDFs, Word, Excel, etc.) are uploaded concurrently per page via a `ThreadPoolExecutor` (up to 8 workers), replacing the previous sequential loop
+- [x] **Publish summary report** — structured output after every run (`N created, N updated, N skipped · N assets uploaded`); `--report FILE` writes a JSON report; non-zero exit on errors
 - [x] **Source link in Page Properties** — each published page includes a link back to its editable source file in GitHub/GitLab as a row in the Page Properties table (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
 - [x] **Confluence REST API v2 compliance** — `minorEdit: true` prevents watcher notifications on automated updates; `find_page` no longer fetches the full page body; `id` removed from PUT body; `list_attachments` migrated to v2 endpoint; session `Content-Type` fixed for multipart uploads
 - [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to BMP-safe Unicode symbols (≤ U+FFFF); unknown shortcodes stripped cleanly; nav titles are also cleaned

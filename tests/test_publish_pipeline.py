@@ -331,3 +331,90 @@ class TestExecutePublish:
         _, _, att_name = client.upload_attachment.call_args.args
         assert att_name == "assets_images_logo.png"
         assert att_name != "logo.png"
+
+    def test_returns_publish_report(self, tmp_path: Path) -> None:
+        """execute_publish must return a PublishReport with accurate counts."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport, execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page_node = _make_page_node("Alpha", tmp_path, docs_dir)
+        skip_node = _make_page_node("Beta", tmp_path, docs_dir)
+
+        plan = [
+            PageAction(node=page_node, title="Alpha", action="create",
+                       parent_id="ROOT", xhtml="<p/>"),
+            PageAction(node=skip_node, title="Beta", action="skip",
+                       parent_id="ROOT"),
+        ]
+        client = _make_execute_client()
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert isinstance(report, PublishReport)
+        assert report.created == 1
+        assert report.skipped == 1
+        assert report.updated == 0
+        assert report.errors == []
+
+    def test_report_counts_assets_uploaded(self, tmp_path: Path) -> None:
+        """assets_uploaded in the report must count all uploaded files."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        img1 = docs_dir / "a.png"
+        img2 = docs_dir / "b.pdf"
+        img1.write_bytes(b"PNG")
+        img2.write_bytes(b"PDF")
+
+        page_node = _make_page_node("Page", tmp_path, docs_dir)
+        plan = [
+            PageAction(node=page_node, title="Page", action="create",
+                       parent_id="ROOT", xhtml="<p/>", attachments=[img1, img2]),
+        ]
+        client = _make_execute_client()
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert report.assets_uploaded == 2
+        assert client.upload_attachment.call_count == 2
+
+    def test_report_captures_page_error(self, tmp_path: Path) -> None:
+        """A page that fails to create is logged in report.errors."""
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page_node = _make_page_node("Broken", tmp_path, docs_dir)
+
+        client = _make_execute_client()
+        client.create_page.side_effect = ConfluenceError("500 boom")
+
+        plan = [PageAction(node=page_node, title="Broken", action="create",
+                           parent_id="ROOT", xhtml="<p/>")]
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert report.created == 0
+        assert len(report.errors) == 1
+        assert "Broken" in report.errors[0][0]
+
+    def test_parallel_uploads_all_called(self, tmp_path: Path) -> None:
+        """All attachments are uploaded even when running in parallel."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        files = []
+        for i in range(5):
+            f = docs_dir / f"asset_{i}.png"
+            f.write_bytes(b"X")
+            files.append(f)
+
+        page_node = _make_page_node("Multi", tmp_path, docs_dir)
+        plan = [PageAction(node=page_node, title="Multi", action="create",
+                           parent_id="ROOT", xhtml="<p/>", attachments=files)]
+        client = _make_execute_client()
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert client.upload_attachment.call_count == 5
+        assert report.assets_uploaded == 5
