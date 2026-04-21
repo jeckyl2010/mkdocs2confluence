@@ -58,7 +58,12 @@ class ConfluenceClient:
         return self._client
 
     def _base(self) -> str:
-        return self._config.base_url.rstrip("/")
+        # Strip trailing slash and any trailing /wiki so users can supply either
+        # "https://org.atlassian.net" or "https://org.atlassian.net/wiki".
+        url = self._config.base_url.rstrip("/")
+        if url.endswith("/wiki"):
+            url = url[: -len("/wiki")]
+        return url
 
     def _v2(self, path: str) -> str:
         return f"{self._base()}/wiki/api/v2{path}"

@@ -99,7 +99,23 @@ def test_get_space_id_from_page_missing_raises() -> None:
             client.get_space_id_from_page("999")
 
 
-# ── set_page_full_width ───────────────────────────────────────────────────────
+def test_base_url_with_trailing_wiki_is_stripped() -> None:
+    """base_url ending in /wiki must not produce double /wiki in requests."""
+    payload = {"id": "999", "spaceId": "42", "title": "Parent Page"}
+    transport = _MockTransport(_json_response(payload))
+    config = ConfluenceConfig(
+        base_url="https://example.atlassian.net/wiki",
+        space_key="TECH",
+        email="user@example.com",
+        token="tok",
+    )
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.get_space_id_from_page("999")
+    url = str(transport.requests[0].url)
+    assert "/wiki/wiki/" not in url
+    assert url.endswith("/wiki/api/v2/pages/999")
+
 
 
 def test_set_page_full_width_creates_property_when_absent() -> None:

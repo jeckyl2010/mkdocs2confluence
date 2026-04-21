@@ -19,7 +19,7 @@ class ConfigError(ValueError):
 class ConfluenceConfig:
     """Confluence Cloud connection settings, parsed from the ``confluence:`` block."""
 
-    base_url: str           # https://yourorg.atlassian.net (no trailing slash)
+    base_url: str           # https://yourorg.atlassian.net or https://yourorg.atlassian.net/wiki
     email: str              # Basic auth user email
     token: str              # API token (may be empty — callers check truthiness)
     space_key: str | None = None          # e.g. "TECH" — optional if parent_page_id given
