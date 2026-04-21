@@ -191,7 +191,7 @@ def _emit_front_matter(node: FrontMatter) -> str:
     has_table = node.properties or node.source_url
     if has_table:
         rows = "".join(
-            f'    <tr><th style="width:20%">{html.escape(display)}</th>'
+            f"    <tr><th>{html.escape(display)}</th>"
             f"<td>{html.escape(value)}</td></tr>\n"
             for display, value in node.properties
         )
@@ -199,7 +199,7 @@ def _emit_front_matter(node: FrontMatter) -> str:
             label = html.escape("Edit source ↗")
             href = html.escape(node.source_url)
             rows += (
-                f'    <tr><th style="width:20%">Source</th>'
+                f'    <tr><th>Source</th>'
                 f'<td><a href="{href}">{label}</a></td></tr>\n'
             )
         parts.append(
