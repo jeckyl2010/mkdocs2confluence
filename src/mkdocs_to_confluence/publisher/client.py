@@ -170,6 +170,7 @@ class ConfluenceClient:
         on every automated CI/CD publish.
         """
         payload: dict[str, Any] = {
+            "id": page_id,
             "status": "current",
             "title": title,
             "body": {

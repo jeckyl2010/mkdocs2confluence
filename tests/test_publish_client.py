@@ -254,8 +254,8 @@ def test_update_page_sets_minor_edit() -> None:
     assert body["version"]["minorEdit"] is True
 
 
-def test_update_page_does_not_include_id_in_body() -> None:
-    """Page ID belongs in the URL path only — not in the PUT request body."""
+def test_update_page_includes_id_in_body() -> None:
+    """Confluence v2 PUT /pages/{id} requires id in the request body."""
     returned_page = {"id": "99", "title": "Updated", "version": {"number": 2}}
     transport = _MockTransport(_json_response(returned_page))
     config = _make_config()
@@ -263,7 +263,7 @@ def test_update_page_does_not_include_id_in_body() -> None:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         client.update_page("99", "Updated", "<p>new</p>", version=2)
     body = json.loads(transport.requests[0].content)
-    assert "id" not in body
+    assert body["id"] == "99"
 
 
 def test_update_page_error_raises() -> None:
