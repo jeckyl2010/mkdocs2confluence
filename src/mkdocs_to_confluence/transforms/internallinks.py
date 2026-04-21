@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import posixpath
+from urllib.parse import unquote
 
 from mkdocs_to_confluence.ir.nodes import IRNode, LinkNode, walk
 from mkdocs_to_confluence.loader.nav import NavNode, flat_pages
@@ -111,6 +112,9 @@ def _resolve_md_href(href: str, current_docs_path: str) -> tuple[str, str] | Non
         path_part, anchor = href.split("#", 1)
     else:
         path_part, anchor = href, ""
+
+    # Decode percent-encoding so "my%20page.md" matches "my page.md" on disk
+    path_part = unquote(path_part)
 
     if not path_part.endswith(".md"):
         return None

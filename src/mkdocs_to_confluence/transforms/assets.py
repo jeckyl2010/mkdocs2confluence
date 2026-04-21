@@ -15,6 +15,7 @@ from __future__ import annotations
 import dataclasses
 import warnings
 from pathlib import Path
+from urllib.parse import unquote
 
 from mkdocs_to_confluence.ir.nodes import (
     IRNode,
@@ -102,7 +103,7 @@ def resolve_local_assets(
                 if "/" not in href and "." not in href:
                     # Bare word with no extension/slash — skip
                     continue
-                candidate = _resolve_path(href.split("#")[0], page_dir, docs_dir)
+                candidate = _resolve_path(unquote(href.split("#")[0]), page_dir, docs_dir)
                 if candidate is None:
                     warnings.warn(
                         f"Local file link not found and will render as plain text: {href!r}",
