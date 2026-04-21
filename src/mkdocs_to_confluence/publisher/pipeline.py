@@ -29,6 +29,11 @@ from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
     strip_abbreviation_defs,
 )
+from mkdocs_to_confluence.preprocess.linkdefs import (
+    collect_link_defs,
+    expand_link_refs,
+    strip_link_defs,
+)
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
 from mkdocs_to_confluence.preprocess.includes import (
@@ -143,6 +148,9 @@ def compile_page(
     front_matter, preprocessed = extract_front_matter(preprocessed)
     abbrevs = extract_abbreviations(preprocessed)
     preprocessed = strip_abbreviation_defs(preprocessed)
+    link_defs = collect_link_defs(preprocessed)
+    preprocessed = expand_link_refs(preprocessed, link_defs)
+    preprocessed = strip_link_defs(preprocessed)
     ir_nodes = parse(preprocessed)
     ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
     ir_nodes, attachments = resolve_local_assets(
