@@ -305,7 +305,7 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 Planned features, roughly in priority order:
 
 - [ ] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav, so you don't have to publish everything from root or target a single file. Supports nested paths (`"Guide/Setup"`).
-- [ ] **Asset change detection** — SHA-256 content hashing per attachment so only changed assets are re-uploaded. Covers all attachment types: images (PNG, SVG, JPG), documents (PDF, DOCX, XLSX, PPTX), and any other locally linked file. Currently the publisher skips re-upload for any attachment that already exists in Confluence by name.
+- [ ] **Asset re-upload on every publish** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) are re-uploaded on every run so updated files are never left stale in Confluence. Confluence handles attachment versioning internally.
 - [ ] **Parallel asset uploads** — `asyncio` + `httpx.AsyncClient` to upload multiple attachments concurrently per page instead of sequentially.
 - [ ] **Publish summary report** — structured output after each run (pages created / updated / skipped, attachments uploaded, errors); optional `--report` flag to write a JSON file.
 - [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.

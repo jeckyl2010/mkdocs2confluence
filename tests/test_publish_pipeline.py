@@ -232,7 +232,6 @@ def _make_execute_client(space_id: str = "~42") -> MagicMock:
 
     client.create_page.side_effect = create_page
     client.update_page.return_value = {"id": 99, "version": {"number": 2}}
-    client.list_attachments.return_value = {}
     return client
 
 
