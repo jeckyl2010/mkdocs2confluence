@@ -8,7 +8,7 @@ from pathlib import Path
 
 from mkdocs_to_confluence import __version__
 from mkdocs_to_confluence.loader.config import load_config
-from mkdocs_to_confluence.loader.nav import resolve_nav
+from mkdocs_to_confluence.loader.nav import find_section, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.publisher.pipeline import compile_page
@@ -56,6 +56,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Render macros as browser-viewable HTML instead of raw Confluence XHTML.",
     )
+    preview.add_argument(
+        "--section",
+        metavar="NAME",
+        default=None,
+        help="Restrict link map to a nav section (slash-separated path, e.g. 'Guide/Setup').",
+    )
 
     # --- publish ---
     publish = sub.add_parser(
@@ -78,6 +84,15 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         default=None,
         help="Relative path to a single markdown file to publish (optional).",
+    )
+    publish.add_argument(
+        "--section",
+        metavar="NAME",
+        default=None,
+        help=(
+            "Publish only a nav section subtree (slash-separated path, e.g. 'Guide' or "
+            "'Guide/Setup'). Cannot be combined with --page."
+        ),
     )
     publish.add_argument(
         "--report",
@@ -108,6 +123,15 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     config = load_config(config_path)
 
     nodes = resolve_nav(config)
+
+    # Optionally scope link resolution to a section subtree
+    if getattr(args, "section", None):
+        section_node = find_section(nodes, args.section)
+        if section_node is None:
+            print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
+            sys.exit(1)
+        nodes = [section_node]
+
     node = find_page(nodes, args.page)
     if node is None:
         print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)
@@ -148,6 +172,14 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
     nav_nodes = resolve_nav(config)
 
+    # Section filter (--section takes precedence; --page is a secondary filter)
+    if getattr(args, "section", None):
+        section_node = find_section(nav_nodes, args.section)
+        if section_node is None:
+            print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
+            sys.exit(1)
+        nav_nodes = [section_node]
+
     # Single-page filter
     if getattr(args, "page", None):
         node = find_page(nav_nodes, args.page)
@@ -157,8 +189,6 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         nav_nodes = [node]
 
     if args.dry_run:
-        from mkdocs_to_confluence.loader.nav import flat_pages
-
         pages = flat_pages(nav_nodes)
         print(f"Dry run: would publish {len(pages)} pages to {conf_config.base_url}")
         for page in pages:

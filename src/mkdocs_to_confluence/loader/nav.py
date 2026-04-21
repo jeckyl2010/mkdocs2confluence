@@ -150,3 +150,35 @@ def flat_pages(nodes: list[NavNode]) -> list[NavNode]:
             result.append(node)
         result.extend(flat_pages(list(node.children)))
     return result
+
+
+def find_section(nodes: list[NavNode], path: str) -> NavNode | None:
+    """Find a nav node by slash-separated title path.
+
+    Each segment is matched against node titles, case-insensitively.  An exact
+    match is preferred over a partial (contains) match at each level.
+
+    Examples::
+
+        find_section(nav, "Guide")
+        find_section(nav, "Guide/Getting Started")
+
+    Returns the matched :class:`NavNode`, or ``None`` when not found.
+    """
+    segments = [s.strip() for s in path.split("/") if s.strip()]
+    if not segments:
+        return None
+
+    current = nodes
+    matched: NavNode | None = None
+
+    for segment in segments:
+        seg_lower = segment.lower()
+        exact = next((n for n in current if n.title.lower() == seg_lower), None)
+        partial = next((n for n in current if seg_lower in n.title.lower()), None)
+        matched = exact or partial
+        if matched is None:
+            return None
+        current = list(matched.children)
+
+    return matched

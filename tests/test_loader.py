@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from mkdocs_to_confluence.loader.config import ConfigError, MkDocsConfig, load_config
-from mkdocs_to_confluence.loader.nav import flat_pages, resolve_nav
+from mkdocs_to_confluence.loader.nav import NavNode, find_section, flat_pages, resolve_nav
 
 # ---------------------------------------------------------------------------
 # load_config — happy paths
@@ -285,6 +285,71 @@ class TestFlatPages:
         nodes = resolve_nav(config)
         pages = flat_pages(nodes)
         assert not any(p.is_section for p in pages)
+
+
+
+# ---------------------------------------------------------------------------
+# find_section helper
+# ---------------------------------------------------------------------------
+
+_SECTION_NODES: list[NavNode] = [
+    NavNode(
+        title="Guide",
+        docs_path=None,
+        source_path=None,
+        level=0,
+        children=(
+            NavNode(title="Getting Started", docs_path="guide/start.md", source_path=None, level=1, children=()),
+            NavNode(title="Installation", docs_path="guide/install.md", source_path=None, level=1, children=()),
+        ),
+    ),
+    NavNode(title="About", docs_path="about.md", source_path=None, level=0, children=()),
+]
+
+
+class TestFindSection:
+    def test_exact_top_level(self) -> None:
+        result = find_section(_SECTION_NODES, "Guide")
+        assert result is not None
+        assert result.title == "Guide"
+
+    def test_case_insensitive(self) -> None:
+        result = find_section(_SECTION_NODES, "guide")
+        assert result is not None
+        assert result.title == "Guide"
+
+    def test_partial_match(self) -> None:
+        result = find_section(_SECTION_NODES, "Abo")
+        assert result is not None
+        assert result.title == "About"
+
+    def test_nested_path(self) -> None:
+        result = find_section(_SECTION_NODES, "Guide/Getting Started")
+        assert result is not None
+        assert result.title == "Getting Started"
+
+    def test_nested_path_partial(self) -> None:
+        result = find_section(_SECTION_NODES, "Guide/install")
+        assert result is not None
+        assert result.title == "Installation"
+
+    def test_not_found_returns_none(self) -> None:
+        assert find_section(_SECTION_NODES, "Nonexistent") is None
+
+    def test_missing_child_returns_none(self) -> None:
+        assert find_section(_SECTION_NODES, "Guide/Missing") is None
+
+    def test_empty_path_returns_none(self) -> None:
+        assert find_section(_SECTION_NODES, "") is None
+
+    def test_exact_preferred_over_partial(self) -> None:
+        nodes: list[NavNode] = [
+            NavNode(title="Setup", docs_path="setup.md", source_path=None, level=0, children=()),
+            NavNode(title="Setup Guide", docs_path="setup-guide.md", source_path=None, level=0, children=()),
+        ]
+        result = find_section(nodes, "Setup")
+        assert result is not None
+        assert result.title == "Setup"
 
 
 # ---------------------------------------------------------------------------
