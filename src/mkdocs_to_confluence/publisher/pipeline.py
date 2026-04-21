@@ -6,13 +6,14 @@ The pipeline has two phases:
    ``create``, ``update``, or ``skip`` it in Confluence.
 2. **execute** — carry out the plan, creating/updating pages and uploading
    attachments in nav order so parent pages always exist before their children.
-   Attachments for each page are uploaded in parallel via a thread pool.
+   Attachments for each page are uploaded sequentially — Confluence holds a
+   page-level lock during each attachment write, so concurrent POSTs to the
+   same page cause transaction rollbacks.
 """
 
 from __future__ import annotations
 
 import dataclasses
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -54,8 +55,6 @@ if TYPE_CHECKING:
 _Action = Literal["create", "update", "skip", "section"]
 
 _FRONT_MATTER_RE = __import__("re").compile(r"\A---\s*\n(.*?\n?)---\s*\n?", __import__("re").DOTALL)
-
-_MAX_UPLOAD_WORKERS = 8
 
 
 @dataclass
@@ -286,19 +285,22 @@ def _plan_nodes(
 # ── Execution ─────────────────────────────────────────────────────────────────
 
 
-def _upload_assets_parallel(
+def _upload_assets(
     page_id: str,
     attachments: list[Path],
     docs_dir: Path,
     client: ConfluenceClient,
 ) -> tuple[int, list[tuple[str, str]]]:
-    """Upload attachments for one page concurrently.
+    """Upload attachments for one page **sequentially**.
 
-    Fetches the existing attachment listing once before spawning threads so
-    that all workers share the same pre-fetch result.  This prevents a race
-    where every thread calls ``list_attachments`` simultaneously, all see the
-    page as empty, and all try to CREATE the same file — which causes Confluence
-    to roll back the transaction with HTTP 500.
+    Confluence holds a page-level write lock while processing each attachment
+    POST.  Submitting concurrent requests to the same page causes the second
+    (and any later) transaction to be rolled back with HTTP 500 "transaction
+    marked as rollback-only".
+
+    Fetching the existing attachment listing once before the loop avoids
+    redundant API calls and correctly determines create vs. update for each
+    file.
 
     Returns ``(uploaded_count, errors)`` where errors is a list of
     ``(attachment_name, error_message)`` pairs.
@@ -307,22 +309,15 @@ def _upload_assets_parallel(
     uploaded = 0
     errors: list[tuple[str, str]] = []
 
-    # Pre-fetch once; all threads read this dict (read-only — no lock needed).
+    # Fetch once; reuse across all uploads (read-only).
     existing = client.list_attachments(page_id)
 
-    workers = min(_MAX_UPLOAD_WORKERS, len(pairs))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(client.upload_attachment, page_id, path, name, existing): name
-            for name, path in pairs
-        }
-        for future in as_completed(futures):
-            name = futures[future]
-            try:
-                future.result()
-                uploaded += 1
-            except Exception as exc:
-                errors.append((name, str(exc)))
+    for name, path in pairs:
+        try:
+            client.upload_attachment(page_id, path, name, existing)
+            uploaded += 1
+        except Exception as exc:
+            errors.append((name, str(exc)))
 
     return uploaded, errors
 
@@ -343,8 +338,8 @@ def execute_publish(
     create/update), all direct children in the plan have their ``parent_id``
     updated immediately.
 
-    Attachments for each page are uploaded in parallel via a thread pool
-    (up to :data:`_MAX_UPLOAD_WORKERS` concurrent uploads).
+    Attachments for each page are uploaded sequentially to avoid Confluence
+    transaction rollbacks caused by concurrent writes to the same page.
 
     Returns a :class:`PublishReport` summarising what was created, updated,
     skipped, and how many assets were uploaded.
@@ -415,7 +410,7 @@ def execute_publish(
         # Upload all assets in parallel — always re-upload so updated files
         # (images, PDFs, Word, Excel, etc.) are never stale in Confluence.
         if action.page_id and action.attachments:
-            uploaded, asset_errors = _upload_assets_parallel(
+            uploaded, asset_errors = _upload_assets(
                 action.page_id, action.attachments, docs_dir, client
             )
             report.assets_uploaded += uploaded
