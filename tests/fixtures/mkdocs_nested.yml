@@ -5,4 +5,6 @@ nav:
   - Home: index.md
   - Guide:
       - Getting Started: guide/getting-started.md
+      - Installation: guide/installation.md
+      - Configuration: guide/configuration.md
   - About: about.md

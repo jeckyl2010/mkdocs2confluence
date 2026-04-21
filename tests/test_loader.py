@@ -182,8 +182,8 @@ class TestResolveNavHappyPath:
         config = load_config(nested_config_path)
         nodes = resolve_nav(config)
         section = next(n for n in nodes if n.is_section)
-        assert len(section.children) == 1
-        assert section.children[0].level == 1
+        assert len(section.children) == 3  # Getting Started, Installation, Configuration
+        assert all(child.level == 1 for child in section.children)
 
     def test_nested_nav_child_title(self, nested_config_path: Path) -> None:
         config = load_config(nested_config_path)
@@ -276,6 +276,8 @@ class TestFlatPages:
         titles = [p.title for p in pages]
         assert "Home" in titles
         assert "Getting Started" in titles
+        assert "Installation" in titles
+        assert "Configuration" in titles
         assert "About" in titles
         # sections must not appear in flat list
         assert all(p.is_page for p in pages)
@@ -285,6 +287,27 @@ class TestFlatPages:
         nodes = resolve_nav(config)
         pages = flat_pages(nodes)
         assert not any(p.is_section for p in pages)
+
+    def test_section_scope_returns_all_pages(self, nested_config_path: Path) -> None:
+        """All pages within a section are returned — not just the first one."""
+        config = load_config(nested_config_path)
+        nodes = resolve_nav(config)
+        section = find_section(nodes, "Guide")
+        assert section is not None
+        pages = flat_pages([section])
+        titles = [p.title for p in pages]
+        assert titles == ["Getting Started", "Installation", "Configuration"]
+        assert "Home" not in titles
+        assert "About" not in titles
+
+    def test_section_scope_excludes_sibling_sections(self, nested_config_path: Path) -> None:
+        """Pages from other sections are not included when scoping to a section."""
+        config = load_config(nested_config_path)
+        nodes = resolve_nav(config)
+        section = find_section(nodes, "Guide")
+        assert section is not None
+        pages = flat_pages([section])
+        assert all(p.docs_path is not None and p.docs_path.startswith("guide/") for p in pages)
 
 
 
