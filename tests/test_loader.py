@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from mkdocs_to_confluence.loader.config import ConfigError, MkDocsConfig, load_config
-from mkdocs_to_confluence.loader.nav import NavNode, find_section, flat_pages, resolve_nav
+from mkdocs_to_confluence.loader.nav import NavNode, find_section, find_section_by_folder, flat_pages, resolve_nav
 
 # ---------------------------------------------------------------------------
 # load_config — happy paths
@@ -373,6 +373,69 @@ class TestFindSection:
         result = find_section(nodes, "Setup")
         assert result is not None
         assert result.title == "Setup"
+
+
+# ---------------------------------------------------------------------------
+# find_section_by_folder helper
+# ---------------------------------------------------------------------------
+
+
+class TestFindSectionByFolder:
+    def test_matches_pages_in_folder(self) -> None:
+        result = find_section_by_folder(_SECTION_NODES, "guide")
+        assert result is not None
+        pages = flat_pages([result])
+        assert len(pages) == 2
+        assert all(p.docs_path is not None and p.docs_path.startswith("guide/") for p in pages)
+
+    def test_trailing_slash_ignored(self) -> None:
+        result = find_section_by_folder(_SECTION_NODES, "guide/")
+        assert result is not None
+        assert len(result.children) == 2
+
+    def test_leading_slash_ignored(self) -> None:
+        result = find_section_by_folder(_SECTION_NODES, "/guide")
+        assert result is not None
+
+    def test_case_insensitive(self) -> None:
+        result = find_section_by_folder(_SECTION_NODES, "GUIDE")
+        assert result is not None
+        assert len(result.children) == 2
+
+    def test_no_match_returns_none(self) -> None:
+        assert find_section_by_folder(_SECTION_NODES, "nonexistent") is None
+
+    def test_synthetic_node_is_section(self) -> None:
+        result = find_section_by_folder(_SECTION_NODES, "guide")
+        assert result is not None
+        assert result.is_section
+        assert result.docs_path is None
+
+    def test_does_not_match_root_page(self) -> None:
+        """A root-level page like 'about.md' is not matched by folder 'about'."""
+        result = find_section_by_folder(_SECTION_NODES, "about")
+        assert result is None
+
+    def test_subfolder_matching(self) -> None:
+        nodes: list[NavNode] = [
+            NavNode(
+                title="Guide",
+                docs_path=None,
+                source_path=None,
+                level=0,
+                children=(
+                    NavNode(title="Advanced", docs_path=None, source_path=None, level=1, children=(
+                        NavNode(title="Deep Dive", docs_path="guide/advanced/deep.md", source_path=None, level=2, children=()),
+                    )),
+                    NavNode(title="Basics", docs_path="guide/basics.md", source_path=None, level=1, children=()),
+                ),
+            ),
+        ]
+        result = find_section_by_folder(nodes, "guide/advanced")
+        assert result is not None
+        pages = flat_pages([result])
+        assert len(pages) == 1
+        assert pages[0].docs_path == "guide/advanced/deep.md"
 
 
 # ---------------------------------------------------------------------------
