@@ -182,3 +182,36 @@ def find_section(nodes: list[NavNode], path: str) -> NavNode | None:
         current = list(matched.children)
 
     return matched
+
+
+def find_section_by_folder(nodes: list[NavNode], folder: str) -> NavNode | None:
+    """Find all nav pages whose ``docs_path`` lives under *folder*.
+
+    Matches any page whose relative docs path starts with ``folder/``
+    (case-insensitive, leading/trailing slashes ignored).  Returns a synthetic
+    section :class:`NavNode` whose children are the matched pages, preserving
+    their original metadata.
+
+    Example::
+
+        find_section_by_folder(nav, "guide")          # matches guide/...
+        find_section_by_folder(nav, "guide/advanced")  # matches guide/advanced/...
+
+    Returns ``None`` when no pages match.
+    """
+    folder_prefix = folder.strip("/").lower() + "/"
+    matched = [
+        node
+        for node in flat_pages(nodes)
+        if node.docs_path and node.docs_path.lower().startswith(folder_prefix)
+    ]
+    if not matched:
+        return None
+
+    return NavNode(
+        title=folder.strip("/"),
+        docs_path=None,
+        source_path=None,
+        level=0,
+        children=tuple(matched),
+    )

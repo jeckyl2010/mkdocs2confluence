@@ -8,7 +8,7 @@ from pathlib import Path
 
 from mkdocs_to_confluence import __version__
 from mkdocs_to_confluence.loader.config import load_config
-from mkdocs_to_confluence.loader.nav import find_section, flat_pages, resolve_nav
+from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import render_page
 from mkdocs_to_confluence.publisher.pipeline import compile_page
@@ -126,7 +126,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
     # Optionally scope link resolution to a section subtree
     if getattr(args, "section", None):
-        section_node = find_section(nodes, args.section)
+        section_node = find_section(nodes, args.section) or find_section_by_folder(nodes, args.section)
         if section_node is None:
             print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
             sys.exit(1)
@@ -174,7 +174,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
     # Section filter (--section takes precedence; --page is a secondary filter)
     if getattr(args, "section", None):
-        section_node = find_section(nav_nodes, args.section)
+        section_node = find_section(nav_nodes, args.section) or find_section_by_folder(nav_nodes, args.section)
         if section_node is None:
             print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
             sys.exit(1)
