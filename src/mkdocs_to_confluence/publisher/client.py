@@ -243,12 +243,23 @@ class ConfluenceClient:
         results: list[dict[str, Any]] = resp.json().get("results", [])
         return {r["title"]: r for r in results}
 
-    def upload_attachment(self, page_id: str, path: Path, filename: str) -> None:
+    def upload_attachment(
+        self,
+        page_id: str,
+        path: Path,
+        filename: str,
+        existing: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
         """Upload or update a file attachment on *page_id*.
 
         If an attachment with *filename* already exists on the page, its data
         is replaced via the v1 update endpoint.  Otherwise a new attachment is
         created.
+
+        *existing* is the pre-fetched ``{filename: metadata}`` mapping from
+        :meth:`list_attachments`.  Pass it to avoid a redundant API call when
+        uploading multiple attachments for the same page.  If ``None``,
+        :meth:`list_attachments` is called automatically.
 
         Confluence requires the ``X-Atlassian-Token: no-check`` header to
         disable XSRF protection for attachment uploads.  The v2 API has no
@@ -257,8 +268,12 @@ class ConfluenceClient:
         with path.open("rb") as fh:
             content = fh.read()
 
-        # Check whether this filename already exists on the page.
-        existing = self.list_attachments(page_id)
+        # Use pre-fetched listing when available to avoid a race condition when
+        # uploading multiple attachments in parallel (all threads would otherwise
+        # call list_attachments simultaneously, see the page as empty, and all
+        # attempt to CREATE the same file — triggering a 500 from Confluence).
+        if existing is None:
+            existing = self.list_attachments(page_id)
         existing_meta = existing.get(filename)
 
         if existing_meta:
