@@ -55,7 +55,7 @@ def test_compile_page_returns_xhtml(tmp_path: Path) -> None:
 
     node = _page_node("Index", md)
     config = _make_config(docs)
-    xhtml, attachments = compile_page(node, config)
+    xhtml, attachments, labels = compile_page(node, config)
 
     assert "<h1>" in xhtml or "Hello" in xhtml
     assert attachments == []
@@ -70,7 +70,7 @@ def test_compile_page_with_ready_false_still_compiles(tmp_path: Path) -> None:
 
     node = _page_node("Draft", md)
     config = _make_config(docs)
-    xhtml, attachments = compile_page(node, config)
+    xhtml, attachments, labels = compile_page(node, config)
     # Still compiles fine; plan_publish is the gatekeeper
     assert isinstance(xhtml, str)
 
@@ -80,9 +80,10 @@ def test_compile_page_with_source_path_none_returns_empty(tmp_path: Path) -> Non
     docs.mkdir()
     node = NavNode(title="Missing", docs_path="missing.md", source_path=None, level=0)
     config = _make_config(docs)
-    xhtml, attachments = compile_page(node, config)
+    xhtml, attachments, labels = compile_page(node, config)
     assert xhtml == ""
     assert attachments == []
+    assert labels == ()
 
 
 # ── plan_publish: ready: false ────────────────────────────────────────────────

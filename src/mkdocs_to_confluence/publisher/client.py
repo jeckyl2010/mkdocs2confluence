@@ -210,6 +210,28 @@ class ConfluenceClient:
                 json={"key": key, "value": "full-width", "version": {"number": 1}},
             )
 
+    def set_page_labels(self, page_id: str, labels: tuple[str, ...]) -> None:
+        """Replace all labels on *page_id* with *labels*.
+
+        Existing labels are removed first so stale tags don't accumulate.
+        Uses the v1 ``/content/{id}/label`` endpoint.
+        """
+        label_url = self._v1(f"/content/{page_id}/label")
+
+        # Remove all existing labels
+        existing_resp = self._http.get(label_url)
+        if existing_resp.status_code == 200:
+            for lbl in existing_resp.json().get("results", []):
+                name = lbl.get("name", "")
+                if name:
+                    self._http.delete(label_url, params={"name": name})
+
+        # Apply new labels (if any)
+        if labels:
+            payload = [{"prefix": "global", "name": lbl} for lbl in labels]
+            resp = self._http.post(label_url, json=payload)
+            self._raise_for_status(resp, f"set_page_labels({page_id!r})")
+
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
         """Return a ``{filename: metadata}`` mapping of all page attachments.
 

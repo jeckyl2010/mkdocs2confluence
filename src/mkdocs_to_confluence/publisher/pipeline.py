@@ -24,6 +24,7 @@ from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import PageLoadError, load_page
 from mkdocs_to_confluence.parser.markdown import parse
+from mkdocs_to_confluence.ir.nodes import FrontMatter
 from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
     strip_abbreviation_defs,
@@ -62,6 +63,7 @@ class PageAction:
     parent_id: str | None
     xhtml: str | None = None
     attachments: list[Path] = field(default_factory=list)
+    labels: tuple[str, ...] = field(default_factory=tuple)
     # Set after execution:
     page_id: str | None = None
     version: int | None = None  # current remote version (for update)
@@ -117,16 +119,16 @@ def compile_page(
     node: NavNode,
     config: MkDocsConfig,
     link_map: dict[str, str] | None = None,
-) -> tuple[str, list[Path]]:
+) -> tuple[str, list[Path], tuple[str, ...]]:
     """Run the full compile pipeline for one page.
 
     Returns
     -------
-    tuple[str, list[Path]]
-        ``(xhtml_string, attachment_paths)``
+    tuple[str, list[Path], tuple[str, ...]]
+        ``(xhtml_string, attachment_paths, labels)``
     """
     if node.source_path is None:
-        return "", []
+        return "", [], ()
 
     raw = load_page(node)
 
@@ -157,8 +159,15 @@ def compile_page(
     if edit_url:
         ir_nodes = attach_source_url(ir_nodes, edit_url)
 
+    # Extract labels from FrontMatter node (tags: field)
+    labels: tuple[str, ...] = ()
+    for node_item in ir_nodes:
+        if isinstance(node_item, FrontMatter):
+            labels = node_item.labels
+            break
+
     xhtml = emit(ir_nodes)
-    return xhtml, attachments
+    return xhtml, attachments, labels
 
 
 # ── Planning ──────────────────────────────────────────────────────────────────
@@ -237,7 +246,7 @@ def _plan_nodes(
                 continue
 
             try:
-                xhtml, attachments = compile_page(node, config, link_map)
+                xhtml, attachments, labels = compile_page(node, config, link_map)
             except (PageLoadError, OSError):
                 actions.append(
                     PageAction(
@@ -257,6 +266,7 @@ def _plan_nodes(
                 parent_id=parent_id,
                 xhtml=xhtml,
                 attachments=attachments,
+                labels=labels,
                 page_id=str(existing["id"]) if existing is not None else None,
                 version=(
                     existing["version"]["number"] if existing is not None else None
@@ -377,6 +387,13 @@ def execute_publish(
                 client.set_page_full_width(action.page_id)
             except Exception:
                 pass  # non-fatal — page is published, layout is cosmetic
+
+        # Apply labels (tags) from front matter — non-fatal on failure.
+        if action.page_id and action.labels:
+            try:
+                client.set_page_labels(action.page_id, action.labels)
+            except Exception:
+                pass
 
         # Upload all assets in parallel — always re-upload so updated files
         # (images, PDFs, Word, Excel, etc.) are never stale in Confluence.
