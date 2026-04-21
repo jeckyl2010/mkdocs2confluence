@@ -141,9 +141,9 @@ def test_emits_details_macro():
     )
     xhtml = emit((fm,))
     assert 'ac:name="details"' in xhtml
-    assert '<th style="width:20%">Title</th>' in xhtml
+    assert '<th>Title</th>' in xhtml
     assert "<td>My Doc</td>" in xhtml
-    assert '<th style="width:20%">Version</th>' in xhtml
+    assert '<th>Version</th>' in xhtml
     assert "<td>1.0</td>" in xhtml
 
 
@@ -188,7 +188,7 @@ def test_source_url_renders_as_link_row():
     )
     xhtml = emit((fm,))
     assert 'ac:name="details"' in xhtml
-    assert '<th style="width:20%">Source</th>' in xhtml
+    assert '<th>Source</th>' in xhtml
     assert 'href="https://github.com/org/repo/edit/main/docs/index.md"' in xhtml
 
 
@@ -211,4 +211,4 @@ def test_source_url_alone_still_emits_details_macro():
     fm = FrontMatter(title=None, subtitle=None, properties=(), labels=(), source_url="https://example.com/edit")
     xhtml = emit((fm,))
     assert 'ac:name="details"' in xhtml
-    assert '<th style="width:20%">Source</th>' in xhtml
+    assert '<th>Source</th>' in xhtml
