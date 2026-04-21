@@ -88,6 +88,23 @@ class ConfluenceClient:
             raise ConfluenceError(f"Space with key {space_key!r} not found.")
         return str(results[0]["id"])
 
+    def get_space_id_from_page(self, page_id: str) -> str:
+        """Return the numeric space ID by inspecting *page_id*.
+
+        Useful when ``space_key`` is not configured — the space is derived
+        from the parent page the user already knows.
+
+        Raises :class:`ConfluenceError` when the page is not found.
+        """
+        url = self._v2(f"/pages/{page_id}")
+        resp = self._http.get(url, params={"body-format": "none"})
+        self._raise_for_status(resp, f"get_space_id_from_page({page_id!r})")
+        data = resp.json()
+        space_id = data.get("spaceId")
+        if not space_id:
+            raise ConfluenceError(f"Could not determine spaceId from page {page_id!r}.")
+        return str(space_id)
+
     # ── Pages ──────────────────────────────────────────────────────────────────
 
     def find_page(self, space_id: str, title: str) -> dict[str, Any] | None:

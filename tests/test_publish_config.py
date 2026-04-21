@@ -182,7 +182,8 @@ confluence:
         load_config(config_file)
 
 
-def test_missing_space_key_raises(tmp_path: Path) -> None:
+def test_missing_space_key_raises_when_no_parent_page(tmp_path: Path) -> None:
+    """space_key is only required when parent_page_id is also absent."""
     config_file = _write_mkdocs(
         tmp_path,
         extra="""
@@ -194,6 +195,24 @@ confluence:
     )
     with pytest.raises(ConfigError, match="space_key"):
         load_config(config_file)
+
+
+def test_space_key_optional_when_parent_page_id_given(tmp_path: Path) -> None:
+    """When parent_page_id is set, space_key may be omitted."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://example.atlassian.net
+  email: user@example.com
+  token: tok
+  parent_page_id: "123456"
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.space_key is None
+    assert config.confluence.parent_page_id == "123456"
 
 
 def test_missing_email_raises(tmp_path: Path) -> None:

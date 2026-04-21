@@ -77,6 +77,26 @@ def test_get_space_id_error_response_raises() -> None:
             client.get_space_id("TECH")
 
 
+def test_get_space_id_from_page_returns_id() -> None:
+    payload = {"id": "999", "spaceId": "42", "title": "Parent Page"}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        space_id = client.get_space_id_from_page("999")
+    assert space_id == "42"
+
+
+def test_get_space_id_from_page_missing_raises() -> None:
+    payload = {"id": "999", "title": "Parent Page"}  # no spaceId field
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        with pytest.raises(ConfluenceError, match="spaceId"):
+            client.get_space_id_from_page("999")
+
+
 # ── find_page ─────────────────────────────────────────────────────────────────
 
 
