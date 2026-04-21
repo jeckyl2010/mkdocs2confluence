@@ -294,6 +294,12 @@ def _upload_assets_parallel(
 ) -> tuple[int, list[tuple[str, str]]]:
     """Upload attachments for one page concurrently.
 
+    Fetches the existing attachment listing once before spawning threads so
+    that all workers share the same pre-fetch result.  This prevents a race
+    where every thread calls ``list_attachments`` simultaneously, all see the
+    page as empty, and all try to CREATE the same file — which causes Confluence
+    to roll back the transaction with HTTP 500.
+
     Returns ``(uploaded_count, errors)`` where errors is a list of
     ``(attachment_name, error_message)`` pairs.
     """
@@ -301,10 +307,13 @@ def _upload_assets_parallel(
     uploaded = 0
     errors: list[tuple[str, str]] = []
 
+    # Pre-fetch once; all threads read this dict (read-only — no lock needed).
+    existing = client.list_attachments(page_id)
+
     workers = min(_MAX_UPLOAD_WORKERS, len(pairs))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
-            pool.submit(client.upload_attachment, page_id, path, name): name
+            pool.submit(client.upload_attachment, page_id, path, name, existing): name
             for name, path in pairs
         }
         for future in as_completed(futures):

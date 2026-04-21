@@ -329,7 +329,7 @@ class TestExecutePublish:
 
         # upload_attachment must be called with the collision-safe name
         client.upload_attachment.assert_called_once()
-        _, _, att_name = client.upload_attachment.call_args.args
+        _, _, att_name, _ = client.upload_attachment.call_args.args
         assert att_name == "assets_images_logo.png"
         assert att_name != "logo.png"
 
