@@ -189,8 +189,17 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         nav_nodes = [node]
 
     if args.dry_run:
+        # When a section is given, show what node was matched so the user can
+        # verify the section resolved correctly (section vs. leaf page).
+        if getattr(args, "section", None) and nav_nodes:
+            matched = nav_nodes[0]
+            node_kind = "section" if matched.is_section else "page"
+            child_count = len(matched.children) if matched.is_section else 0
+            detail = f"{child_count} direct children" if matched.is_section else "leaf page"
+            print(f"Section matched: '{matched.title}' ({node_kind}, {detail})")
+
         pages = flat_pages(nav_nodes)
-        print(f"Dry run: would publish {len(pages)} pages to {conf_config.base_url}")
+        print(f"Dry run: would publish {len(pages)} page(s) to {conf_config.base_url}")
         for page in pages:
             print(f"  {page.docs_path} → '{page.title}'")
         return
