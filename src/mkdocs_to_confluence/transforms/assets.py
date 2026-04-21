@@ -13,6 +13,7 @@ transform).
 from __future__ import annotations
 
 import dataclasses
+import warnings
 from pathlib import Path
 
 from mkdocs_to_confluence.ir.nodes import (
@@ -103,6 +104,10 @@ def resolve_local_assets(
                     continue
                 candidate = _resolve_path(href.split("#")[0], page_dir, docs_dir)
                 if candidate is None:
+                    warnings.warn(
+                        f"Local file link not found and will render as plain text: {href!r}",
+                        stacklevel=2,
+                    )
                     continue
                 attachment_name = _make_attachment_name(candidate, docs_dir)
                 attachments.append(candidate)
