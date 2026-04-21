@@ -13,13 +13,13 @@ Requires Python 3.12+.
 **From the latest GitHub release** (recommended):
 
 ```bash
-pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.6/mkdocs_to_confluence-0.1.6-py3-none-any.whl
+pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.2.0/mkdocs_to_confluence-0.2.0-py3-none-any.whl
 ```
 
 Or with `pipx` for an isolated install (no virtual environment needed):
 
 ```bash
-pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.1.6/mkdocs_to_confluence-0.1.6-py3-none-any.whl
+pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.2.0/mkdocs_to_confluence-0.2.0-py3-none-any.whl
 ```
 
 **From source** (see [Setup.md](Setup.md) for the full dev environment guide):
@@ -304,17 +304,23 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 
 Planned features, roughly in priority order:
 
-- [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth
-- [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column
+- [ ] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav, so you don't have to publish everything from root or target a single file. Supports nested paths (`"Guide/Setup"`).
+- [ ] **Attachment change detection** — SHA-256 content hashing per attachment so only changed images/files are re-uploaded. Currently the publisher skips re-upload for any attachment that already exists in Confluence by name.
+- [ ] **Parallel attachment uploads** — `asyncio` + `httpx.AsyncClient` to upload multiple images concurrently per page instead of sequentially.
+- [ ] **Publish summary report** — structured output after each run (pages created / updated / skipped, attachments uploaded, errors); optional `--report` flag to write a JSON file.
+- [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.
+- [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column.
 - [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the instance has a Mermaid plugin). Pre-rendering via self-hosted [Kroki](https://kroki.io) (`docker run -p 8000:8000 yuzutech/kroki`) is the preferred future path — no browser dependency.
 
 **Completed:**
 
+- [x] **Source link in Page Properties** — each published page includes a link back to its editable source file in GitHub/GitLab as a row in the Page Properties table (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
+- [x] **Confluence REST API v2 compliance** — `minorEdit: true` prevents watcher notifications on automated updates; `find_page` no longer fetches the full page body; `id` removed from PUT body; `list_attachments` migrated to v2 endpoint; session `Content-Type` fixed for multipart uploads
+- [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to BMP-safe Unicode symbols (≤ U+FFFF); unknown shortcodes stripped cleanly; nav titles are also cleaned
+- [x] **Ordered list numbering** — loose lists (blank-line-separated items) correctly merge into a single `<ol>` node instead of each item rendering as `1.`
 - [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ac:title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully
-- [x] **Edit link banner** — each published page gets an `info` macro at the top linking back to the source file on GitHub/GitLab (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
 - [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support
 - [x] **Local image and file attachments** — local images and file links resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded per-page at publish time; local images embedded as base64 data URIs in the browser preview
-- [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to nearest Unicode emoji; unknown shortcodes stripped cleanly
 - [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
 - [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction
 
