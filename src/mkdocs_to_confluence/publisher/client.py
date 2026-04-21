@@ -97,7 +97,13 @@ class ConfluenceClient:
         Raises :class:`ConfluenceError` when the page is not found.
         """
         url = self._v2(f"/pages/{page_id}")
-        resp = self._http.get(url, params={"body-format": "none"})
+        resp = self._http.get(url)
+        if resp.status_code == 404:
+            raise ConfluenceError(
+                f"Parent page {page_id!r} not found (HTTP 404). "
+                "Check that the page ID is correct (it is the number in the Confluence URL: "
+                "/wiki/spaces/SPACE/pages/<ID>/...) and that your API token has access to it."
+            )
         self._raise_for_status(resp, f"get_space_id_from_page({page_id!r})")
         data = resp.json()
         space_id = data.get("spaceId")
