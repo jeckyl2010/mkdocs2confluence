@@ -6,11 +6,13 @@ The pipeline has two phases:
    ``create``, ``update``, or ``skip`` it in Confluence.
 2. **execute** — carry out the plan, creating/updating pages and uploading
    attachments in nav order so parent pages always exist before their children.
+   Attachments for each page are uploaded in parallel via a thread pool.
 """
 
 from __future__ import annotations
 
 import dataclasses
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -47,6 +49,8 @@ _Action = Literal["create", "update", "skip", "section"]
 
 _FRONT_MATTER_RE = __import__("re").compile(r"\A---\s*\n(.*?\n?)---\s*\n?", __import__("re").DOTALL)
 
+_MAX_UPLOAD_WORKERS = 8
+
 
 @dataclass
 class PageAction:
@@ -61,6 +65,32 @@ class PageAction:
     # Set after execution:
     page_id: str | None = None
     version: int | None = None  # current remote version (for update)
+
+
+@dataclass
+class PublishReport:
+    """Summary of a completed publish run."""
+
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    assets_uploaded: int = 0
+    errors: list[tuple[str, str]] = field(default_factory=list)
+
+    @property
+    def total_pages(self) -> int:
+        return self.created + self.updated + self.skipped
+
+    def __str__(self) -> str:
+        lines = [
+            f"Published:  {self.created} created, {self.updated} updated, {self.skipped} skipped",
+            f"Assets:     {self.assets_uploaded} uploaded",
+        ]
+        if self.errors:
+            lines.append(f"Errors:     {len(self.errors)}")
+            for title, msg in self.errors:
+                lines.append(f"  ✗ {title}: {msg}")
+        return "\n".join(lines)
 
 
 # ── Compilation ───────────────────────────────────────────────────────────────
@@ -238,6 +268,38 @@ def _plan_nodes(
 # ── Execution ─────────────────────────────────────────────────────────────────
 
 
+def _upload_assets_parallel(
+    page_id: str,
+    attachments: list[Path],
+    docs_dir: Path,
+    client: ConfluenceClient,
+) -> tuple[int, list[tuple[str, str]]]:
+    """Upload attachments for one page concurrently.
+
+    Returns ``(uploaded_count, errors)`` where errors is a list of
+    ``(attachment_name, error_message)`` pairs.
+    """
+    pairs = [(_make_attachment_name(p, docs_dir), p) for p in attachments]
+    uploaded = 0
+    errors: list[tuple[str, str]] = []
+
+    workers = min(_MAX_UPLOAD_WORKERS, len(pairs))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(client.upload_attachment, page_id, path, name): name
+            for name, path in pairs
+        }
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                future.result()
+                uploaded += 1
+            except Exception as exc:
+                errors.append((name, str(exc)))
+
+    return uploaded, errors
+
+
 def execute_publish(
     plan: list[PageAction],
     client: ConfluenceClient,
@@ -245,19 +307,27 @@ def execute_publish(
     dry_run: bool = False,
     space_id: str,
     docs_dir: Path,
-) -> list[PageAction]:
+) -> PublishReport:
     """Execute the publish plan.
 
     Pages are processed in nav order so parent sections are always created
     before their children.  Once a section's ``page_id`` is known (after
     create/update), all direct children in the plan have their ``parent_id``
-    updated immediately — avoiding the pre-pass approach that broke for
-    newly-created sections.
+    updated immediately.
 
-    Returns the updated plan with ``page_id`` filled in for executed actions.
+    Attachments for each page are uploaded in parallel via a thread pool
+    (up to :data:`_MAX_UPLOAD_WORKERS` concurrent uploads).
+
+    Returns a :class:`PublishReport` summarising what was created, updated,
+    skipped, and how many assets were uploaded.
     """
+    report = PublishReport()
+
     if dry_run:
-        return plan
+        report.skipped = sum(1 for a in plan if a.action == "skip")
+        report.created = sum(1 for a in plan if a.action == "create")
+        report.updated = sum(1 for a in plan if a.action == "update")
+        return report
 
     # Index: nav node id → PageAction, used to wire child parent_ids after
     # each section is created/updated.
@@ -265,25 +335,32 @@ def execute_publish(
 
     for action in plan:
         if action.action == "skip":
+            report.skipped += 1
             continue
 
-        if action.action == "create":
-            page = client.create_page(
-                space_id,
-                action.title,
-                action.xhtml or "",
-                parent_id=action.parent_id,
-            )
-            action.page_id = str(page["id"])
-        elif action.action == "update":
-            assert action.page_id is not None
-            assert action.version is not None
-            client.update_page(
-                action.page_id,
-                action.title,
-                action.xhtml or "",
-                action.version + 1,
-            )
+        try:
+            if action.action == "create":
+                page = client.create_page(
+                    space_id,
+                    action.title,
+                    action.xhtml or "",
+                    parent_id=action.parent_id,
+                )
+                action.page_id = str(page["id"])
+                report.created += 1
+            elif action.action == "update":
+                assert action.page_id is not None
+                assert action.version is not None
+                client.update_page(
+                    action.page_id,
+                    action.title,
+                    action.xhtml or "",
+                    action.version + 1,
+                )
+                report.updated += 1
+        except Exception as exc:
+            report.errors.append((action.title, str(exc)))
+            continue
 
         # Once a section's page_id is known, wire it into all direct children
         # so that children created later in the loop use the correct parent_id.
@@ -293,12 +370,14 @@ def execute_publish(
                 if child_action is not None:
                     child_action.parent_id = action.page_id
 
-        # Upload all attachments every run so updated assets (images, PDFs,
-        # Word, Excel, etc.) are never left stale in Confluence.
-        # Confluence handles versioning internally.
+        # Upload all assets in parallel — always re-upload so updated files
+        # (images, PDFs, Word, Excel, etc.) are never stale in Confluence.
         if action.page_id and action.attachments:
-            for attachment_path in action.attachments:
-                att_name = _make_attachment_name(attachment_path, docs_dir)
-                client.upload_attachment(action.page_id, attachment_path, att_name)
+            uploaded, asset_errors = _upload_assets_parallel(
+                action.page_id, action.attachments, docs_dir, client
+            )
+            report.assets_uploaded += uploaded
+            for name, msg in asset_errors:
+                report.errors.append((f"{action.title} / {name}", msg))
 
-    return plan
+    return report
