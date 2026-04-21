@@ -118,6 +118,57 @@ def test_base_url_with_trailing_wiki_is_stripped() -> None:
 
 
 
+
+
+# ── set_page_labels ───────────────────────────────────────────────────────────
+
+
+def test_set_page_labels_posts_new_labels() -> None:
+    """When page has no existing labels, POST the new ones."""
+    transport = _MockTransport(
+        _json_response({"results": []}),     # GET existing labels → empty
+        _json_response([{"name": "arch"}]),  # POST new labels
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_labels("42", ("arch", "api"))
+    assert transport.requests[0].method == "GET"
+    post_body = json.loads(transport.requests[1].content)
+    assert {"prefix": "global", "name": "arch"} in post_body
+    assert {"prefix": "global", "name": "api"} in post_body
+
+
+def test_set_page_labels_removes_old_labels_first() -> None:
+    """Existing labels are deleted before new ones are applied."""
+    transport = _MockTransport(
+        _json_response({"results": [{"name": "old-tag"}]}),  # GET existing
+        _json_response({}),   # DELETE old-tag
+        _json_response([]),   # POST new labels
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_labels("42", ("new-tag",))
+    assert transport.requests[1].method == "DELETE"
+    assert "old-tag" in str(transport.requests[1].url)
+
+
+def test_set_page_labels_skips_post_when_empty() -> None:
+    """No POST is made when labels tuple is empty."""
+    transport = _MockTransport(
+        _json_response({"results": []}),  # GET existing → empty
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_labels("42", ())
+    assert len(transport.requests) == 1  # only GET, no POST
+
+
+# ── set_page_full_width ───────────────────────────────────────────────────────
+
+
 def test_set_page_full_width_creates_property_when_absent() -> None:
     """When GET returns 404, a POST is made to create the property."""
     responses = [
