@@ -117,7 +117,7 @@ The API token is read from (in priority order):
 - **Only pages in `nav:` are published** — the nav is the publish gate. Pages not listed in the nav are never touched, keeping drafts and WIP content private.
 - Pages with `ready: false` in their YAML front matter are **skipped**, even if listed in the nav.
 - Section nodes (nav groups without a page) are created as empty parent pages in Confluence, mirroring the nav hierarchy.
-- Local images and file links are uploaded as Confluence page attachments automatically.
+- All locally linked assets (images, PDFs, Word, Excel, and any other file type) are uploaded as Confluence page attachments automatically.
 
 #### Examples
 
@@ -305,8 +305,8 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 Planned features, roughly in priority order:
 
 - [ ] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav, so you don't have to publish everything from root or target a single file. Supports nested paths (`"Guide/Setup"`).
-- [ ] **Attachment change detection** — SHA-256 content hashing per attachment so only changed images/files are re-uploaded. Currently the publisher skips re-upload for any attachment that already exists in Confluence by name.
-- [ ] **Parallel attachment uploads** — `asyncio` + `httpx.AsyncClient` to upload multiple images concurrently per page instead of sequentially.
+- [ ] **Asset change detection** — SHA-256 content hashing per attachment so only changed assets are re-uploaded. Covers all attachment types: images (PNG, SVG, JPG), documents (PDF, DOCX, XLSX, PPTX), and any other locally linked file. Currently the publisher skips re-upload for any attachment that already exists in Confluence by name.
+- [ ] **Parallel asset uploads** — `asyncio` + `httpx.AsyncClient` to upload multiple attachments concurrently per page instead of sequentially.
 - [ ] **Publish summary report** — structured output after each run (pages created / updated / skipped, attachments uploaded, errors); optional `--report` flag to write a JSON file.
 - [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.
 - [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column.
@@ -320,7 +320,7 @@ Planned features, roughly in priority order:
 - [x] **Ordered list numbering** — loose lists (blank-line-separated items) correctly merge into a single `<ol>` node instead of each item rendering as `1.`
 - [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ac:title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully
 - [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support
-- [x] **Local image and file attachments** — local images and file links resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded per-page at publish time; local images embedded as base64 data URIs in the browser preview
+- [x] **Local asset attachments** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded as Confluence page attachments at publish time; local images embedded as base64 data URIs in the browser preview
 - [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
 - [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction
 
