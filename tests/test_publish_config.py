@@ -236,3 +236,85 @@ def test_confluence_not_a_mapping_raises(tmp_path: Path) -> None:
     )
     with pytest.raises(ConfigError, match="confluence"):
         load_config(config_file)
+
+
+# ── Tests: extra.confluence (strict mode) ────────────────────────────────────
+
+
+def test_confluence_under_extra_is_parsed(tmp_path: Path) -> None:
+    """extra.confluence: is accepted — works in MkDocs --strict mode."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+extra:
+  confluence:
+    base_url: https://example.atlassian.net
+    space_key: TECH
+    email: user@example.com
+    token: tok
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.base_url == "https://example.atlassian.net"
+    assert config.confluence.space_key == "TECH"
+
+
+def test_top_level_confluence_takes_precedence_over_extra(tmp_path: Path) -> None:
+    """Top-level confluence: wins when both locations are present."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://top-level.atlassian.net
+  space_key: TOP
+  email: user@example.com
+  token: tok
+
+extra:
+  confluence:
+    base_url: https://extra.atlassian.net
+    space_key: EXTRA
+    email: user@example.com
+    token: tok
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.base_url == "https://top-level.atlassian.net"
+
+
+# ── Tests: full_width ─────────────────────────────────────────────────────────
+
+
+def test_full_width_defaults_to_true(tmp_path: Path) -> None:
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://example.atlassian.net
+  space_key: TECH
+  email: user@example.com
+  token: tok
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.full_width is True
+
+
+def test_full_width_can_be_disabled(tmp_path: Path) -> None:
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://example.atlassian.net
+  space_key: TECH
+  email: user@example.com
+  token: tok
+  full_width: false
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.full_width is False

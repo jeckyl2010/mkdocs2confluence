@@ -24,6 +24,7 @@ class ConfluenceConfig:
     token: str              # API token (may be empty — callers check truthiness)
     space_key: str | None = None          # e.g. "TECH" — optional if parent_page_id given
     parent_page_id: str | None = None  # optional root parent page
+    full_width: bool = True  # set full-width layout on every published page
 
 
 @dataclass(frozen=True)
@@ -152,8 +153,16 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
     edit_uri: str | None = _raw_edit_uri or None
 
     # --- confluence (optional) ---
+    # Supports two locations:
+    #   confluence:          (top-level, simpler but rejected by MkDocs --strict)
+    #   extra.confluence:    (under extra:, accepted by MkDocs in any mode)
+    # Top-level takes precedence when both are present.
     confluence: ConfluenceConfig | None = None
     raw_conf = raw.get("confluence")
+    if raw_conf is None:
+        extra = raw.get("extra")
+        if isinstance(extra, dict):
+            raw_conf = extra.get("confluence")
     if raw_conf is not None:
         if not isinstance(raw_conf, dict):
             raise ConfigError("mkdocs.yml: 'confluence' must be a mapping when present.")
@@ -194,6 +203,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             email=email.strip(),
             token=token,
             parent_page_id=parent_page_id,
+            full_width=bool(raw_conf.get("full_width", True)),
         )
 
     return MkDocsConfig(

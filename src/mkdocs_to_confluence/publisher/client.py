@@ -175,7 +175,28 @@ class ConfluenceClient:
         self._raise_for_status(resp, f"update_page({page_id!r})")
         return resp.json()  # type: ignore[no-any-return]
 
-    # ── Attachments ────────────────────────────────────────────────────────────
+    def set_page_full_width(self, page_id: str) -> None:
+        """Set the page layout to full-width via the content properties API.
+
+        Uses the v1 ``content-appearance-published`` property.  Creates the
+        property if it does not exist; updates it (with correct version bump)
+        when it already does.
+        """
+        key = "content-appearance-published"
+        prop_url = self._v1(f"/content/{page_id}/property/{key}")
+        get_resp = self._http.get(prop_url)
+
+        if get_resp.status_code == 200:
+            current_version = get_resp.json().get("version", {}).get("number", 1)
+            self._http.put(
+                prop_url,
+                json={"key": key, "value": "full-width", "version": {"number": current_version + 1}},
+            )
+        else:
+            self._http.post(
+                self._v1(f"/content/{page_id}/property"),
+                json={"key": key, "value": "full-width", "version": {"number": 1}},
+            )
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
         """Return a ``{filename: metadata}`` mapping of all page attachments.
