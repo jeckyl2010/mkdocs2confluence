@@ -293,12 +293,12 @@ def execute_publish(
                 if child_action is not None:
                     child_action.parent_id = action.page_id
 
-        # Upload attachments using collision-safe names derived from docs_dir.
+        # Upload all attachments every run so updated assets (images, PDFs,
+        # Word, Excel, etc.) are never left stale in Confluence.
+        # Confluence handles versioning internally.
         if action.page_id and action.attachments:
-            existing_attachments = client.list_attachments(action.page_id)
             for attachment_path in action.attachments:
                 att_name = _make_attachment_name(attachment_path, docs_dir)
-                if att_name not in existing_attachments:
-                    client.upload_attachment(action.page_id, attachment_path, att_name)
+                client.upload_attachment(action.page_id, attachment_path, att_name)
 
     return plan
