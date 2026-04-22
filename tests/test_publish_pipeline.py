@@ -303,7 +303,64 @@ class TestExecutePublish:
 
         assert child_action.parent_id == "existing-99"
 
-    def test_attachment_uses_collision_safe_name(self, tmp_path: Path) -> None:
+    def test_three_level_hierarchy_nesting(self, tmp_path: Path) -> None:
+        """Section → SubSection → Page creates the correct parent chain."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        page = _make_page_node("DeepPage", tmp_path, docs_dir)
+        sub = _make_section_node("SubSection", [page])
+        top = _make_section_node("TopSection", [sub])
+
+        top_action  = PageAction(node=top,  title="TopSection", action="create", parent_id="ROOT", xhtml="", page_id=None)
+        sub_action  = PageAction(node=sub,  title="SubSection", action="create", parent_id=None,   xhtml="", page_id=None)
+        page_action = PageAction(node=page, title="DeepPage",   action="create", parent_id=None,   xhtml="<p>content</p>")
+
+        plan = [top_action, sub_action, page_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert sub_action.parent_id  == top_action.page_id, "SubSection must be under TopSection"
+        assert page_action.parent_id == sub_action.page_id,  "DeepPage must be under SubSection"
+
+    def test_update_page_reparents_when_hierarchy_changes(self, tmp_path: Path) -> None:
+        """Existing pages are moved (re-parented) when the hierarchy changes.
+
+        Scenario: a page previously published flat now belongs under a new
+        sub-section.  The update_page call must include the new parent_id so
+        Confluence moves the page rather than leaving it in the old position.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        # 'OldPage' already exists in Confluence (will be "update")
+        page = _make_page_node("OldPage", tmp_path, docs_dir)
+        sub  = _make_section_node("NewSubSection", [page])
+        top  = _make_section_node("TopSection", [sub])
+
+        top_action  = PageAction(node=top,  title="TopSection",  action="update", parent_id="ROOT",        xhtml="", page_id="top-99",  version=1)
+        sub_action  = PageAction(node=sub,  title="NewSubSection", action="create", parent_id=None,        xhtml="", page_id=None)
+        page_action = PageAction(node=page, title="OldPage",     action="update", parent_id=None,        xhtml="<p>body</p>", page_id="page-77", version=3)
+
+        plan = [top_action, sub_action, page_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        # OldPage must have been re-parented to the new sub-section
+        assert page_action.parent_id == sub_action.page_id
+        # update_page must have been called with the new parent_id
+        update_calls = client.update_page.call_args_list
+        page_call = next(c for c in update_calls if c.args[0] == "page-77")
+        assert page_call.kwargs.get("parent_id") == sub_action.page_id, \
+            "update_page must pass parent_id so Confluence re-parents the page"
+
+
         """Attachments must be uploaded with the docs_dir-relative name."""
         from mkdocs_to_confluence.publisher.pipeline import execute_publish
 
