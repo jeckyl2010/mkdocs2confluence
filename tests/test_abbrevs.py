@@ -147,8 +147,11 @@ def test_no_glossary_when_abbrev_expanded_inline():
     abbrevs = {"IAM": "Identity and Access Management"}
     nodes = (_para("The IAM platform."),)
     result = apply_abbreviations(nodes, abbrevs, page_text="The IAM platform.")
-    # Expanded inline, so no glossary section needed
-    assert len(result) == 1
+    # Expanded inline, but also added to glossary for bottom-of-page reference
+    assert len(result) == 2
+    glossary = result[-1]
+    assert isinstance(glossary, Section)
+    assert glossary.anchor == "glossary"
 
 
 def test_no_expand_in_table_header_cell():
@@ -223,6 +226,29 @@ def test_word_boundary_not_partial_match():
     # RAPID should not be touched; API should be expanded
     assert "RAPID" in text
     assert "API (Application Programming Interface)" in text
+
+
+def test_glossary_includes_inline_expanded_abbrevs():
+    # Abbreviations expanded inline should ALSO appear in the glossary,
+    # so readers who jump directly to the bottom have a full reference.
+    abbrevs = {"API": "Application Programming Interface", "IAM": "Identity and Access Management"}
+    nodes = (_para("Use the API and IAM to authenticate."),)
+    result = apply_abbreviations(
+        nodes, abbrevs,
+        page_text="Use the API and IAM to authenticate."
+    )
+    # Both should be expanded inline...
+    body_text = result[0].children[0].text  # type: ignore[union-attr]
+    assert "API (Application Programming Interface)" in body_text
+    assert "IAM (Identity and Access Management)" in body_text
+    # ...AND both should appear in the glossary at the bottom.
+    assert len(result) == 2
+    glossary = result[-1]
+    assert isinstance(glossary, Section)
+    items = glossary.children[0].items  # type: ignore[union-attr]
+    labels = " ".join(item.children[0].children[0].text for item in items)  # type: ignore[union-attr]
+    assert "API" in labels
+    assert "IAM" in labels
 
 
 def test_abbrev_not_in_text_produces_no_glossary():

@@ -229,7 +229,6 @@ def apply_abbreviations(
     glossary_needed = {
         abbr: abbrevs[abbr]
         for abbr in mentioned
-        if abbr not in state.expanded
     }
 
     if glossary_needed:
