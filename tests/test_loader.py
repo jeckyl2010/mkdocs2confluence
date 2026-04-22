@@ -374,10 +374,45 @@ class TestFindSection:
         assert result is not None
         assert result.title == "Setup"
 
+    def test_deep_search_finds_nested_section(self) -> None:
+        # Replicates the appendix bug: --section appendix where appendix is
+        # nested under a top-level "Documentation" section, not at the root.
+        docs = NavNode(
+            title="Documentation",
+            docs_path=None,
+            source_path=None,
+            level=0,
+            children=(
+                NavNode(
+                    title="appendix",
+                    docs_path=None,
+                    source_path=None,
+                    level=1,
+                    children=(
+                        NavNode(
+                            title="CCTV & AI",
+                            docs_path=None,
+                            source_path=None,
+                            level=2,
+                            children=(
+                                NavNode(title="Vendor Assessment", docs_path="appendix/cctv/vendor.md", source_path=None, level=3, children=()),
+                            ),
+                        ),
+                        NavNode(title="Index", docs_path="appendix/index.md", source_path=None, level=2, children=()),
+                    ),
+                ),
+            ),
+        )
+        nav = [docs]
+        result = find_section(nav, "appendix")
+        assert result is not None
+        assert result.title == "appendix"
+        # Sub-sections must be preserved — not a flat page list
+        assert len(result.children) == 2
+        assert result.children[0].title == "CCTV & AI"
+        assert result.children[0].is_section
 
-# ---------------------------------------------------------------------------
-# find_section_by_folder helper
-# ---------------------------------------------------------------------------
+
 
 
 class TestFindSectionByFolder:

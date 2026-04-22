@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-to-confluence"
-version = "0.4.21"
+version = "0.4.22"
 description = "Compile MkDocs markdown to Confluence storage format"
 requires-python = ">=3.12"
 dependencies = [
