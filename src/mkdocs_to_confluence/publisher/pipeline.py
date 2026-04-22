@@ -59,7 +59,7 @@ _FRONT_MATTER_RE = __import__("re").compile(r"\A---\s*\n(.*?\n?)---\s*\n?", __im
 
 @dataclass
 class PageAction:
-    """Represents one page in the publish plan."""
+    """Represents one page or folder in the publish plan."""
 
     node: NavNode
     title: str
@@ -68,6 +68,8 @@ class PageAction:
     xhtml: str | None = None
     attachments: list[Path] = field(default_factory=list)
     labels: tuple[str, ...] = field(default_factory=tuple)
+    is_folder: bool = False        # True when this action creates a Confluence folder
+    parent_is_folder: bool = False  # True when the parent content is a folder
     # Set after execution:
     page_id: str | None = None
     version: int | None = None  # current remote version (for update)
@@ -190,13 +192,14 @@ def plan_publish(
 ) -> list[PageAction]:
     """Build a publish plan for the entire nav tree.
 
-    Section nodes become empty parent pages so their children can be nested
-    under them.  The parent_id chain is resolved top-down.
+    Section nodes become native Confluence folders so the hierarchy is
+    preserved visually.  The actual find-or-create for folders is deferred
+    to execute time once parent folder IDs are known.
     """
     actions: list[PageAction] = []
     link_map = build_link_map(nav_nodes)
     print("Planning...")
-    _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, actions, link_map)
+    _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, False, actions, link_map)
     return actions
 
 
@@ -206,6 +209,7 @@ def _plan_nodes(
     config: MkDocsConfig,
     space_id: str,
     parent_id: str | None,
+    parent_is_folder: bool,
     actions: list[PageAction],
     link_map: dict[str, str] | None = None,
 ) -> None:
@@ -214,24 +218,24 @@ def _plan_nodes(
         # preprocessor and raw shortcodes render as ??? in Confluence.
         clean_title = strip_icon_shortcodes(node.title).strip()
         if node.is_section:
-            print(f"  compiling  '{clean_title}'  (section)")
-            existing = client.find_page(space_id, clean_title)
-            action_kind: _Action = "create" if existing is None else "update"
+            print(f"  compiling  '{clean_title}'  (folder)")
+            # Folder find-or-create is deferred to execute_publish once the
+            # parent folder ID is known (nested folders don't have a parent ID
+            # yet at plan time).
             page_action = PageAction(
                 node=node,
                 title=clean_title,
-                action=action_kind,
+                action="create",
                 parent_id=parent_id,
-                xhtml="",  # section pages are empty
-                page_id=str(existing["id"]) if existing is not None else None,
-                version=(
-                    existing["version"]["number"] if existing is not None else None
-                ),
+                parent_is_folder=parent_is_folder,
+                xhtml=None,
+                is_folder=True,
+                page_id=None,
             )
             actions.append(page_action)
-            # Children will be placed under this section's page_id (resolved at execute)
+            # Children will be placed under this folder's ID (resolved at execute)
             _plan_nodes(
-                list(node.children), client, config, space_id, None, actions, link_map
+                list(node.children), client, config, space_id, None, True, actions, link_map
             )
         else:
             # Page node — read raw to check ready flag
@@ -376,7 +380,33 @@ def execute_publish(
         print(f"  [{counter}/{total}] {action.action:<6}  '{action.title}'")
 
         try:
-            if action.action == "create":
+            if action.is_folder:
+                # Native Confluence folder: find-or-create (folders have no
+                # content to update so we never call update_page for them).
+                if action.page_id is not None:
+                    # Already known (e.g. pre-wired or plan found it) — reuse.
+                    report.updated += 1
+                else:
+                    existing_folder = None
+                    if action.parent_id is not None:
+                        try:
+                            existing_folder = client.find_folder_under(
+                                action.parent_id,
+                                action.title,
+                                parent_is_folder=action.parent_is_folder,
+                            )
+                        except Exception:
+                            pass  # non-fatal — fall through to create
+                    if existing_folder is not None:
+                        action.page_id = str(existing_folder["id"])
+                        report.updated += 1
+                    else:
+                        folder = client.create_folder(
+                            space_id, action.title, parent_id=action.parent_id
+                        )
+                        action.page_id = str(folder["id"])
+                        report.created += 1
+            elif action.action == "create":
                 page = client.create_page(
                     space_id,
                     action.title,
@@ -400,23 +430,24 @@ def execute_publish(
             report.errors.append((action.title, str(exc)))
             continue
 
-        # Once a section's page_id is known, wire it into all direct children
-        # so that children created later in the loop use the correct parent_id.
+        # Once a folder/section's page_id is known, wire it into all direct
+        # children so that children created later use the correct parent_id.
         if action.node.is_section and action.page_id:
             for child_node in action.node.children:
                 child_action = action_by_node.get(id(child_node))
                 if child_action is not None:
                     child_action.parent_id = action.page_id
+                    child_action.parent_is_folder = action.is_folder
 
-        # Set full-width layout on newly created or updated pages.
-        if full_width and action.page_id:
+        # Set full-width layout on newly created or updated pages (not folders).
+        if full_width and action.page_id and not action.is_folder:
             try:
                 client.set_page_full_width(action.page_id)
             except Exception:
                 pass  # non-fatal — page is published, layout is cosmetic
 
         # Apply labels (tags) from front matter — non-fatal on failure.
-        if action.page_id and action.labels:
+        if action.page_id and action.labels and not action.is_folder:
             try:
                 client.set_page_labels(action.page_id, action.labels)
             except Exception:

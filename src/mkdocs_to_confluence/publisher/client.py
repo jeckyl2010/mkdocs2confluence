@@ -116,6 +116,48 @@ class ConfluenceClient:
             raise ConfluenceError(f"Could not determine spaceId from page {page_id!r}.")
         return str(space_id)
 
+    # ── Folders ────────────────────────────────────────────────────────────────
+
+    def find_folder_under(
+        self,
+        parent_id: str,
+        title: str,
+        *,
+        parent_is_folder: bool = False,
+    ) -> dict[str, Any] | None:
+        """Return the folder dict matching *title* under *parent_id*, or ``None``.
+
+        Uses ``GET /folders/{id}/direct-children`` when the parent is itself a
+        folder, otherwise ``GET /pages/{id}/direct-children``.  Both endpoints
+        return mixed content types; we filter to ``type == "folder"``.
+        """
+        if parent_is_folder:
+            url = self._v2(f"/folders/{parent_id}/direct-children")
+        else:
+            url = self._v2(f"/pages/{parent_id}/direct-children")
+
+        resp = self._http.get(url, params={"limit": 250})
+        self._raise_for_status(resp, f"find_folder_under({title!r})")
+        for item in resp.json().get("results", []):
+            if item.get("type") == "folder" and item.get("title") == title:
+                return item
+        return None
+
+    def create_folder(
+        self,
+        space_id: str,
+        title: str,
+        *,
+        parent_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a native Confluence folder and return the response dict."""
+        payload: dict[str, Any] = {"spaceId": space_id, "title": title}
+        if parent_id is not None:
+            payload["parentId"] = parent_id
+        resp = self._http.post(self._v2("/folders"), json=payload)
+        self._raise_for_status(resp, f"create_folder({title!r})")
+        return resp.json()  # type: ignore[no-any-return]
+
     # ── Pages ──────────────────────────────────────────────────────────────────
 
     def find_page(self, space_id: str, title: str) -> dict[str, Any] | None:
