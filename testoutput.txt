@@ -1,117 +1,16 @@
-site_name: Manufacturing Architecture
-site_url: https://studious-enigma-61j576e.pages.github.io/
-strict: true
+PS C:\repos\rockwool\docs>
+PS C:\repos\rockwool\docs> more .pages
+nav:
+    - index.md
+    - start-here
+    - tutorials
+    - how-to
+    - reference
+    - explanation
+    - proposals
+    - examples
+    - appendix
 
-theme:
-  name: material
-  language: en
-  logo: assets/icons/rockwool.jpg
-  features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.top
-    - navigation.indexes
-    - navigation.footer
-    - toc.follow
-    - search.suggest
-    - search.highlight
-    - search.share
-    - content.code.copy
-    - content.code.annotate
-    - content.action.edit
-    - content.action.view
-  palette:
-    # Light mode
-    - scheme: default
-      primary: custom
-      accent: deep orange
-      toggle:
-        icon: material/weather-night
-        name: Switch to dark mode
-    # Dark mode
-    - scheme: slate
-      primary: custom
-      accent: deep orange
-      toggle:
-        icon: material/weather-sunny
-        name: Switch to light mode
-  icon:
-    repo: fontawesome/brands/github # or material/github
-
-repo_url: https://github.com/RockwoolDigital/manufacturing-target-architecture
-repo_name: '' # text shown in the header
-edit_uri: edit/main/docs/ # link to edit page on GitHub
-
-extra:
-  generator: false
-  version:
-    provider: manual
-    number: '1.0.0'
-    release: '2026-01-08'
-  confluence:
-    base_url: https://rockwool.atlassian.net
-    email: anders.hybertz@rockwool.com
-    token: !ENV CONFLUENCE_API_TOKEN   # never hardcode the token
-    space_key: MTA
-    parent_page_id: "6033932396"           # optional root page
-
-extra_css:
-  - stylesheets/extra.css
-
-hooks:
-  - hooks.py
-
-plugins:
-  - search
-  - mermaid2
-  # - d2
-  - tags
-  - awesome-pages
-  - git-revision-date-localized:
-      enable_creation_date: true
-      type: timeago
-      timezone: Europe/Copenhagen 
-  - minify:
-      minify_html: true
-  # offline plugin is for local/downloadable use only - disabled on hosted builds
-  # to avoid service worker conflicts with navigation.instant and auth-gated Pages.
-  # Enable locally with: $env:MKDOCS_OFFLINE=1; mkdocs build
-  - offline:
-      enabled: !ENV [MKDOCS_OFFLINE, false]
-
-copyright: Copyright &copy; 2026 - Rockwool - All rights reserved.
-
-markdown_extensions:
-  - toc:
-      permalink: true
-      toc_depth: 3
-  - def_list
-  - admonition
-  - pymdownx.smartsymbols
-  - pymdownx.details
-  - pymdownx.superfences:
-        custom_fences:
-          - name: mermaid
-            class: mermaid
-            format: !!python/name:pymdownx.superfences.fence_code_format
-          - name: d2
-            class: d2
-            format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets:
-      base_path:
-        - docs
-      check_paths: true
-  - pymdownx.tabbed:
-      alternate_style: true
-  - tables
-  - attr_list
-  - md_in_html
-  - abbr
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - pymdownx.keys      
-  - footnotes
+PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section appendix
+error: section 'appendix' not found in nav.
+PS C:\repos\rockwool\docs>
