@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from mkdocs_to_confluence.loader.config import MkDocsConfig
 
 
@@ -42,7 +44,7 @@ def resolve_nav(config: MkDocsConfig, mkdocs_root: Path | None = None) -> list[N
 
     When ``config.nav`` is ``None`` (e.g. projects using ``awesome-pages`` or
     ``literate-nav`` plugins), all ``.md`` files under ``docs_dir`` are
-    discovered recursively and returned as a flat nav in sorted order.
+    discovered using ``nav_file`` (default: ``.pages``) if present.
 
     Args:
         config: Parsed :class:`~mkdocs_to_confluence.loader.config.MkDocsConfig`.
@@ -53,15 +55,20 @@ def resolve_nav(config: MkDocsConfig, mkdocs_root: Path | None = None) -> list[N
         List of top-level :class:`NavNode` instances.
     """
     docs_dir = config.docs_dir
+    nav_file = config.confluence.nav_file if config.confluence else ".pages"
 
     if config.nav is None:
-        return _discover(docs_dir)
+        return _discover(docs_dir, nav_file)
 
-    return _traverse(config.nav, docs_dir, level=0)
+    return _traverse(config.nav, docs_dir, level=0, nav_file=nav_file)
 
 
-def _discover(docs_dir: Path) -> list[NavNode]:
-    """Auto-discover all .md files under *docs_dir* as a flat nav."""
+def _discover(docs_dir: Path, nav_file: str) -> list[NavNode]:
+    """Auto-discover pages, respecting nav_file files (e.g. .pages) when present."""
+    nav_entries = _read_nav_file(docs_dir, nav_file)
+    if nav_entries is not None:
+        return _traverse_nav_dir(nav_entries, docs_dir, docs_dir, level=0, nav_file=nav_file)
+    # No nav_file at root — fall back to flat rglob
     nodes: list[NavNode] = []
     for md_file in sorted(docs_dir.rglob("*.md")):
         docs_path = md_file.relative_to(docs_dir).as_posix()
@@ -76,7 +83,91 @@ def _discover(docs_dir: Path) -> list[NavNode]:
     return nodes
 
 
-def _traverse(nav: list[Any], docs_dir: Path, level: int) -> list[NavNode]:
+def _read_nav_file(directory: Path, nav_file: str) -> list[Any] | None:
+    """Return the nav list from *directory*/<nav_file>, or None if absent/unreadable."""
+    path = directory / nav_file
+    if not path.exists():
+        return None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("nav"), list):
+            return data["nav"]
+        if isinstance(data, list):
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def _traverse_nav_dir(
+    nav: list[Any], base_dir: Path, docs_dir: Path, level: int, nav_file: str
+) -> list[NavNode]:
+    """Traverse a nav_file entry list where paths are relative to *base_dir*."""
+    nodes: list[NavNode] = []
+    for item in nav:
+        if isinstance(item, str):
+            # Bare filename — auto-generate title from stem
+            file_path = (base_dir / item).resolve()
+            if file_path.suffix == ".md" and file_path.exists():
+                docs_path = file_path.relative_to(docs_dir).as_posix()
+                title = file_path.stem.replace("-", " ").replace("_", " ").title()
+                nodes.append(
+                    NavNode(
+                        title=title,
+                        docs_path=docs_path,
+                        source_path=file_path,
+                        level=level,
+                    )
+                )
+        elif isinstance(item, dict) and len(item) == 1:
+            title, value = next(iter(item.items()))
+            if isinstance(value, str):
+                target = (base_dir / value).resolve()
+                if target.is_dir():
+                    children = _resolve_nav_dir(target, docs_dir, level + 1, nav_file)
+                    nodes.append(
+                        NavNode(
+                            title=title,
+                            docs_path=None,
+                            source_path=None,
+                            level=level,
+                            children=tuple(children),
+                        )
+                    )
+                else:
+                    docs_path = target.relative_to(docs_dir).as_posix() if target.exists() else value
+                    nodes.append(
+                        NavNode(
+                            title=title,
+                            docs_path=docs_path,
+                            source_path=target if target.exists() else None,
+                            level=level,
+                        )
+                    )
+    return nodes
+
+
+def _resolve_nav_dir(dir_path: Path, docs_dir: Path, level: int, nav_file: str) -> list[NavNode]:
+    """Expand *dir_path* into NavNodes using its nav_file, or flat .md discovery."""
+    nav_entries = _read_nav_file(dir_path, nav_file)
+    if nav_entries is not None:
+        return _traverse_nav_dir(nav_entries, dir_path, docs_dir, level, nav_file)
+    # No nav_file — return .md files in this directory only (non-recursive)
+    nodes: list[NavNode] = []
+    for md_file in sorted(dir_path.glob("*.md")):
+        docs_path = md_file.relative_to(docs_dir).as_posix()
+        nodes.append(
+            NavNode(
+                title=md_file.stem.replace("-", " ").replace("_", " ").title(),
+                docs_path=docs_path,
+                source_path=md_file,
+                level=level,
+            )
+        )
+    return nodes
+
+
+def _traverse(nav: list[Any], docs_dir: Path, level: int, nav_file: str = ".pages") -> list[NavNode]:
     nodes: list[NavNode] = []
     for item in nav:
         if not isinstance(item, dict):
@@ -98,7 +189,7 @@ def _traverse(nav: list[Any], docs_dir: Path, level: int) -> list[NavNode]:
 
         if isinstance(value, list):
             # Section node — recurse
-            children = _traverse(value, docs_dir, level=level + 1)
+            children = _traverse(value, docs_dir, level=level + 1, nav_file=nav_file)
             nodes.append(
                 NavNode(
                     title=title,
@@ -109,26 +200,34 @@ def _traverse(nav: list[Any], docs_dir: Path, level: int) -> list[NavNode]:
                 )
             )
         elif isinstance(value, str):
-            # Leaf page node
-            source_path = (docs_dir / value).resolve()
-            if not source_path.exists():
-                warnings.warn(
-                    f"Nav page '{title}' not found at '{source_path}' — "
-                    "it will be omitted from the resolved nav.",
-                    stacklevel=4,
+            # Could be a page file or a directory reference (awesome-pages style)
+            target = (docs_dir / value).resolve()
+            if target.is_dir():
+                children = _resolve_nav_dir(target, docs_dir, level + 1, nav_file)
+                nodes.append(
+                    NavNode(
+                        title=title,
+                        docs_path=None,
+                        source_path=None,
+                        level=level,
+                        children=tuple(children),
+                    )
                 )
-                source_path_or_none: Path | None = None
             else:
-                source_path_or_none = source_path
-
-            nodes.append(
-                NavNode(
-                    title=title,
-                    docs_path=value,
-                    source_path=source_path_or_none,
-                    level=level,
+                if not target.exists():
+                    warnings.warn(
+                        f"Nav page '{title}' not found at '{target}' — "
+                        "it will be omitted from the resolved nav.",
+                        stacklevel=4,
+                    )
+                nodes.append(
+                    NavNode(
+                        title=title,
+                        docs_path=value,
+                        source_path=target if target.exists() else None,
+                        level=level,
+                    )
                 )
-            )
         else:
             warnings.warn(
                 f"Nav item '{title}' has an unexpected value type "

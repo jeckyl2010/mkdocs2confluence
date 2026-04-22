@@ -257,6 +257,134 @@ class TestResolveNavMissingFiles:
         assert nodes[0].docs_path == "missing.md"
 
 
+
+# ---------------------------------------------------------------------------
+# awesome-pages / .pages file support
+# ---------------------------------------------------------------------------
+
+
+def _make_pages_config(tmp_path: Path, nav_file: str = ".pages") -> Path:
+    """Create a minimal mkdocs.yml with confluence.nav_file set."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    yml = tmp_path / "mkdocs.yml"
+    yml.write_text(
+        textwrap.dedent(f"""\
+            site_name: Test
+            confluence:
+              base_url: https://example.atlassian.net
+              email: test@example.com
+              token: tok
+              space_key: TEST
+              nav_file: "{nav_file}"
+        """),
+        encoding="utf-8",
+    )
+    return yml
+
+
+class TestAwesomePagesNavFile:
+    def test_no_nav_uses_pages_file_at_root(self, tmp_path: Path) -> None:
+        yml = _make_pages_config(tmp_path)
+        docs = tmp_path / "docs"
+        # Create sub-directories for sections
+        (docs / "cctv").mkdir()
+        (docs / "gdpr").mkdir()
+        (docs / "cctv" / "vendor-assessment.md").write_text("# Vendor", encoding="utf-8")
+        (docs / "gdpr" / "gdpr-requirements.md").write_text("# GDPR", encoding="utf-8")
+        # Root .pages file — references directories as sections
+        (docs / ".pages").write_text(
+            "nav:\n  - CCTV & AI: cctv\n  - GDPR: gdpr\n", encoding="utf-8"
+        )
+        config = load_config(yml)
+        nodes = resolve_nav(config)
+        assert len(nodes) == 2
+        assert nodes[0].title == "CCTV & AI"
+        assert nodes[0].is_section
+        assert nodes[1].title == "GDPR"
+        assert nodes[1].is_section
+
+    def test_section_directory_reads_nested_pages_file(self, tmp_path: Path) -> None:
+        yml = _make_pages_config(tmp_path)
+        docs = tmp_path / "docs"
+        (docs / "appendix" / "cctv").mkdir(parents=True)
+        (docs / "appendix" / "gdpr").mkdir(parents=True)
+        (docs / "appendix" / "cctv" / "vendor.md").write_text("# V", encoding="utf-8")
+        (docs / "appendix" / "gdpr" / "requirements.md").write_text("# R", encoding="utf-8")
+        # appendix/.pages defines two sub-sections
+        (docs / "appendix" / ".pages").write_text(
+            "nav:\n  - CCTV & AI: cctv\n  - GDPR: gdpr\n", encoding="utf-8"
+        )
+        # Each sub-folder lists its pages
+        (docs / "appendix" / "cctv" / ".pages").write_text(
+            "nav:\n  - vendor.md\n", encoding="utf-8"
+        )
+        (docs / "appendix" / "gdpr" / ".pages").write_text(
+            "nav:\n  - requirements.md\n", encoding="utf-8"
+        )
+        # Root .pages points to appendix dir
+        (docs / ".pages").write_text(
+            "nav:\n  - Appendix: appendix\n", encoding="utf-8"
+        )
+        config = load_config(yml)
+        nodes = resolve_nav(config)
+        assert len(nodes) == 1
+        appendix = nodes[0]
+        assert appendix.title == "Appendix"
+        assert appendix.is_section
+        assert len(appendix.children) == 2
+        cctv, gdpr = appendix.children
+        assert cctv.title == "CCTV & AI" and cctv.is_section
+        assert gdpr.title == "GDPR" and gdpr.is_section
+        assert len(cctv.children) == 1
+        assert cctv.children[0].title == "Vendor"
+
+    def test_custom_nav_file_name(self, tmp_path: Path) -> None:
+        yml = _make_pages_config(tmp_path, nav_file=".nav")
+        docs = tmp_path / "docs"
+        (docs / "guide").mkdir()
+        (docs / "guide" / "intro.md").write_text("# Intro", encoding="utf-8")
+        (docs / ".nav").write_text(
+            "nav:\n  - Guide: guide\n", encoding="utf-8"
+        )
+        config = load_config(yml)
+        nodes = resolve_nav(config)
+        assert len(nodes) == 1
+        assert nodes[0].title == "Guide"
+        assert nodes[0].is_section
+
+    def test_mkdocs_yml_dir_ref_expands_with_pages_file(self, tmp_path: Path) -> None:
+        """When mkdocs.yml nav has a directory reference, .pages inside it is read."""
+        docs = tmp_path / "docs"
+        (docs / "appendix" / "cctv").mkdir(parents=True)
+        (docs / "appendix" / "cctv" / "vendor.md").write_text("# V", encoding="utf-8")
+        (docs / "appendix" / ".pages").write_text(
+            "nav:\n  - CCTV & AI: cctv\n", encoding="utf-8"
+        )
+        yml = tmp_path / "mkdocs.yml"
+        yml.write_text(
+            textwrap.dedent("""\
+                site_name: Test
+                nav:
+                  - Appendix: appendix
+                confluence:
+                  base_url: https://example.atlassian.net
+                  email: test@example.com
+                  token: tok
+                  space_key: TEST
+            """),
+            encoding="utf-8",
+        )
+        config = load_config(yml)
+        nodes = resolve_nav(config)
+        assert len(nodes) == 1
+        appendix = nodes[0]
+        assert appendix.is_section
+        assert len(appendix.children) == 1
+        assert appendix.children[0].title == "CCTV & AI"
+        assert appendix.children[0].is_section
+
+
 # ---------------------------------------------------------------------------
 # flat_pages helper
 # ---------------------------------------------------------------------------
