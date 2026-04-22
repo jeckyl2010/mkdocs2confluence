@@ -48,6 +48,9 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
+    FootnoteBlock,
+    FootnoteDef,
+    FootnoteRef,
     HorizontalRule,
     ImageNode,
     IRNode,
@@ -160,6 +163,12 @@ class _TableToken:
     rows: list[list[str]]
 
 
+@dataclass
+class _FootnoteDefToken:
+    label: str
+    content: str  # raw inline content of the definition
+
+
 _Token = Union[
     _HeadingToken,
     _CodeToken,
@@ -171,6 +180,7 @@ _Token = Union[
     _OrderedListToken,
     _ContentTabsToken,
     _TableToken,
+    _FootnoteDefToken,
 ]
 
 
@@ -201,6 +211,13 @@ _ORDERED_RE = re.compile(r'^(?P<indent>\s*)(?P<num>\d+)\.\s+(?P<text>.+)$')
 
 # Matches a task checkbox at the start of a list item body.
 _TASK_RE = re.compile(r'^\[(?P<state>[xX ])\]\s+(?P<rest>.+)$')
+
+
+# Matches a footnote definition: [^label]: content (at line start)
+_FOOTNOTE_DEF_RE = re.compile(r'^\[\^(?P<label>[^\]]+)\]:\s+(?P<content>.+)$')
+
+# Matches an inline footnote reference: [^label]
+_FOOTNOTE_REF_RE = re.compile(r'^\[\^(?P<label>[^\]]+)\]')
 
 
 def _tokenize(text: str) -> list[_Token]:
@@ -415,6 +432,16 @@ def _tokenize(text: str) -> list[_Token]:
                 )
                 continue
 
+        # ── Footnote definition ───────────────────────────────────────────────
+        fn_def_m = _FOOTNOTE_DEF_RE.match(line)
+        if fn_def_m:
+            tokens.append(_FootnoteDefToken(
+                label=fn_def_m.group("label"),
+                content=fn_def_m.group("content"),
+            ))
+            i += 1
+            continue
+
         # ── Paragraph accumulation ───────────────────────────────────────────
         para_lines: list[str] = []
         while i < len(lines):
@@ -532,16 +559,17 @@ def _parse_table_aligns(sep_line: str) -> list[str | None]:
 # ── Inline parser ─────────────────────────────────────────────────────────────
 
 
-def _parse_inline(text: str) -> tuple[IRNode, ...]:
+def _parse_inline(text: str, fn_map: dict[str, int] | None = None) -> tuple[IRNode, ...]:
     """Parse inline markdown into a tuple of IR inline nodes.
 
     Handles: backtick code spans, images, links, bold (``**``/``__``),
-    strikethrough (``~~``), italic (``*``/``_``), and plain text.
+    strikethrough (``~~``), italic (``*``/``_``), footnote refs, and plain text.
     """
-    return tuple(_scan_inline(text))
+    return tuple(_scan_inline(text, fn_map or {}))
 
 
-def _scan_inline(text: str) -> list[IRNode]:
+def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode]:
+    _fn = fn_map or {}
     nodes: list[IRNode] = []
     buf = ""
     i = 0
@@ -583,12 +611,22 @@ def _scan_inline(text: str) -> list[IRNode]:
                 i += len(m.group(0))
                 continue
 
+        # Footnote reference: [^label] — must be checked before generic link
+        if text[i] == "[" and i + 1 < n and text[i + 1] == "^":
+            fn_m = _FOOTNOTE_REF_RE.match(text[i:])
+            if fn_m:
+                label = fn_m.group("label")
+                flush()
+                nodes.append(FootnoteRef(label=label, number=_fn.get(label, 0)))
+                i += len(fn_m.group(0))
+                continue
+
         # Link: [text](href)
         if text[i] == "[":
             m = re.match(r"\[([^\]]*)\]\(([^)]*)\)", text[i:])
             if m:
                 flush()
-                inner = _scan_inline(m.group(1))
+                inner = _scan_inline(m.group(1), _fn)
                 nodes.append(LinkNode(href=m.group(2), children=tuple(inner)))
                 i += len(m.group(0))
                 continue
@@ -599,7 +637,7 @@ def _scan_inline(text: str) -> list[IRNode]:
             close_idx = text.find(delim, i + 2)
             if close_idx != -1:
                 flush()
-                inner = _scan_inline(text[i + 2 : close_idx])
+                inner = _scan_inline(text[i + 2 : close_idx], _fn)
                 nodes.append(BoldNode(children=tuple(inner)))
                 i = close_idx + 2
                 continue
@@ -609,7 +647,7 @@ def _scan_inline(text: str) -> list[IRNode]:
             close_idx = text.find("~~", i + 2)
             if close_idx != -1:
                 flush()
-                inner = _scan_inline(text[i + 2 : close_idx])
+                inner = _scan_inline(text[i + 2 : close_idx], _fn)
                 nodes.append(StrikethroughNode(children=tuple(inner)))
                 i = close_idx + 2
                 continue
@@ -619,7 +657,7 @@ def _scan_inline(text: str) -> list[IRNode]:
             close_idx = text.find("*", i + 1)
             if close_idx != -1 and close_idx > i + 1:
                 flush()
-                inner = _scan_inline(text[i + 1 : close_idx])
+                inner = _scan_inline(text[i + 1 : close_idx], _fn)
                 nodes.append(ItalicNode(children=tuple(inner)))
                 i = close_idx + 1
                 continue
@@ -640,7 +678,10 @@ class _OpenSection:
     children: list[IRNode] = field(default_factory=list)
 
 
-def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
+def _build_tree(
+    tokens: list[_Token],
+    fn_map: dict[str, int] | None = None,
+) -> tuple[IRNode, ...]:
     """Convert a flat token list into a nested IR node tree.
 
     Headings open :class:`_OpenSection` entries on the stack.  A heading of
@@ -649,6 +690,13 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
     Block content (paragraphs, code blocks) goes into the innermost open
     section, or directly onto the root list if no section is open.
     """
+    # Top-level call: extract footnote definitions and assign numbers.
+    fn_defs: list[_FootnoteDefToken] = []
+    if fn_map is None:
+        fn_defs = [t for t in tokens if isinstance(t, _FootnoteDefToken)]
+        fn_map = {t.label: i + 1 for i, t in enumerate(fn_defs)}
+        tokens = [t for t in tokens if not isinstance(t, _FootnoteDefToken)]
+    _fn = fn_map
     root: list[IRNode] = []
     stack: list[_OpenSection] = []
 
@@ -658,7 +706,7 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
             stack.append(_OpenSection(level=token.level, title_text=token.text))
 
         elif isinstance(token, _ParagraphToken):
-            node = _paragraph_node(token)
+            node = _paragraph_node(token, fn_map=_fn)
             _append_content(node, stack, root)
 
         elif isinstance(token, _CodeToken):
@@ -676,7 +724,7 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
             )
 
         elif isinstance(token, _AdmonitionToken):
-            body_nodes = _build_tree(token.body_tokens)
+            body_nodes = _build_tree(token.body_tokens, fn_map=_fn)
             _append_content(
                 Admonition(
                     kind=token.kind,
@@ -692,19 +740,19 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
             _append_content(HorizontalRule(), stack, root)
 
         elif isinstance(token, _BlockQuoteToken):
-            body_nodes_bq = _build_tree(token.body_tokens)
+            body_nodes_bq = _build_tree(token.body_tokens, fn_map=_fn)
             _append_content(BlockQuote(children=body_nodes_bq), stack, root)
 
         elif isinstance(token, _BulletListToken):
             items = tuple(
-                ListItem(children=_parse_inline(item.text), task=item.task)
+                ListItem(children=_parse_inline(item.text, fn_map=_fn), task=item.task)
                 for item in token.items
             )
             _append_content(BulletList(items=items), stack, root)
 
         elif isinstance(token, _OrderedListToken):
             items = tuple(
-                ListItem(children=_parse_inline(item.text))
+                ListItem(children=_parse_inline(item.text, fn_map=_fn))
                 for item in token.items
             )
             _append_content(OrderedList(items=items, start=token.start), stack, root)
@@ -717,7 +765,7 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
             ) -> TableCell:
                 align = aligns[col] if col < len(aligns) else None
                 return TableCell(
-                    children=_parse_inline(text),
+                    children=_parse_inline(text, fn_map=_fn),
                     align=align,
                     is_header=is_header,
                 )
@@ -738,13 +786,26 @@ def _build_tree(tokens: list[_Token]) -> tuple[IRNode, ...]:
 
         elif isinstance(token, _ContentTabsToken):
             tab_nodes = tuple(
-                Tab(label=t.label, children=_build_tree(t.body_tokens))
+                Tab(label=t.label, children=_build_tree(t.body_tokens, fn_map=_fn))
                 for t in token.tabs
             )
             _append_content(ContentTabs(tabs=tab_nodes), stack, root)
 
     # Close all remaining open sections.
     _close_from_level(0, stack, root)
+
+    # Append footnote block at the document root (top-level call only).
+    if fn_defs:
+        footnote_items = tuple(
+            FootnoteDef(
+                label=t.label,
+                number=_fn[t.label],
+                children=_parse_inline(t.content, fn_map=_fn),
+            )
+            for t in fn_defs
+        )
+        root.append(FootnoteBlock(items=footnote_items))
+
     return tuple(root)
 
 
@@ -773,10 +834,10 @@ def _append_content(
         root.append(node)
 
 
-def _paragraph_node(token: _ParagraphToken) -> Paragraph:
+def _paragraph_node(token: _ParagraphToken, fn_map: dict[str, int] | None = None) -> Paragraph:
     """Convert a paragraph token into a :class:`~ir.Paragraph` node."""
     text = " ".join(line.strip() for line in token.lines)
-    return Paragraph(children=_parse_inline(text))
+    return Paragraph(children=_parse_inline(text, fn_map=fn_map))
 
 
 # ── Anchor generation ─────────────────────────────────────────────────────────

@@ -29,6 +29,8 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeInlineNode,
     ContentTabs,
     Expandable,
+    FootnoteBlock,
+    FootnoteRef,
     FrontMatter,
     HorizontalRule,
     ImageNode,
@@ -164,6 +166,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_expandable(node)
     if isinstance(node, FrontMatter):
         return _emit_front_matter(node)
+    if isinstance(node, FootnoteBlock):
+        return _emit_footnote_block(node)
     if isinstance(node, UnsupportedBlock):
         return _emit_unsupported(node)
     # Inline nodes at block level (shouldn't normally appear, but be safe)
@@ -415,6 +419,34 @@ def _emit_unsupported(node: UnsupportedBlock) -> str:
     )
 
 
+def _emit_footnote_ref(node: FootnoteRef) -> str:
+    """Inline superscript that links to the footnote definition anchor."""
+    anchor = html.escape(f"fn-{node.label}")
+    num = html.escape(str(node.number))
+    return (
+        f"<sup>"
+        f'<ac:link ac:anchor="{anchor}">'
+        f"<ac:plain-text-link-body><![CDATA[{num}]]></ac:plain-text-link-body>"
+        f"</ac:link>"
+        f"</sup>"
+    )
+
+
+def _emit_footnote_block(node: FootnoteBlock) -> str:
+    """Footnotes section: heading + ordered list with anchor targets."""
+    items: list[str] = []
+    for fn in node.items:
+        anchor = html.escape(f"fn-{fn.label}")
+        anchor_macro = (
+            f'<ac:structured-macro ac:name="anchor">'
+            f'<ac:parameter ac:name=""><![CDATA[{anchor}]]></ac:parameter>'
+            f"</ac:structured-macro>"
+        )
+        content = _emit_inlines(fn.children)
+        items.append(f"<li>{anchor_macro}{content}</li>\n")
+    return "<h2>Footnotes</h2>\n<ol>\n" + "".join(items) + "</ol>\n"
+
+
 # ── Inline emitters ───────────────────────────────────────────────────────────
 
 
@@ -437,6 +469,8 @@ def _emit_inline(node: IRNode) -> str:
         return _emit_link(node)
     if isinstance(node, ImageNode):
         return _emit_image(node)
+    if isinstance(node, FootnoteRef):
+        return _emit_footnote_ref(node)
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
 

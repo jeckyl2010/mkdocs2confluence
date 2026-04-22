@@ -348,6 +348,36 @@ class FrontMatter(IRNode):
     source_url: str | None = None
 
 
+# ── Footnotes ────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class FootnoteRef(IRNode):
+    """An inline footnote reference, e.g. ``[^1]``.
+
+    Rendered as a superscript anchor-link pointing to the footnote definition.
+    """
+
+    label: str   # raw label as written, e.g. "1" or "note"
+    number: int  # 1-based display number
+
+
+@dataclass(frozen=True)
+class FootnoteDef(IRNode):
+    """A single footnote definition."""
+
+    label: str
+    number: int
+    children: tuple[IRNode, ...]
+
+
+@dataclass(frozen=True)
+class FootnoteBlock(IRNode):
+    """The collected footnote definitions appended at the end of a page."""
+
+    items: tuple[FootnoteDef, ...]
+
+
 # ── Graceful degradation ──────────────────────────────────────────────────────
 
 
