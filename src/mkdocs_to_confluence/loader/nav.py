@@ -106,16 +106,29 @@ def _traverse_nav_dir(
     nodes: list[NavNode] = []
     for item in nav:
         if isinstance(item, str):
-            # Bare filename — auto-generate title from stem
-            file_path = (base_dir / item).resolve()
-            if file_path.suffix == ".md" and file_path.exists():
-                docs_path = file_path.relative_to(docs_dir).as_posix()
-                title = file_path.stem.replace("-", " ").replace("_", " ").title()
+            # Bare string — could be a .md file or a bare directory reference
+            target = (base_dir / item).resolve()
+            if target.is_dir():
+                # Bare directory: expand using its nav_file, title from dirname
+                children = _resolve_nav_dir(target, docs_dir, level + 1, nav_file)
+                title = target.name.replace("-", " ").replace("_", " ").title()
+                nodes.append(
+                    NavNode(
+                        title=title,
+                        docs_path=None,
+                        source_path=None,
+                        level=level,
+                        children=tuple(children),
+                    )
+                )
+            elif target.suffix == ".md" and target.exists():
+                docs_path = target.relative_to(docs_dir).as_posix()
+                title = target.stem.replace("-", " ").replace("_", " ").title()
                 nodes.append(
                     NavNode(
                         title=title,
                         docs_path=docs_path,
-                        source_path=file_path,
+                        source_path=target,
                         level=level,
                     )
                 )
