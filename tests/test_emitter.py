@@ -123,19 +123,28 @@ class TestListEmitters:
         items = (ListItem((TextNode("one"),)), ListItem((TextNode("two"),)))
         out = emit((BulletList(items=items),))
         assert "<ul>" in out
-        assert "<li>one</li>" in out
-        assert "<li>two</li>" in out
+        assert "<li><p>one</p></li>" in out
+        assert "<li><p>two</p></li>" in out
 
     def test_ordered_list(self) -> None:
         items = (ListItem((TextNode("first"),)),)
         out = emit((OrderedList(items=items),))
         assert "<ol>" in out
-        assert "<li>first</li>" in out
+        assert "<li><p>first</p></li>" in out
 
     def test_ordered_list_custom_start(self) -> None:
         items = (ListItem((TextNode("x"),)),)
         out = emit((OrderedList(items=items, start=5),))
         assert 'start="5"' in out
+
+    def test_list_item_with_external_link(self) -> None:
+        # Inline links in list items must be wrapped in <p> so Confluence
+        # renders them — without <p>, structured elements are stripped.
+        link = LinkNode("https://example.com", (TextNode("Example"),))
+        items = (ListItem((link,)),)
+        out = emit((BulletList(items=items),))
+        assert "<li><p>" in out
+        assert '<a href="https://example.com">Example</a>' in out
 
 
 class TestHorizontalRule:
