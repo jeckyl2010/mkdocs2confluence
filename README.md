@@ -13,13 +13,13 @@ Requires Python 3.12+.
 **From the latest GitHub release** (recommended):
 
 ```bash
-pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.2.0/mkdocs_to_confluence-0.2.0-py3-none-any.whl
+pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.4.28/mkdocs_to_confluence-0.4.28-py3-none-any.whl
 ```
 
 Or with `pipx` for an isolated install (no virtual environment needed):
 
 ```bash
-pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.2.0/mkdocs_to_confluence-0.2.0-py3-none-any.whl
+pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.4.28/mkdocs_to_confluence-0.4.28-py3-none-any.whl
 ```
 
 **From source** (see [Setup.md](Setup.md) for the full dev environment guide):
@@ -85,14 +85,16 @@ mk2conf preview --config docs/mkdocs.yml --page guide/installation.md \
 Compile all pages listed in the `nav:` and publish them to Confluence Cloud.
 
 ```
-mk2conf publish [--config PATH] [--page PATH] [--dry-run]
+mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--report FILE]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--config PATH` | `./mkdocs.yml` | Path to your `mkdocs.yml` |
 | `--page PATH` | *(all nav pages)* | Publish a single page only |
+| `--section PATH` | *(whole nav)* | Publish only a nav subtree (e.g. `Guide` or `Guide/Setup`) |
 | `--dry-run` | off | Print the publish plan without making any API calls |
+| `--report FILE` | *(none)* | Write a JSON publish report to `FILE` after the run |
 
 #### Configuration
 
@@ -130,6 +132,12 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml
 
 # Publish a single page
 CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --page guide/setup.md
+
+# Publish only one nav section
+CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --section appendix
+
+# Publish and write a JSON report
+CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --report publish-report.json
 ```
 
 ---
@@ -142,7 +150,7 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --page guide/setup.
 |---|---|
 | ATX headings `#` – `######` | `<h1>` – `<h6>` |
 | Paragraphs | `<p>` |
-| Fenced code blocks (`` ``` `` / `~~~`) | `code` macro with language, title, and line numbers |
+| Fenced code blocks (`` ``` `` / `~~~`) | `code` macro with language, title, and line numbers. Confluence accepts the full language name (e.g. `python`, `javascript`, `yaml`); Pygments short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is and will render without syntax highlighting on Confluence. |
 | Bullet lists `- ` / `* ` / `+ ` | `<ul>/<li>` |
 | Ordered lists `1. ` | `<ol>/<li>` |
 | Task lists `- [x]` / `- [ ]` | `<ul>/<li>` (checked state preserved) |
@@ -170,9 +178,12 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --page guide/setup.
 | Admonitions `!!! type "title"` | `info` / `tip` / `warning` / `note` macro |
 | Danger admonitions (`danger`, `error`, `bug`) | Custom red `panel` macro with 🚨 prefix |
 | Collapsible admonitions `??? type` | `expand` macro |
-| Content tabs `=== "Label"` | `expand` macros (one per tab) |
+| Content tabs `=== "Label"` (`pymdownx.tabbed`) | `expand` macros (one per tab) |
+| Details blocks `??? "title"` (`pymdownx.details`) | `expand` macro |
+| Footnotes `[^1]` / `[^1]: text` (`pymdownx.footnotes`) | Inline superscript anchor links + *Footnotes* section at page bottom |
 | Mermaid diagrams | `code` macro labelled `mermaid` |
-| Internal links `[text](page.md)` | `<ac:link><ri:page ac:title="...">` native Confluence page link |
+| Internal links `[text](page.md)` | `<ac:link><ri:page ac:title="...">` native Confluence page link; `#fragment` anchors preserved |
+| `awesome-pages` nav (`.pages` files) | Fully supported — nav is resolved from `.pages` files; bare directory entries auto-expand into sections |
 | Edit link banner | `info` macro with a link back to the source file in GitHub/GitLab (uses `repo_url` + `edit_uri` from `mkdocs.yml`) |
 
 ### YAML front matter → Page Properties
@@ -304,13 +315,14 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 
 Planned features, roughly in priority order:
 
-- [ ] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav, so you don't have to publish everything from root or target a single file. Supports nested paths (`"Guide/Setup"`).
 - [ ] **Asset re-upload on every publish** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) are re-uploaded on every run so updated files are never left stale in Confluence. Confluence handles attachment versioning internally.
 - [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.
 - [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column.
 - [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the instance has a Mermaid plugin). Pre-rendering via self-hosted [Kroki](https://kroki.io) (`docker run -p 8000:8000 yuzutech/kroki`) is the preferred future path — no browser dependency.
 
 **Completed:**
+
+- [x] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav; supports bare folder names as well as slash-separated paths (`"Guide/Setup"`)
 
 - [x] **Sequential asset uploads** — assets (images, PDFs, Word, Excel, etc.) are uploaded one at a time per page; Confluence holds a page-level write lock per attachment POST so concurrent uploads cause HTTP 500 transaction rollbacks
 - [x] **Publish summary report** — structured output after every run (`N created, N updated, N skipped · N assets uploaded`); `--report FILE` writes a JSON report; non-zero exit on errors
@@ -323,6 +335,10 @@ Planned features, roughly in priority order:
 - [x] **Local asset attachments** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded as Confluence page attachments at publish time; local images embedded as base64 data URIs in the browser preview
 - [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
 - [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction
+- [x] **Footnotes** (`pymdownx.footnotes`) — `[^label]` inline refs → superscript anchor links; definitions → anchored *Footnotes* section at page bottom
+- [x] **Content tabs** (`pymdownx.tabbed`) — `=== "Label"` blocks → `expand` macros (one per tab)
+- [x] **Collapsible details** (`pymdownx.details`) — `??? "title"` blocks → `expand` macro
+- [x] **awesome-pages nav** — `.pages` files resolved natively; bare directory entries auto-expand into sections; full hierarchy preserved in Confluence folder structure
 
 ---
 
