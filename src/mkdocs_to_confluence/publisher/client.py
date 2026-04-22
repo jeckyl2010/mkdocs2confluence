@@ -163,11 +163,21 @@ class ConfluenceClient:
         self._raise_for_status(resp, f"create_page({title!r})")
         return resp.json()  # type: ignore[no-any-return]
 
-    def update_page(self, page_id: str, title: str, body: str, version: int) -> dict[str, Any]:
+    def update_page(
+        self,
+        page_id: str,
+        title: str,
+        body: str,
+        version: int,
+        *,
+        parent_id: str | None = None,
+    ) -> dict[str, Any]:
         """Update an existing page to a new version and return the page dict.
 
         ``minorEdit`` is set so Confluence does not notify all page watchers
         on every automated CI/CD publish.
+
+        If *parent_id* is supplied the page is moved to that parent (re-parented).
         """
         payload: dict[str, Any] = {
             "id": page_id,
@@ -183,6 +193,8 @@ class ConfluenceClient:
                 "minorEdit": True,
             },
         }
+        if parent_id is not None:
+            payload["parentId"] = parent_id
         resp = self._http.put(self._v2(f"/pages/{page_id}"), json=payload)
         self._raise_for_status(resp, f"update_page({page_id!r})")
         return resp.json()  # type: ignore[no-any-return]

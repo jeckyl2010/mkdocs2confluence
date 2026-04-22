@@ -393,6 +393,7 @@ def execute_publish(
                     action.title,
                     action.xhtml or "",
                     action.version + 1,
+                    parent_id=action.parent_id,
                 )
                 report.updated += 1
         except Exception as exc:
