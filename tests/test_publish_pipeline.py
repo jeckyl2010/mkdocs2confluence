@@ -231,7 +231,13 @@ def _make_execute_client(space_id: str = "~42") -> MagicMock:
         _page_counter["n"] += 1
         return {"id": _page_counter["n"], "version": {"number": 1}}
 
+    def create_folder(sid, title, *, parent_id=None):
+        _page_counter["n"] += 1
+        return {"id": _page_counter["n"]}
+
     client.create_page.side_effect = create_page
+    client.create_folder.side_effect = create_folder
+    client.find_folder_under.return_value = None  # no pre-existing folders
     client.update_page.return_value = {"id": 99, "version": {"number": 2}}
     return client
 
@@ -263,7 +269,7 @@ class TestExecutePublish:
 
         section_action = PageAction(
             node=section, title="My Section", action="create",
-            parent_id="ROOT", xhtml="", page_id=None,
+            parent_id="ROOT", xhtml="", page_id=None, is_folder=True,
         )
         child_action = PageAction(
             node=child, title="Child", action="create",
@@ -291,6 +297,7 @@ class TestExecutePublish:
         section_action = PageAction(
             node=section, title="Existing Section", action="update",
             parent_id="ROOT", xhtml="", page_id="existing-99", version=1,
+            is_folder=True,
         )
         child_action = PageAction(
             node=child, title="Child2", action="create",
@@ -314,8 +321,8 @@ class TestExecutePublish:
         sub = _make_section_node("SubSection", [page])
         top = _make_section_node("TopSection", [sub])
 
-        top_action  = PageAction(node=top,  title="TopSection", action="create", parent_id="ROOT", xhtml="", page_id=None)
-        sub_action  = PageAction(node=sub,  title="SubSection", action="create", parent_id=None,   xhtml="", page_id=None)
+        top_action  = PageAction(node=top,  title="TopSection", action="create", parent_id="ROOT", xhtml="", page_id=None, is_folder=True)
+        sub_action  = PageAction(node=sub,  title="SubSection", action="create", parent_id=None,   xhtml="", page_id=None, is_folder=True)
         page_action = PageAction(node=page, title="DeepPage",   action="create", parent_id=None,   xhtml="<p>content</p>")
 
         plan = [top_action, sub_action, page_action]
@@ -325,6 +332,78 @@ class TestExecutePublish:
 
         assert sub_action.parent_id  == top_action.page_id, "SubSection must be under TopSection"
         assert page_action.parent_id == sub_action.page_id,  "DeepPage must be under SubSection"
+
+    def test_sections_use_create_folder_not_create_page(self, tmp_path: Path) -> None:
+        """Section nodes must create Confluence folders, not pages."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        child = _make_page_node("Doc", tmp_path, docs_dir)
+        section = _make_section_node("Appendix", [child])
+
+        folder_action = PageAction(
+            node=section, title="Appendix", action="create",
+            parent_id="ROOT", is_folder=True,
+        )
+        child_action = PageAction(
+            node=child, title="Doc", action="create",
+            parent_id=None, xhtml="<p>content</p>",
+        )
+        plan = [folder_action, child_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        client.create_folder.assert_called_once_with("~42", "Appendix", parent_id="ROOT")
+        client.create_page.assert_not_called_for_section = True  # pages don't use create_page
+        assert child_action.parent_id == folder_action.page_id
+
+    def test_existing_folder_is_reused_not_recreated(self, tmp_path: Path) -> None:
+        """If a folder already exists, it must be reused (find_folder_under → reuse)."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        section = _make_section_node("Appendix", [])
+
+        folder_action = PageAction(
+            node=section, title="Appendix", action="create",
+            parent_id="ROOT", is_folder=True,
+        )
+        client = _make_execute_client()
+        client.find_folder_under.return_value = {"id": "existing-folder-77", "title": "Appendix"}
+
+        execute_publish([folder_action], client, space_id="~42", docs_dir=docs_dir)
+
+        client.create_folder.assert_not_called()
+        assert folder_action.page_id == "existing-folder-77"
+
+    def test_nested_folders_use_parent_is_folder_endpoint(self, tmp_path: Path) -> None:
+        """Sub-folders must search via /folders/{id}/direct-children, not /pages/."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        leaf = _make_page_node("Note", tmp_path, docs_dir)
+        sub = _make_section_node("Sub", [leaf])
+        top = _make_section_node("Top", [sub])
+
+        top_action = PageAction(node=top, title="Top", action="create", parent_id="ROOT", is_folder=True)
+        sub_action = PageAction(node=sub, title="Sub", action="create", parent_id=None, is_folder=True)
+        leaf_action = PageAction(node=leaf, title="Note", action="create", parent_id=None, xhtml="<p/>")
+
+        plan = [top_action, sub_action, leaf_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        # Sub-folder search must use parent_is_folder=True
+        calls = client.find_folder_under.call_args_list
+        sub_call = next(c for c in calls if c.args[1] == "Sub")
+        assert sub_call.kwargs.get("parent_is_folder") is True, \
+            "find_folder_under for a nested folder must pass parent_is_folder=True"
 
     def test_update_page_reparents_when_hierarchy_changes(self, tmp_path: Path) -> None:
         """Existing pages are moved (re-parented) when the hierarchy changes.
@@ -343,9 +422,9 @@ class TestExecutePublish:
         sub  = _make_section_node("NewSubSection", [page])
         top  = _make_section_node("TopSection", [sub])
 
-        top_action  = PageAction(node=top,  title="TopSection",  action="update", parent_id="ROOT",        xhtml="", page_id="top-99",  version=1)
-        sub_action  = PageAction(node=sub,  title="NewSubSection", action="create", parent_id=None,        xhtml="", page_id=None)
-        page_action = PageAction(node=page, title="OldPage",     action="update", parent_id=None,        xhtml="<p>body</p>", page_id="page-77", version=3)
+        top_action  = PageAction(node=top,  title="TopSection",    action="update", parent_id="ROOT", xhtml="", page_id="top-99",  version=1, is_folder=True)
+        sub_action  = PageAction(node=sub,  title="NewSubSection",  action="create", parent_id=None,   xhtml="", page_id=None,       is_folder=True)
+        page_action = PageAction(node=page, title="OldPage",        action="update", parent_id=None,   xhtml="<p>body</p>", page_id="page-77", version=3)
 
         plan = [top_action, sub_action, page_action]
         client = _make_execute_client()
