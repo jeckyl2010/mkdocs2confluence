@@ -158,6 +158,10 @@ def find_section(nodes: list[NavNode], path: str) -> NavNode | None:
     Each segment is matched against node titles, case-insensitively.  An exact
     match is preferred over a partial (contains) match at each level.
 
+    When the path is not found starting from the top level, the search recurses
+    into all section children so that ``find_section(nav, "appendix")`` works
+    even when "appendix" is nested under another section.
+
     Examples::
 
         find_section(nav, "Guide")
@@ -169,9 +173,24 @@ def find_section(nodes: list[NavNode], path: str) -> NavNode | None:
     if not segments:
         return None
 
+    result = _match_path(nodes, segments)
+    if result is not None:
+        return result
+
+    # Not found at this level — recurse into section children (DFS).
+    for node in nodes:
+        if node.is_section and node.children:
+            result = find_section(list(node.children), path)
+            if result is not None:
+                return result
+
+    return None
+
+
+def _match_path(nodes: list[NavNode], segments: list[str]) -> NavNode | None:
+    """Try to match a multi-segment path starting at *nodes* (non-recursive)."""
     current = nodes
     matched: NavNode | None = None
-
     for segment in segments:
         seg_lower = segment.lower()
         exact = next((n for n in current if n.title.lower() == seg_lower), None)
@@ -180,7 +199,6 @@ def find_section(nodes: list[NavNode], path: str) -> NavNode | None:
         if matched is None:
             return None
         current = list(matched.children)
-
     return matched
 
 
