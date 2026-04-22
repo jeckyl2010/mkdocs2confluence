@@ -535,6 +535,86 @@ class TestExecutePublish:
         assert len(report.errors) == 1
         assert "Broken" in report.errors[0][0]
 
+    def test_three_level_nested_folders_wire_pages_correctly(self, tmp_path: Path) -> None:
+        """Pages under nested sub-folders must be created under their specific sub-folder.
+
+        Replicates the user scenario: appendix → [cctv, gdpr, api-test-client] → pages.
+        Each page must end up under its own sub-folder, NOT flat under appendix.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        # Build nav tree: appendix → [cctv, gdpr] → pages
+        cctv_p1 = _make_page_node("CCTV Policy", tmp_path, docs_dir)
+        cctv_p2 = _make_page_node("CCTV Guide", tmp_path, docs_dir)
+        gdpr_p1 = _make_page_node("GDPR Overview", tmp_path, docs_dir)
+
+        cctv = _make_section_node("cctv", [cctv_p1, cctv_p2])
+        gdpr = _make_section_node("gdpr", [gdpr_p1])
+        appendix = _make_section_node("appendix", [cctv, gdpr])
+
+        # Replicate the plan that _plan_nodes produces:
+        # - Section actions have parent_id=None (set at plan time to None for sub-sections)
+        # - parent_is_folder is set correctly per level
+        appendix_action = PageAction(node=appendix, title="appendix", action="create",
+                                     parent_id="ROOT_PAGE", is_folder=True)
+        cctv_action = PageAction(node=cctv, title="cctv", action="create",
+                                 parent_id=None, is_folder=True, parent_is_folder=True)
+        gdpr_action = PageAction(node=gdpr, title="gdpr", action="create",
+                                 parent_id=None, is_folder=True, parent_is_folder=True)
+        cctv_p1_action = PageAction(node=cctv_p1, title="CCTV Policy", action="create",
+                                    parent_id=None, xhtml="<p>cctv policy</p>")
+        cctv_p2_action = PageAction(node=cctv_p2, title="CCTV Guide", action="create",
+                                    parent_id=None, xhtml="<p>cctv guide</p>")
+        gdpr_p1_action = PageAction(node=gdpr_p1, title="GDPR Overview", action="create",
+                                    parent_id=None, xhtml="<p>gdpr</p>")
+
+        # DFS order: appendix → cctv → cctv pages → gdpr → gdpr pages
+        plan = [appendix_action, cctv_action, cctv_p1_action, cctv_p2_action,
+                gdpr_action, gdpr_p1_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        # appendix folder must be under ROOT_PAGE
+        appendix_call = next(
+            c for c in client.create_folder.call_args_list if c.args[1] == "appendix"
+        )
+        assert appendix_call.kwargs.get("parent_id") == "ROOT_PAGE"
+
+        # cctv and gdpr must be under appendix (not ROOT_PAGE, not None)
+        cctv_call = next(
+            c for c in client.create_folder.call_args_list if c.args[1] == "cctv"
+        )
+        assert cctv_call.kwargs.get("parent_id") == appendix_action.page_id, \
+            "cctv folder must be created under appendix, not at root"
+
+        gdpr_call = next(
+            c for c in client.create_folder.call_args_list if c.args[1] == "gdpr"
+        )
+        assert gdpr_call.kwargs.get("parent_id") == appendix_action.page_id, \
+            "gdpr folder must be created under appendix, not at root"
+
+        # Pages must be under their specific sub-folder, NOT under appendix
+        assert cctv_p1_action.parent_id == cctv_action.page_id, \
+            "CCTV Policy must be under cctv folder, not under appendix"
+        assert cctv_p2_action.parent_id == cctv_action.page_id, \
+            "CCTV Guide must be under cctv folder, not under appendix"
+        assert gdpr_p1_action.parent_id == gdpr_action.page_id, \
+            "GDPR Overview must be under gdpr folder, not under appendix"
+
+        # None of the page parents should equal appendix_id
+        assert cctv_p1_action.parent_id != appendix_action.page_id
+        assert gdpr_p1_action.parent_id != appendix_action.page_id
+
+        create_page_calls = client.create_page.call_args_list
+        cctv_p1_call = next(c for c in create_page_calls if c.args[1] == "CCTV Policy")
+        assert cctv_p1_call.kwargs.get("parent_id") == cctv_action.page_id
+        gdpr_p1_call = next(c for c in create_page_calls if c.args[1] == "GDPR Overview")
+        assert gdpr_p1_call.kwargs.get("parent_id") == gdpr_action.page_id
+
     def test_parallel_uploads_all_called(self, tmp_path: Path) -> None:
         """All attachments are uploaded even when running in parallel."""
         from mkdocs_to_confluence.publisher.pipeline import execute_publish
