@@ -355,7 +355,8 @@ class TestExecutePublish:
 
         execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
 
-        client.create_folder.assert_called_once_with("~42", "Appendix", parent_id="ROOT")
+        client.create_folder.assert_called_once_with("~42", "Appendix", parent_id=None)
+        # parent_id="ROOT" is a page, not a folder — API doesn't accept page IDs as parentId
         client.create_page.assert_not_called_for_section = True  # pages don't use create_page
         assert child_action.parent_id == folder_action.page_id
 
@@ -578,11 +579,15 @@ class TestExecutePublish:
 
         execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
 
-        # appendix folder must be under ROOT_PAGE
+        # appendix is a top-level folder whose parent is a regular page — the
+        # Confluence v2 /folders API rejects page IDs as parentId (returns 404),
+        # so the correct call must omit the parent (creates at space root).
         appendix_call = next(
             c for c in client.create_folder.call_args_list if c.args[1] == "appendix"
         )
-        assert appendix_call.kwargs.get("parent_id") == "ROOT_PAGE"
+        assert appendix_call.kwargs.get("parent_id") is None, (
+            "top-level folder must be created at space root (page ID not valid as parentId)"
+        )
 
         # cctv and gdpr must be under appendix (not ROOT_PAGE, not None)
         cctv_call = next(

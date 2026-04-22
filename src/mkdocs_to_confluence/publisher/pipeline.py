@@ -404,8 +404,15 @@ def execute_publish(
                         action.page_id = str(existing_folder["id"])
                         report.updated += 1
                     else:
+                        # The Confluence v2 /folders API only accepts a folder
+                        # ID as parentId — passing a page ID returns 404.  When
+                        # the immediate parent is a regular page (e.g. the root
+                        # parent_page_id), create the folder at the space root.
+                        folder_parent = (
+                            action.parent_id if action.parent_is_folder else None
+                        )
                         folder = client.create_folder(
-                            space_id, action.title, parent_id=action.parent_id
+                            space_id, action.title, parent_id=folder_parent
                         )
                         action.page_id = str(folder["id"])
                         report.created += 1
