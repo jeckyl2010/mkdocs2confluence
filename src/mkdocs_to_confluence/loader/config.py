@@ -25,6 +25,7 @@ class ConfluenceConfig:
     space_key: str | None = None          # e.g. "TECH" — optional if parent_page_id given
     parent_page_id: str | None = None  # optional root parent page
     full_width: bool = True  # set full-width layout on every published page
+    nav_file: str = ".pages"  # awesome-pages filename (default: .pages, can be .nav etc.)
 
 
 @dataclass(frozen=True)
@@ -204,6 +205,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             token=token,
             parent_page_id=parent_page_id,
             full_width=bool(raw_conf.get("full_width", True)),
+            nav_file=str(raw_conf.get("nav_file", ".pages")),
         )
 
     return MkDocsConfig(
