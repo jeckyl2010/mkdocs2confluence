@@ -395,8 +395,11 @@ def execute_publish(
                                 action.title,
                                 parent_is_folder=action.parent_is_folder,
                             )
-                        except Exception:
-                            pass  # non-fatal — fall through to create
+                        except Exception as find_exc:
+                            print(
+                                f"         [warn] find_folder_under failed "
+                                f"(parent_id={action.parent_id}): {find_exc}"
+                            )
                     if existing_folder is not None:
                         action.page_id = str(existing_folder["id"])
                         report.updated += 1
@@ -406,6 +409,11 @@ def execute_publish(
                         )
                         action.page_id = str(folder["id"])
                         report.created += 1
+                        print(
+                            f"         folder id={action.page_id}"
+                            f"  parent_id={action.parent_id}"
+                            f"  parent_is_folder={action.parent_is_folder}"
+                        )
             elif action.action == "create":
                 page = client.create_page(
                     space_id,
