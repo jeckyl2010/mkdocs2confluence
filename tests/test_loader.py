@@ -353,6 +353,30 @@ class TestAwesomePagesNavFile:
         assert nodes[0].title == "Guide"
         assert nodes[0].is_section
 
+    def test_bare_directory_entry_builds_section(self, tmp_path: Path) -> None:
+        """Bare directory name in .pages (no title, no colon) expands into a section."""
+        yml = _make_pages_config(tmp_path)
+        docs = tmp_path / "docs"
+        (docs / "appendix" / "gdpr").mkdir(parents=True)
+        (docs / "appendix" / "gdpr" / "requirements.md").write_text("# R", encoding="utf-8")
+        (docs / "appendix" / ".pages").write_text(
+            "nav:\n  - gdpr\n", encoding="utf-8"
+        )
+        # Root .pages uses bare directory name
+        (docs / ".pages").write_text(
+            "nav:\n  - index.md\n  - appendix\n", encoding="utf-8"
+        )
+        (docs / "index.md").write_text("# Home", encoding="utf-8")
+        config = load_config(yml)
+        nodes = resolve_nav(config)
+        titles = [n.title for n in nodes]
+        assert "Appendix" in titles
+        appendix = next(n for n in nodes if n.title == "Appendix")
+        assert appendix.is_section
+        assert len(appendix.children) == 1
+        assert appendix.children[0].title == "Gdpr"  # auto-titled from dirname
+        assert appendix.children[0].is_section
+
     def test_mkdocs_yml_dir_ref_expands_with_pages_file(self, tmp_path: Path) -> None:
         """When mkdocs.yml nav has a directory reference, .pages inside it is read."""
         docs = tmp_path / "docs"
