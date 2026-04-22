@@ -1,16 +1,32 @@
-PS C:\repos\rockwool\docs>
-PS C:\repos\rockwool\docs> more .pages
-nav:
-    - index.md
-    - start-here
-    - tutorials
-    - how-to
-    - reference
-    - explanation
-    - proposals
-    - examples
-    - appendix
-
 PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section appendix
-error: section 'appendix' not found in nav.
-PS C:\repos\rockwool\docs>
+Planning...
+  compiling  'Appendix'  (folder)
+  compiling  'CCTV'  (folder)
+  compiling  'Vendor Assessment'
+  compiling  'API Test Client'  (folder)
+  compiling  'Tool Assessment'
+  compiling  'GDPR & AI'  (folder)
+  compiling  'Gdpr Ai Technical Requirements'
+  compiling  'Cctv Ai Shopfloor Safety Risk Controls'
+
+Publishing 8 page(s)...
+  [1/8] create  'Appendix'
+  [2/8] create  'CCTV'
+         folder id=6276710431  parent_id=None  parent_is_folder=True
+  [3/8] create  'Vendor Assessment'
+  [4/8] create  'API Test Client'
+         folder id=6277070881  parent_id=None  parent_is_folder=True
+  [5/8] create  'Tool Assessment'
+  [6/8] create  'GDPR & AI'
+         folder id=6277365763  parent_id=None  parent_is_folder=True
+  [7/8] create  'Gdpr Ai Technical Requirements'
+        uploading  appendix_gdpr_assets_gdpr-ai.png
+        uploading  appendix_gdpr_references_AI.GDPR Addendum - Rockwool.docx
+        uploading  appendix_gdpr_references_2026 - cctv with AI - rules and comments.docx
+  [8/8] create  'Cctv Ai Shopfloor Safety Risk Controls'
+        uploading  appendix_gdpr_references_2026 - cctv with AI - rules and comments.docx
+        uploading  appendix_gdpr_references_AI.GDPR Addendum - Rockwool.docx
+Published:  7 created, 0 updated, 0 skipped
+Assets:     5 uploaded
+Errors:     1
+  ✗ Appendix: create_folder('Appendix'): HTTP 404 — {"errors":[{"status":404,"code":"NOT_FOUND","title":"Not Found","detail":null}]}
