@@ -273,3 +273,31 @@ class TestTableEmitter:
         row = TableRow(cells=(TableCell(children=(TextNode("1"),), align="right"),))
         out = emit((Table(header=header, rows=(row,)),))
         assert 'text-align: right' in out
+
+
+class TestFootnoteEmitter:
+    def test_footnote_ref_emits_superscript_link(self) -> None:
+        from mkdocs_to_confluence.ir import FootnoteRef
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        from mkdocs_to_confluence.ir import Section, Paragraph
+        ref = FootnoteRef(label="1", number=1)
+        para = Paragraph(children=[ref])
+        section = Section(title="S", level=1, anchor="s", children=[para])
+        html_out = emit([section])
+        assert '<sup>' in html_out
+        assert 'ac:anchor="fn-1"' in html_out
+        assert '<![CDATA[1]]>' in html_out
+
+    def test_footnote_block_emits_anchored_list(self) -> None:
+        from mkdocs_to_confluence.ir import FootnoteBlock, FootnoteDef, TextNode
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        from mkdocs_to_confluence.ir import Section
+        fn = FootnoteDef(label="1", number=1, children=[TextNode(text="My note.")])
+        block = FootnoteBlock(items=[fn])
+        section = Section(title="S", level=1, anchor="s", children=[block])
+        html_out = emit([section])
+        assert '<h2>Footnotes</h2>' in html_out
+        assert '<ol>' in html_out
+        assert 'ac:name="anchor"' in html_out
+        assert 'fn-1' in html_out
+        assert 'My note.' in html_out

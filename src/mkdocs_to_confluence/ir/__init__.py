@@ -21,6 +21,10 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeInlineNode,
     ContentTabs,
     Expandable,
+    # Footnote nodes
+    FootnoteBlock,
+    FootnoteDef,
+    FootnoteRef,
     HorizontalRule,
     ImageNode,
     # Traversal utility
@@ -86,4 +90,8 @@ __all__ = [
     "Expandable",
     # Degradation
     "UnsupportedBlock",
+    # Footnotes
+    "FootnoteRef",
+    "FootnoteDef",
+    "FootnoteBlock",
 ]

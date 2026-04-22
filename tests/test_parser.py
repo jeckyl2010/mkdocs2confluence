@@ -931,3 +931,42 @@ class TestBlockquoteAndHR:
         nodes = parse("Before.\n\n---\n\nAfter.\n")
         paras = only(nodes, Paragraph)
         assert len(paras) == 2
+
+
+class TestFootnotes:
+    def test_footnote_ref_produces_FootnoteRef_node(self) -> None:
+        from mkdocs_to_confluence.ir import FootnoteRef
+        nodes = parse("Text[^1] more.\n\n[^1]: Definition.\n")
+        paras = [n for n in nodes if isinstance(n, Paragraph)]
+        assert paras, "expected at least one paragraph"
+        refs = [c for c in paras[0].children if isinstance(c, FootnoteRef)]
+        assert len(refs) == 1
+        assert refs[0].label == "1"
+        assert refs[0].number == 1
+
+    def test_footnote_def_produces_FootnoteBlock(self) -> None:
+        from mkdocs_to_confluence.ir import FootnoteBlock
+        nodes = parse("Text[^note].\n\n[^note]: The definition.\n")
+        blocks = [n for n in nodes if isinstance(n, FootnoteBlock)]
+        assert len(blocks) == 1
+        assert len(blocks[0].items) == 1
+        assert blocks[0].items[0].label == "note"
+
+    def test_footnote_numbers_by_definition_order(self) -> None:
+        from mkdocs_to_confluence.ir import FootnoteRef, FootnoteBlock
+        md = "Ref B[^b] and Ref A[^a].\n\n[^a]: First defined.\n[^b]: Second defined.\n"
+        nodes = parse(md)
+        paras = [n for n in nodes if isinstance(n, Paragraph)]
+        refs = {c.label: c.number for para in paras for c in para.children if isinstance(c, FootnoteRef)}
+        assert refs["a"] == 1, "^a defined first → number 1"
+        assert refs["b"] == 2, "^b defined second → number 2"
+
+    def test_multiple_footnotes_in_block(self) -> None:
+        from mkdocs_to_confluence.ir import FootnoteBlock
+        md = "A[^x]. B[^y].\n\n[^x]: Def X.\n[^y]: Def Y.\n"
+        nodes = parse(md)
+        blocks = [n for n in nodes if isinstance(n, FootnoteBlock)]
+        assert len(blocks) == 1
+        labels = [fn.label for fn in blocks[0].items]
+        assert "x" in labels
+        assert "y" in labels
