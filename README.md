@@ -326,6 +326,34 @@ Planned features, roughly in priority order:
 
 ---
 
+## Architecture Decisions
+
+Key design choices recorded for future contributors.
+
+### Output format — Confluence Storage Format (XHTML), not ADF
+
+The emitter produces **Confluence Storage Format** (XHTML strings; `"representation": "storage"` in the API payload). The newer **Atlassian Document Format (ADF)** (`"representation": "atlas_doc_format"`) is JSON-based and is what the Confluence editor writes internally.
+
+Storage format was chosen because:
+- **Full macro coverage** — Code Block, Info/Warning/Note/Tip, Page Properties, Expand, and other native macros have complete Storage Format support. Many are not yet exposed in ADF.
+- **v2 API accepts both** — we are not locked in. If ADF gains full macro parity this could be revisited.
+- **Proven approach** — all existing open-source MkDocs-to-Confluence tools use Storage Format for the same reason.
+
+### Markdown parser — hand-rolled, swap-ready
+
+The parser (`parser/markdown.py`) is deliberately hand-rolled rather than wrapping a third-party library. This was the right call for the current feature set, but the architecture is designed so the parser can be replaced without touching the IR or the emitter.
+
+Two candidates worth evaluating when we hit complex CommonMark edge cases (tables, nested lists, inline HTML):
+
+| Library | Fit for this project |
+|---|---|
+| **`markdown-it-py`** | Best fit — closest in spirit to Python-Markdown (which MkDocs uses), good plugin ecosystem, Material extensions are more likely to map cleanly |
+| **`marko`** | Elegant custom-renderer API (write `render_heading(element)` etc.), pure CommonMark, but Material-specific extensions (admonitions, content tabs, attr lists) would need custom element extensions |
+
+Decision deferred until the hand-rolled parser becomes a maintenance burden or blocks a feature.
+
+---
+
 ## Development
 
 See [Setup.md](Setup.md) for environment setup.

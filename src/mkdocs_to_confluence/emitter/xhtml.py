@@ -433,6 +433,11 @@ def _emit_link(node: LinkNode) -> str:
             f"<ac:plain-text-link-body>{label}</ac:plain-text-link-body>"
             "</ac:link>"
         )
+    # Unresolved .md link: Confluence strips <a href="...md"> entirely because
+    # relative markdown paths are not valid Storage Format URLs.  Degrade to
+    # the label text so content is never silently lost.
+    if node.href.lower().endswith(".md") or ".md#" in node.href.lower():
+        return _emit_inlines(node.children)
     label = _emit_inlines(node.children)
     escaped_href = html.escape(node.href)
     return f'<a href="{escaped_href}">{label}</a>'

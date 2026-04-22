@@ -321,3 +321,46 @@ def test_url_encoded_with_anchor():
     assert link.is_internal is True
     assert link.href == "My Page"
     assert link.anchor == "section-one"
+
+
+def test_unresolved_md_link_degrades_to_label():
+    """A .md link whose target is not in the nav degrades to the label text.
+
+    Confluence strips <a href="foo.md"> entirely (relative .md paths are not
+    valid Storage Format URLs), which would silently swallow the bullet item
+    content.  The emitter must fall back to the label string instead.
+    """
+    from mkdocs_to_confluence.emitter.xhtml import emit
+
+    # Link to a page that is NOT in the nav
+    link = LinkNode(
+        href="hello-worl.md",
+        children=(TextNode(text="Hello World"),),
+        is_internal=False,
+    )
+    # As a standalone paragraph
+    xhtml = emit((Paragraph(children=(link,)),))
+    assert "Hello World" in xhtml
+    assert "hello-worl.md" not in xhtml
+    assert "<a " not in xhtml
+
+    # As a list item (the reported scenario)
+    item = ListItem(children=(link,))
+    xhtml_list = emit((BulletList(items=(item,)),))
+    assert "Hello World" in xhtml_list
+    assert "hello-worl.md" not in xhtml_list
+    assert "<a " not in xhtml_list
+
+
+def test_unresolved_md_link_with_anchor_degrades_to_label():
+    """.md link with a fragment (#anchor) also degrades gracefully."""
+    from mkdocs_to_confluence.emitter.xhtml import emit
+
+    link = LinkNode(
+        href="hello-worl.md#section",
+        children=(TextNode(text="Hello World"),),
+        is_internal=False,
+    )
+    xhtml = emit((Paragraph(children=(link,)),))
+    assert "Hello World" in xhtml
+    assert "hello-worl.md" not in xhtml
