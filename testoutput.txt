@@ -30,3 +30,7 @@ nav:
     - CCTV: cctv
     - API Test Client: api-test-client
     - GDPR & AI: gdpr
+
+nav:
+    - gdpr-ai-technical-requirements.md
+    - cctv-ai-shopfloor-safety-risk-controls.md
