@@ -266,6 +266,15 @@ def _emit_admonition(node: Admonition) -> str:
     title = node.title or _DEFAULT_ADMONITION_TITLES.get(node.kind, node.kind.capitalize())
     body = emit(node.children)
 
+    # ??? and ???+ → Confluence expand macro (collapsible)
+    if node.collapsible:
+        return (
+            '<ac:structured-macro ac:name="expand">\n'
+            f'  <ac:parameter ac:name="title">{html.escape(title)}</ac:parameter>\n'
+            f"  <ac:rich-text-body>\n{body}  </ac:rich-text-body>\n"
+            "</ac:structured-macro>\n"
+        )
+
     if node.kind in _ADMONITION_DANGER_KINDS:
         colours = "".join(
             f'  <ac:parameter ac:name="{k}">{v}</ac:parameter>\n'

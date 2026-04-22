@@ -9,6 +9,8 @@ from mkdocs_to_confluence.ir.nodes import (
     BulletList,
     CodeBlock,
     CodeInlineNode,
+    ContentTabs,
+    Expandable,
     HorizontalRule,
     ItalicNode,
     LinkNode,
@@ -16,6 +18,7 @@ from mkdocs_to_confluence.ir.nodes import (
     OrderedList,
     Paragraph,
     Section,
+    Tab,
     TextNode,
     UnsupportedBlock,
 )
@@ -116,6 +119,46 @@ class TestAdmonitionEmitter:
     def test_default_title_used(self) -> None:
         out = emit((Admonition(kind="tip", title=None, children=()),))
         assert "Tip" in out
+
+    def test_collapsible_maps_to_expand(self) -> None:
+        out = emit((Admonition(kind="note", title="Hidden", children=(Paragraph((TextNode("secret"),)),), collapsible=True),))
+        assert 'ac:name="expand"' in out
+        assert 'ac:name="info"' not in out
+        assert "Hidden" in out
+        assert "secret" in out
+
+    def test_collapsible_danger_still_expand(self) -> None:
+        # Even danger kinds should use expand when collapsible
+        out = emit((Admonition(kind="danger", title="Careful", children=(), collapsible=True),))
+        assert 'ac:name="expand"' in out
+        assert 'ac:name="panel"' not in out
+
+
+class TestContentTabsEmitter:
+    def test_tabs_render_as_expand_macros(self) -> None:
+        tabs = (
+            Tab(label="Python", children=(Paragraph((TextNode("py code"),)),)),
+            Tab(label="Bash", children=(Paragraph((TextNode("sh code"),)),)),
+        )
+        out = emit((ContentTabs(tabs=tabs),))
+        assert out.count('ac:name="expand"') == 2
+        assert "Python" in out
+        assert "Bash" in out
+        assert "py code" in out
+
+    def test_single_tab(self) -> None:
+        tabs = (Tab(label="Only", children=(Paragraph((TextNode("content"),)),)),)
+        out = emit((ContentTabs(tabs=tabs),))
+        assert 'ac:name="expand"' in out
+        assert "Only" in out
+
+
+class TestExpandableEmitter:
+    def test_expand_macro(self) -> None:
+        out = emit((Expandable(title="Details", children=(Paragraph((TextNode("body"),)),)),))
+        assert 'ac:name="expand"' in out
+        assert "Details" in out
+        assert "body" in out
 
 
 class TestListEmitters:
