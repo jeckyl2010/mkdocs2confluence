@@ -300,9 +300,30 @@ def _emit_ordered_list(node: OrderedList) -> str:
     return f"<ol{start_attr}>\n{items}</ol>\n"
 
 
+_LIST_BLOCK_TYPES = (
+    Section,
+    Paragraph,
+    CodeBlock,
+    Admonition,
+    BulletList,
+    OrderedList,
+    Table,
+    BlockQuote,
+    ContentTabs,
+    Expandable,
+)
+
+
 def _emit_list_item(item: ListItem) -> str:
-    inner = emit(item.children)
-    return f"  <li>{inner.strip()}</li>\n"
+    if any(isinstance(c, _LIST_BLOCK_TYPES) for c in item.children):
+        # Loose list item: children are block nodes (e.g. nested list or paragraph).
+        inner = emit(item.children)
+        return f"  <li>{inner.strip()}</li>\n"
+    # Tight list item: children are inline nodes.  Confluence requires a <p>
+    # wrapper inside <li> for structured inline macros (e.g. <ac:link>) to
+    # render — without it they are silently stripped by the storage parser.
+    inner = _emit_inlines(item.children)
+    return f"  <li><p>{inner}</p></li>\n"
 
 
 def _emit_table(node: Table) -> str:
