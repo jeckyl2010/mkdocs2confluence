@@ -23,3 +23,10 @@ Publishing 6 page(s)...
 Published:  6 created, 0 updated, 0 skipped
 Assets:     5 uploaded
 PS C:\repos\rockwool\docs\appendix\gdpr>
+
+
+
+nav:
+    - CCTV: cctv
+    - API Test Client: api-test-client
+    - GDPR & AI: gdpr
