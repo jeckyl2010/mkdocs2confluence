@@ -262,6 +262,30 @@ def test_asset_in_table_header_is_resolved(tmp_path: Path):
     assert len(attachments) == 1
 
 
+def test_duplicate_asset_references_upload_once(tmp_path: Path):
+    """The same file referenced multiple times on a page should appear only once
+    in the attachments list so it is uploaded exactly once."""
+    from mkdocs_to_confluence.ir.nodes import ImageNode, Paragraph
+    from mkdocs_to_confluence.transforms.assets import resolve_local_assets
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    img = docs_dir / "logo.png"
+    img.write_bytes(b"PNG")
+    page_path = docs_dir / "index.md"
+
+    node1 = ImageNode(src="logo.png", alt="first")
+    node2 = ImageNode(src="logo.png", alt="second")
+    para = Paragraph(children=(node1, node2))
+
+    _nodes, attachments = resolve_local_assets(
+        (para,), page_path=page_path, docs_dir=docs_dir
+    )
+
+    assert len(attachments) == 1
+    assert attachments[0] == img
+
+
 # ── URL-encoding ──────────────────────────────────────────────────────────────
 
 

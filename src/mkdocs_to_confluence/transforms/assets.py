@@ -70,6 +70,7 @@ def resolve_local_assets(
         Absolute paths to all local asset files found.
     """
     attachments: list[Path] = []
+    seen: dict[Path, None] = {}  # ordered deduplication
     replacements: dict[int, IRNode] = {}
     page_dir = page_path.parent
 
@@ -82,7 +83,9 @@ def resolve_local_assets(
                 if candidate is None:
                     continue
                 attachment_name = _make_attachment_name(candidate, docs_dir)
-                attachments.append(candidate)
+                if candidate not in seen:
+                    seen[candidate] = None
+                    attachments.append(candidate)
                 replacements[id(node)] = dataclasses.replace(
                     node,
                     src=str(candidate),
@@ -111,7 +114,9 @@ def resolve_local_assets(
                     )
                     continue
                 attachment_name = _make_attachment_name(candidate, docs_dir)
-                attachments.append(candidate)
+                if candidate not in seen:
+                    seen[candidate] = None
+                    attachments.append(candidate)
                 replacements[id(node)] = dataclasses.replace(
                     node,
                     attachment_name=attachment_name,
