@@ -195,6 +195,7 @@ def plan_publish(
     """
     actions: list[PageAction] = []
     link_map = build_link_map(nav_nodes)
+    print("Planning...")
     _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, actions, link_map)
     return actions
 
@@ -213,6 +214,7 @@ def _plan_nodes(
         # preprocessor and raw shortcodes render as ??? in Confluence.
         clean_title = strip_icon_shortcodes(node.title).strip()
         if node.is_section:
+            print(f"  compiling  '{clean_title}'  (section)")
             existing = client.find_page(space_id, clean_title)
             action_kind: _Action = "create" if existing is None else "update"
             page_action = PageAction(
@@ -242,6 +244,7 @@ def _plan_nodes(
                     pass
 
             if ready is False:
+                print(f"  skipping   '{clean_title}'  (ready: false)")
                 actions.append(
                     PageAction(
                         node=node,
@@ -252,9 +255,11 @@ def _plan_nodes(
                 )
                 continue
 
+            print(f"  compiling  '{clean_title}'")
             try:
                 xhtml, attachments, labels = compile_page(node, config, link_map)
-            except (PageLoadError, OSError):
+            except (PageLoadError, OSError) as exc:
+                print(f"  skipping   '{clean_title}'  (error: {exc})")
                 actions.append(
                     PageAction(
                         node=node,
@@ -313,6 +318,7 @@ def _upload_assets(
     existing = client.list_attachments(page_id)
 
     for name, path in pairs:
+        print(f"        uploading  {name}")
         try:
             client.upload_attachment(page_id, path, name, existing)
             uploaded += 1
@@ -356,10 +362,18 @@ def execute_publish(
     # each section is created/updated.
     action_by_node: dict[int, PageAction] = {id(a.node): a for a in plan}
 
+    active = [a for a in plan if a.action != "skip"]
+    total = len(active)
+    print(f"\nPublishing {total} page(s)...")
+    counter = 0
+
     for action in plan:
         if action.action == "skip":
             report.skipped += 1
             continue
+
+        counter += 1
+        print(f"  [{counter}/{total}] {action.action:<6}  '{action.title}'")
 
         try:
             if action.action == "create":
@@ -407,8 +421,7 @@ def execute_publish(
             except Exception:
                 pass
 
-        # Upload all assets in parallel — always re-upload so updated files
-        # (images, PDFs, Word, Excel, etc.) are never stale in Confluence.
+        # Upload assets — always re-upload so updated files are never stale.
         if action.page_id and action.attachments:
             uploaded, asset_errors = _upload_assets(
                 action.page_id, action.attachments, docs_dir, client
