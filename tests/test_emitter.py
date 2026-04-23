@@ -189,6 +189,37 @@ class TestListEmitters:
         assert "<li><p>" in out
         assert '<a href="https://example.com">Example</a>' in out
 
+    def test_task_list_unchecked(self) -> None:
+        items = (ListItem((TextNode("do this"),), task=False),)
+        out = emit((BulletList(items=items),))
+        assert "<ac:task-list>" in out
+        assert "<ac:task-status>incomplete</ac:task-status>" in out
+        assert "<ac:task-body>do this</ac:task-body>" in out
+        assert "<ul>" not in out
+
+    def test_task_list_checked(self) -> None:
+        items = (ListItem((TextNode("done"),), task=True),)
+        out = emit((BulletList(items=items),))
+        assert "<ac:task-list>" in out
+        assert "<ac:task-status>complete</ac:task-status>" in out
+        assert "<ac:task-body>done</ac:task-body>" in out
+
+    def test_task_list_mixed_checked_unchecked(self) -> None:
+        items = (
+            ListItem((TextNode("done"),), task=True),
+            ListItem((TextNode("pending"),), task=False),
+        )
+        out = emit((BulletList(items=items),))
+        assert out.count("<ac:task>") == 2
+        assert "<ac:task-status>complete</ac:task-status>" in out
+        assert "<ac:task-status>incomplete</ac:task-status>" in out
+
+    def test_regular_list_not_wrapped_in_task_list(self) -> None:
+        items = (ListItem((TextNode("normal"),), task=None),)
+        out = emit((BulletList(items=items),))
+        assert "<ul>" in out
+        assert "<ac:task-list>" not in out
+
 
 class TestHorizontalRule:
     def test_hr(self) -> None:
