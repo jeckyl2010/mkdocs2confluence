@@ -1,10 +1,5 @@
-!!! note "Top 3 takeaways"
+## :material-order-bool-ascending-variant: Read the material in this order
 
-    1. **Start with control, not features.**  
-    Before buying, building, or enabling anything, define the purpose, legal basis, lifecycle stage, data scope, and whether the use case can actually be kept within the approved boundary and operating model.
-    
-    1. **Assess risk, then implement the linked risk controls.**  
-    Use the risk assessment to decide what applies, then implement the mapped risk controls with explicit ownership, evidence, test cases, and exception handling. Do not invent a project-local interpretation.
-    
-    1. **PoC is not an exemption.**  
-    GDPR, EU AI Act, local law, and workforce or union constraints apply from the first PoC onward. Real personal data, live users, or workforce-facing use raise the gate immediately and require the right approvals and controls before use.
+1. [GDPR & AI Technical Requirements](gdpr-ai-technical-requirements.md) - read this first to understand the baseline position, scope, and non-negotiable requirements
+1. [CCTV & AI Risk Assessment Baseline](cctv-ai-risk-assessment.md) - use this next to decide which risks actually apply to the use case
+1. [CCTV & AI Risk Controls Standard](cctv-ai-risk-controls.md) - use this last to identify the risk controls the project must implement for the applicable risks
