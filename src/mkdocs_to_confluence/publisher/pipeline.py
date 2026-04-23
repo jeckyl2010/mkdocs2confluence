@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -84,6 +85,7 @@ class PublishReport:
     updated: int = 0
     skipped: int = 0
     assets_uploaded: int = 0
+    assets_skipped: int = 0
     errors: list[tuple[str, str]] = field(default_factory=list)
 
     @property
@@ -93,7 +95,7 @@ class PublishReport:
     def __str__(self) -> str:
         lines = [
             f"Published:  {self.created} created, {self.updated} updated, {self.skipped} skipped",
-            f"Assets:     {self.assets_uploaded} uploaded",
+            f"Assets:     {self.assets_uploaded} uploaded, {self.assets_skipped} skipped",
         ]
         if self.errors:
             lines.append(f"Errors:     {len(self.errors)}")
@@ -309,7 +311,7 @@ def _upload_assets(
     attachments: list[Path],
     docs_dir: Path,
     client: ConfluenceClient,
-) -> tuple[int, list[tuple[str, str]]]:
+) -> tuple[int, int, list[tuple[str, str]]]:
     """Upload attachments for one page **sequentially**.
 
     Confluence holds a page-level write lock while processing each attachment
@@ -319,19 +321,38 @@ def _upload_assets(
 
     Fetching the existing attachment listing once before the loop avoids
     redundant API calls and correctly determines create vs. update for each
-    file.
+    file.  Attachments whose local mtime is not newer than the Confluence
+    ``version.createdAt`` timestamp are skipped — no re-upload needed.
 
-    Returns ``(uploaded_count, errors)`` where errors is a list of
-    ``(attachment_name, error_message)`` pairs.
+    Returns ``(uploaded_count, skipped_count, errors)`` where errors is a list
+    of ``(attachment_name, error_message)`` pairs.
     """
     pairs = [(_make_attachment_name(p, docs_dir), p) for p in attachments]
     uploaded = 0
+    skipped = 0
     errors: list[tuple[str, str]] = []
 
     # Fetch once; reuse across all uploads (read-only).
     existing = client.list_attachments(page_id)
 
     for name, path in pairs:
+        # Skip upload if local file is not newer than what Confluence already has.
+        if name in existing:
+            try:
+                created_at = existing[name]["version"]["createdAt"]
+                confluence_ts = datetime.fromisoformat(
+                    created_at.replace("Z", "+00:00")
+                )
+                local_mtime = datetime.fromtimestamp(
+                    path.stat().st_mtime, tz=timezone.utc
+                )
+                if local_mtime <= confluence_ts:
+                    print(f"        skipping   {name} (unchanged)")
+                    skipped += 1
+                    continue
+            except (KeyError, ValueError, OSError):
+                pass  # can't compare — fall through to upload
+
         print(f"        uploading  {name}")
         try:
             client.upload_attachment(page_id, path, name, existing)
@@ -339,7 +360,7 @@ def _upload_assets(
         except Exception as exc:
             errors.append((name, str(exc)))
 
-    return uploaded, errors
+    return uploaded, skipped, errors
 
 
 def execute_publish(
@@ -478,12 +499,13 @@ def execute_publish(
             except Exception:
                 pass
 
-        # Upload assets — always re-upload so updated files are never stale.
+        # Upload assets — skip files whose mtime is not newer than Confluence.
         if action.page_id and action.attachments:
-            uploaded, asset_errors = _upload_assets(
+            uploaded, asset_skipped, asset_errors = _upload_assets(
                 action.page_id, action.attachments, docs_dir, client
             )
             report.assets_uploaded += uploaded
+            report.assets_skipped += asset_skipped
             for name, msg in asset_errors:
                 report.errors.append((f"{action.title} / {name}", msg))
 

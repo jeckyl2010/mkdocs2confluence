@@ -239,6 +239,7 @@ def _make_execute_client(space_id: str = "~42") -> MagicMock:
     client.create_folder.side_effect = create_folder
     client.find_folder_under.return_value = None  # no pre-existing folders
     client.update_page.return_value = {"id": 99, "version": {"number": 2}}
+    client.list_attachments.return_value = {}  # no pre-existing attachments
     return client
 
 
@@ -515,6 +516,62 @@ class TestExecutePublish:
 
         assert report.assets_uploaded == 2
         assert client.upload_attachment.call_count == 2
+
+    def test_assets_skipped_when_not_newer_than_confluence(self, tmp_path: Path) -> None:
+        """Assets whose mtime <= Confluence createdAt must be skipped."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir(exist_ok=True)
+        img = docs_dir / "img.png"
+        img.write_bytes(b"PNG")
+
+        # Simulate Confluence having the file, with a timestamp in the future.
+        future_ts = "2099-01-01T00:00:00Z"
+        att_name = "img.png"
+        client = _make_execute_client()
+        client.list_attachments.return_value = {
+            att_name: {"version": {"createdAt": future_ts}}
+        }
+
+        page_node = _make_page_node("Page", tmp_path, docs_dir)
+        plan = [
+            PageAction(node=page_node, title="Page", action="create",
+                       parent_id="ROOT", xhtml="<p/>", attachments=[img]),
+        ]
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert report.assets_skipped == 1
+        assert report.assets_uploaded == 0
+        client.upload_attachment.assert_not_called()
+
+    def test_assets_uploaded_when_newer_than_confluence(self, tmp_path: Path) -> None:
+        """Assets whose mtime > Confluence createdAt must be uploaded."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir(exist_ok=True)
+        img = docs_dir / "img.png"
+        img.write_bytes(b"PNG")
+
+        # Simulate Confluence having an old version of the file.
+        old_ts = "2000-01-01T00:00:00Z"
+        att_name = "img.png"
+        client = _make_execute_client()
+        client.list_attachments.return_value = {
+            att_name: {"version": {"createdAt": old_ts}}
+        }
+
+        page_node = _make_page_node("Page", tmp_path, docs_dir)
+        plan = [
+            PageAction(node=page_node, title="Page", action="create",
+                       parent_id="ROOT", xhtml="<p/>", attachments=[img]),
+        ]
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert report.assets_uploaded == 1
+        assert report.assets_skipped == 0
+        client.upload_attachment.assert_called_once()
 
     def test_report_captures_page_error(self, tmp_path: Path) -> None:
         """A page that fails to create is logged in report.errors."""
