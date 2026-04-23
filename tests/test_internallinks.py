@@ -187,7 +187,7 @@ def test_emitter_internal_link_no_anchor():
         is_internal=True,
     )
     xhtml = emit((Paragraph(children=(link,)),))
-    assert '<ri:page ac:title="Setup Guide"/>' in xhtml
+    assert '<ri:page ri:content-title="Setup Guide"/>' in xhtml
     assert "<ac:link>" in xhtml
     assert "ac:anchor" not in xhtml
 
@@ -202,7 +202,7 @@ def test_emitter_internal_link_with_anchor():
     )
     xhtml = emit((Paragraph(children=(link,)),))
     assert 'ac:anchor="configuration"' in xhtml
-    assert '<ri:page ac:title="Setup Guide"/>' in xhtml
+    assert '<ri:page ri:content-title="Setup Guide"/>' in xhtml
 
 
 def test_emitter_plain_link_unchanged():

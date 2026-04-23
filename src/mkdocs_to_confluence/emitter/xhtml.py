@@ -489,7 +489,7 @@ def _emit_link(node: LinkNode) -> str:
         anchor_attr = f' ac:anchor="{html.escape(node.anchor)}"' if node.anchor else ""
         return (
             f"<ac:link{anchor_attr}>"
-            f'<ri:page ac:title="{page_title}"/>'
+            f'<ri:page ri:content-title="{page_title}"/>'
             f"<ac:link-body>{label}</ac:link-body>"
             "</ac:link>"
         )
