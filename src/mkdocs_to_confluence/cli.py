@@ -230,6 +230,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             "updated": report.updated,
             "skipped": report.skipped,
             "assets_uploaded": report.assets_uploaded,
+            "assets_skipped": report.assets_skipped,
             "errors": [{"page": t, "error": m} for t, m in report.errors],
         }
         Path(args.report).write_text(_json.dumps(report_data, indent=2), encoding="utf-8")
