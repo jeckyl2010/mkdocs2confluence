@@ -490,7 +490,7 @@ def _emit_link(node: LinkNode) -> str:
         return (
             f"<ac:link{anchor_attr}>"
             f'<ri:page ac:title="{page_title}"/>'
-            f"<ac:plain-text-link-body>{label}</ac:plain-text-link-body>"
+            f"<ac:link-body>{label}</ac:link-body>"
             "</ac:link>"
         )
     # Attachment link: local non-Markdown file with a resolved attachment name
@@ -500,7 +500,7 @@ def _emit_link(node: LinkNode) -> str:
         return (
             "<ac:link>"
             f'<ri:attachment ri:filename="{filename}"/>'
-            f"<ac:plain-text-link-body>{label}</ac:plain-text-link-body>"
+            f"<ac:link-body>{label}</ac:link-body>"
             "</ac:link>"
         )
     # Unresolved .md link: Confluence strips <a href="...md"> entirely because
