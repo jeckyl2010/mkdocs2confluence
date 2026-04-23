@@ -329,30 +329,34 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 
 Planned features, roughly in priority order:
 
-- [ ] **Asset re-upload on every publish** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) are re-uploaded on every run so updated files are never left stale in Confluence. Confluence handles attachment versioning internally.
-- [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.
-- [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column.
+- [ ] **Delete orphaned pages** — detect pages in Confluence that were previously published but have since been removed from `nav:`, and delete or archive them automatically.
+- [ ] **Task lists** (`- [x]`) — checked/unchecked items rendered as Confluence task list macro.
+- [ ] **Inline HTML passthrough** — `<br>`, `<mark>`, `<kbd>` and other simple inline HTML tags passed through to storage format rather than stripped.
+- [ ] **GitHub Actions auto-publish** — workflow that builds and publishes to Confluence on push to main, driven by the existing `--report` JSON output.
 
 **Completed:**
 
+- [x] **Smart asset skip** — assets already in Confluence are skipped if the local file's `mtime` is not newer than the attachment's `version.createdAt` timestamp; no local state required. Summary shows `N uploaded, N skipped`.
+- [x] **Full-width layout** — pages published with `fullWidth: true` via the content properties API; configurable via `full_width:` in `confluence:` config block.
+- [x] **Tables** — GFM pipe tables rendered as native Confluence `<table>` storage format.
 - [x] **Mermaid diagram rendering** — ` ```mermaid ` blocks rendered to PNG via [Kroki](https://kroki.io) (POST API, no encoding, no URL-length limits). PNGs uploaded as page attachments. SHA256 cache avoids re-fetching unchanged diagrams. Self-hosted Kroki supported via `mermaid_render: kroki:https://your-host`. Graceful fallback to `code` macro if rendering fails.
 - [x] **Published Page link in Page Properties** — if `site_url` is set in `mkdocs.yml`, each published page gets a "Published Page" row in its Page Properties macro linking to the rendered MkDocs site URL.
 - [x] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav; supports bare folder names as well as slash-separated paths (`"Guide/Setup"`)
-- [x] **Sequential asset uploads** — assets (images, PDFs, Word, Excel, etc.) are uploaded one at a time per page; Confluence holds a page-level write lock per attachment POST so concurrent uploads cause HTTP 500 transaction rollbacks
-- [x] **Publish summary report** — structured output after every run (`N created, N updated, N skipped · N assets uploaded`); `--report FILE` writes a JSON report; non-zero exit on errors
-- [x] **Source link in Page Properties** — each published page includes a link back to its editable source file in GitHub/GitLab as a row in the Page Properties table (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
-- [x] **Confluence REST API v2 compliance** — `minorEdit: true` prevents watcher notifications on automated updates; `find_page` no longer fetches the full page body; `id` removed from PUT body; `list_attachments` migrated to v2 endpoint; session `Content-Type` fixed for multipart uploads
-- [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to BMP-safe Unicode symbols (≤ U+FFFF); unknown shortcodes stripped cleanly; nav titles are also cleaned
-- [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ri:content-title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully
+- [x] **Sequential asset uploads** — assets uploaded one at a time per page; Confluence holds a page-level write lock per attachment POST so concurrent uploads cause HTTP 500 transaction rollbacks.
+- [x] **Publish summary report** — structured output after every run (`N created, N updated, N skipped · N uploaded, N skipped`); `--report FILE` writes a JSON report; non-zero exit on errors.
+- [x] **Source link in Page Properties** — each published page includes a link back to its editable source file in GitHub/GitLab as a row in the Page Properties table (driven by `repo_url` + `edit_uri` in `mkdocs.yml`).
+- [x] **Confluence REST API v2 compliance** — `minorEdit: true` prevents watcher notifications on automated updates; `find_page` no longer fetches the full page body; `id` removed from PUT body; `list_attachments` migrated to v2 endpoint; session `Content-Type` fixed for multipart uploads.
+- [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to BMP-safe Unicode symbols (≤ U+FFFF); unknown shortcodes stripped cleanly; nav titles are also cleaned.
+- [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ri:content-title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully.
 - [x] **Ordered list numbering** — loose lists (blank-line-separated items) and items with continuation text correctly merge into a single `<ol>` node instead of each item rendering as `1.`
-- [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support
-- [x] **Local asset attachments** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded as Confluence page attachments at publish time; local images embedded as base64 data URIs in the browser preview
-- [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
-- [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction
-- [x] **Footnotes** (`pymdownx.footnotes`) — `[^label]` inline refs → superscript anchor links; definitions → anchored *Footnotes* section at page bottom
-- [x] **Content tabs** (`pymdownx.tabbed`) — `=== "Label"` blocks → `expand` macros (one per tab)
-- [x] **Collapsible details** (`pymdownx.details`) — `??? "title"` blocks → `expand` macro
-- [x] **awesome-pages nav** — `.pages` files resolved natively; bare directory entries auto-expand into sections; full hierarchy preserved in Confluence folder structure
+- [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support.
+- [x] **Local asset attachments** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded as Confluence page attachments at publish time; local images embedded as base64 data URIs in the browser preview.
+- [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section.
+- [x] **YAML front matter** → Confluence Page Properties macro with field mapping and label extraction.
+- [x] **Footnotes** (`pymdownx.footnotes`) — `[^label]` inline refs → superscript anchor links; definitions → anchored *Footnotes* section at page bottom.
+- [x] **Content tabs** (`pymdownx.tabbed`) — `=== "Label"` blocks → `expand` macros (one per tab).
+- [x] **Collapsible details** (`pymdownx.details`) — `??? "title"` blocks → `expand` macro.
+- [x] **awesome-pages nav** — `.pages` files resolved natively; bare directory entries auto-expand into sections; full hierarchy preserved in Confluence folder structure.
 
 ---
 
