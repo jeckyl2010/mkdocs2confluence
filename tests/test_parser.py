@@ -860,6 +860,32 @@ class TestListParsing:
         assert len(ols) == 1, "loose ordered list in admonition must be a single OrderedList"
         assert len(ols[0].items) == 3
 
+    def test_ordered_list_with_continuation_text_in_admonition(self) -> None:
+        """Items with hard-break + continuation paragraph must stay as one OrderedList."""
+        md = (
+            "!!! note \"Takeaways\"\n"
+            "\n"
+            "    1. **First point.**\n"
+            "       Continuation of first.\n"
+            "\n"
+            "    1. **Second point.**\n"
+            "       Continuation of second.\n"
+            "\n"
+            "    1. **Third point.**\n"
+            "       Continuation of third.\n"
+        )
+        nodes = parse(md)
+        adm = first(nodes, Admonition)
+        assert adm is not None
+        ols = only(adm.children, OrderedList)
+        assert len(ols) == 1, "continuation text must not split the ordered list"
+        assert len(ols[0].items) == 3
+        # Continuation text should be joined into the item
+        item_text = "".join(
+            getattr(c, "text", "") for c in ols[0].items[0].children
+        )
+        assert "Continuation" in item_text or "First point" in item_text
+
 
 # ── Table parsing ─────────────────────────────────────────────────────────────
 

@@ -383,8 +383,17 @@ def _tokenize(text: str) -> list[_Token]:
                 if task_m:
                     task = task_m.group("state").lower() == "x"
                     item_text = task_m.group("rest")
-                list_items.append(_ListItemData(text=item_text, task=task))
                 i += 1
+                # Collect continuation lines (non-blank, non-list) into this item.
+                while i < len(lines) and lines[i].strip():
+                    cont = lines[i]
+                    if (_BULLET_RE.match(cont) and not _BULLET_RE.match(cont).group("indent")) or (
+                        _ORDERED_RE.match(cont) and not _ORDERED_RE.match(cont).group("indent")
+                    ):
+                        break
+                    item_text = item_text.rstrip() + " " + cont.strip()
+                    i += 1
+                list_items.append(_ListItemData(text=item_text, task=task))
             tokens.append(_BulletListToken(items=list_items))
             continue
 
@@ -407,8 +416,18 @@ def _tokenize(text: str) -> list[_Token]:
                                 i = j  # skip blanks, resume at next item
                                 continue
                     break
-                ord_items.append(_ListItemData(text=om.group("text")))
+                item_text = om.group("text")
                 i += 1
+                # Collect continuation lines (non-blank, non-list) into this item.
+                while i < len(lines) and lines[i].strip():
+                    cont = lines[i]
+                    if (_ORDERED_RE.match(cont) and not _ORDERED_RE.match(cont).group("indent")) or (
+                        _BULLET_RE.match(cont) and not _BULLET_RE.match(cont).group("indent")
+                    ):
+                        break
+                    item_text = item_text.rstrip() + " " + cont.strip()
+                    i += 1
+                ord_items.append(_ListItemData(text=item_text))
             tokens.append(_OrderedListToken(start=start, items=ord_items))
             continue
 
