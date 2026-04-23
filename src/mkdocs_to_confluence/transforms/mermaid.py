@@ -26,7 +26,9 @@ DEFAULT_KROKI_URL = "https://kroki.io"
 
 def _kroki_png(source: str, kroki_url: str) -> bytes:
     """Fetch a PNG rendering of *source* from the Kroki service."""
-    encoded = base64.urlsafe_b64encode(source.encode()).decode()
+    import zlib
+    compressed = zlib.compress(source.encode(), 9)
+    encoded = base64.urlsafe_b64encode(compressed).decode()
     url = f"{kroki_url.rstrip('/')}/mermaid/png/{encoded}"
     req = urllib.request.Request(url, headers={"Accept": "image/png"})
     with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
