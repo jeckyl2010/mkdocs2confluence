@@ -5,7 +5,7 @@ in the same MkDocs site to native Confluence page links.
 
 After this transform:
 * ``node.is_internal`` is ``True``
-* ``node.href`` holds the **Confluence page title** (used as ``<ri:page ac:title="..."/>``
+* ``node.href`` holds the **Confluence page title** (used as ``<ri:page ri:content-title="..."/>``
 * ``node.anchor`` holds the URL fragment (``#section``) if present, or ``None``
 
 Links to pages not found in the nav map are left unchanged so that authors
