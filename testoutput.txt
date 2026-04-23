@@ -12,21 +12,22 @@ Planning...
 Publishing 8 page(s)...
   [1/8] create  'Appendix'
   [2/8] create  'CCTV'
-         folder id=6276710431  parent_id=None  parent_is_folder=True
-  [3/8] create  'Vendor Assessment'
+  [3/8] update  'Vendor Assessment'
   [4/8] create  'API Test Client'
-         folder id=6277070881  parent_id=None  parent_is_folder=True
-  [5/8] create  'Tool Assessment'
+  [5/8] update  'Tool Assessment'
   [6/8] create  'GDPR & AI'
-         folder id=6277365763  parent_id=None  parent_is_folder=True
-  [7/8] create  'Gdpr Ai Technical Requirements'
+  [7/8] update  'Gdpr Ai Technical Requirements'
         uploading  appendix_gdpr_assets_gdpr-ai.png
         uploading  appendix_gdpr_references_AI.GDPR Addendum - Rockwool.docx
         uploading  appendix_gdpr_references_2026 - cctv with AI - rules and comments.docx
-  [8/8] create  'Cctv Ai Shopfloor Safety Risk Controls'
+  [8/8] update  'Cctv Ai Shopfloor Safety Risk Controls'
         uploading  appendix_gdpr_references_2026 - cctv with AI - rules and comments.docx
         uploading  appendix_gdpr_references_AI.GDPR Addendum - Rockwool.docx
-Published:  7 created, 0 updated, 0 skipped
+Published:  0 created, 4 updated, 0 skipped
 Assets:     5 uploaded
-Errors:     1
-  ✗ Appendix: create_folder('Appendix'): HTTP 404 — {"errors":[{"status":404,"code":"NOT_FOUND","title":"Not Found","detail":null}]}
+Errors:     4
+  ✗ Appendix: create_folder('Appendix'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A folder exists with the same title in this space","detail":null}]}
+  ✗ CCTV: create_folder('CCTV'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A folder exists with the same title in this space","detail":null}]}
+  ✗ API Test Client: create_folder('API Test Client'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A folder exists with the same title in this space","detail":null}]}
+  ✗ GDPR & AI: create_folder('GDPR & AI'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A folder exists with the same title in this space","detail":null}]}
+PS C:\repos\rockwool\docs>
