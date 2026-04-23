@@ -144,14 +144,22 @@ class ConfluenceClient:
         return None
 
     def find_folder_in_space(self, space_id: str, title: str) -> dict[str, Any] | None:
-        """Return a folder matching *title* anywhere in *space_id*, or ``None``.
+        """Return a folder matching *title* anywhere in the space, or ``None``.
 
         Used as a fallback when a folder cannot be located via its parent
         (e.g. space-root folders created without a parentId).
+
+        Uses the v1 CQL search API (``/rest/api/content/search``) which
+        reliably supports folder type + title filtering, unlike the v2
+        ``/folders`` endpoint which does not support query parameters.
         """
+        space_key = self._config.space_key
+        if not space_key:
+            return None
+        cql = f'type=folder AND title="{title}" AND space="{space_key}"'
         resp = self._http.get(
-            self._v2("/folders"),
-            params={"spaceId": space_id, "title": title, "limit": 10},
+            self._v1("/content/search"),
+            params={"cql": cql, "limit": 10},
         )
         self._raise_for_status(resp, f"find_folder_in_space({title!r})")
         for item in resp.json().get("results", []):
