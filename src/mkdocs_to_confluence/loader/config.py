@@ -26,6 +26,7 @@ class ConfluenceConfig:
     parent_page_id: str | None = None  # optional root parent page
     full_width: bool = True  # set full-width layout on every published page
     nav_file: str = ".pages"  # awesome-pages filename (default: .pages, can be .nav etc.)
+    mermaid_render: str = "kroki"  # "kroki", "kroki:<url>", or "none"
 
 
 @dataclass(frozen=True)
@@ -229,6 +230,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             parent_page_id=parent_page_id,
             full_width=bool(raw_conf.get("full_width", True)),
             nav_file=str(raw_conf.get("nav_file", ".pages")),
+            mermaid_render=str(raw_conf.get("mermaid_render", "kroki")),
         )
 
     return MkDocsConfig(

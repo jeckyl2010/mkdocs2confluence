@@ -46,6 +46,7 @@ from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import _make_attachment_name, resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
+from mkdocs_to_confluence.transforms.mermaid import DEFAULT_KROKI_URL, render_mermaid_diagrams
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
@@ -159,6 +160,14 @@ def compile_page(
         page_path=node.source_path,
         docs_dir=config.docs_dir,
     )
+    mermaid_render = (config.confluence.mermaid_render if config.confluence else "kroki")
+    if mermaid_render != "none":
+        kroki_url = (
+            mermaid_render[len("kroki:"):] if mermaid_render.startswith("kroki:")
+            else DEFAULT_KROKI_URL
+        )
+        ir_nodes, mermaid_attachments = render_mermaid_diagrams(ir_nodes, kroki_url)
+        attachments = attachments + mermaid_attachments
     effective_link_map = link_map if link_map is not None else {}
     if node.docs_path:
         ir_nodes = resolve_internal_links(ir_nodes, effective_link_map, node.docs_path)

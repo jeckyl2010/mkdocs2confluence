@@ -277,12 +277,13 @@ class Admonition(IRNode):
 class MermaidDiagram(IRNode):
     """A Mermaid diagram (`` ```mermaid `` fenced block).
 
-    ``source`` is the raw Mermaid DSL.  The emitter chooses between the
-    Confluence Mermaid marketplace macro (if available) and a rendered-image
-    attachment based on configuration.
+    ``source`` is the raw Mermaid DSL.  When ``attachment_name`` is set the
+    emitter renders an ``<ac:image>`` referencing the uploaded PNG; otherwise
+    it falls back to a code block showing the raw source.
     """
 
     source: str
+    attachment_name: str | None = None
 
 
 @dataclass(frozen=True)
