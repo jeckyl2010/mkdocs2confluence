@@ -66,6 +66,7 @@ def render_mermaid_diagrams(
             path = _cache_path(node.source)
             if not path.exists():
                 try:
+                    print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
                     png = _kroki_png(node.source, kroki_url)
                     path.write_bytes(png)
                 except (urllib.error.URLError, OSError) as exc:
@@ -74,6 +75,8 @@ def render_mermaid_diagrams(
                         stacklevel=2,
                     )
                     continue
+            else:
+                print(f"        rendering  mermaid diagram (cached)")
 
             if path not in seen_paths:
                 attachments.append(path)
