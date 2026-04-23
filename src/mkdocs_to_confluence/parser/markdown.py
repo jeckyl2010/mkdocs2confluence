@@ -57,6 +57,7 @@ from mkdocs_to_confluence.ir.nodes import (
     ItalicNode,
     LinkNode,
     ListItem,
+    MermaidDiagram,
     OrderedList,
     Paragraph,
     Section,
@@ -729,18 +730,21 @@ def _build_tree(
             _append_content(node, stack, root)
 
         elif isinstance(token, _CodeToken):
-            _append_content(
-                CodeBlock(
-                    code=token.code,
-                    language=token.language,
-                    title=token.title,
-                    linenums=token.linenums,
-                    linenums_start=token.linenums_start,
-                    highlight_lines=token.highlight_lines,
-                ),
-                stack,
-                root,
-            )
+            if token.language and token.language.lower() == "mermaid":
+                _append_content(MermaidDiagram(source=token.code), stack, root)
+            else:
+                _append_content(
+                    CodeBlock(
+                        code=token.code,
+                        language=token.language,
+                        title=token.title,
+                        linenums=token.linenums,
+                        linenums_start=token.linenums_start,
+                        highlight_lines=token.highlight_lines,
+                    ),
+                    stack,
+                    root,
+                )
 
         elif isinstance(token, _AdmonitionToken):
             body_nodes = _build_tree(token.body_tokens, fn_map=_fn)

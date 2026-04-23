@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mkdocs_to_confluence.emitter.xhtml import emit
-from mkdocs_to_confluence.ir.nodes import MermaidDiagram, Paragraph, TextNode
+from mkdocs_to_confluence.ir.nodes import CodeBlock, MermaidDiagram, Paragraph, TextNode
+from mkdocs_to_confluence.parser.markdown import parse
 from mkdocs_to_confluence.transforms.mermaid import (
     DEFAULT_KROKI_URL,
     render_mermaid_diagrams,
@@ -16,6 +17,24 @@ from mkdocs_to_confluence.transforms.mermaid import (
 
 _SAMPLE_SOURCE = "graph TD\n    A --> B\n"
 _FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16  # minimal fake PNG bytes
+
+
+# ── Parser ────────────────────────────────────────────────────────────────────
+
+
+def test_parser_produces_mermaid_diagram_node():
+    """A ```mermaid fenced block must parse to MermaidDiagram, not CodeBlock."""
+    nodes = parse("```mermaid\ngraph TD\n    A --> B\n```\n")
+    assert len(nodes) == 1
+    assert isinstance(nodes[0], MermaidDiagram)
+    assert "graph TD" in nodes[0].source
+
+
+def test_parser_non_mermaid_code_block_stays_codeblock():
+    """A ```python block must still parse to CodeBlock."""
+    nodes = parse("```python\nprint('hello')\n```\n")
+    assert len(nodes) == 1
+    assert isinstance(nodes[0], CodeBlock)
 
 
 # ── Emitter ───────────────────────────────────────────────────────────────────
