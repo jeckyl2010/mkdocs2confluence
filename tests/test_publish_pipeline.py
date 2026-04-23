@@ -165,7 +165,99 @@ def test_plan_publish_update_when_page_exists(tmp_path: Path) -> None:
     assert plan[0].version == 2
 
 
-# ── dry-run CLI ───────────────────────────────────────────────────────────────
+# ── plan_publish: section index ───────────────────────────────────────────────
+
+
+def _make_section_with_index(title: str, docs_dir: Path) -> NavNode:
+    """Helper: section node with an index.md child + one regular child."""
+    index_src = docs_dir / "index.md"
+    index_src.write_text(f"# {title}\n\nLanding content.\n", encoding="utf-8")
+    child_src = docs_dir / "page.md"
+    child_src.write_text("# Page\n\nBody.\n", encoding="utf-8")
+
+    index_node = NavNode(
+        title="Index",
+        docs_path="index.md",
+        source_path=index_src,
+        level=1,
+    )
+    child_node = NavNode(
+        title="Page",
+        docs_path="page.md",
+        source_path=child_src,
+        level=1,
+    )
+    return NavNode(
+        title=title,
+        docs_path=None,
+        source_path=None,
+        level=0,
+        children=(index_node, child_node),
+    )
+
+
+def test_section_with_index_creates_page_not_folder(tmp_path: Path) -> None:
+    """A section whose first child is index.md should publish as a page, not a folder."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    section = _make_section_with_index("Guide", docs)
+
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+    client = MagicMock()
+    client.find_page.return_value = None  # new page
+
+    plan = plan_publish([section], client, config, conf_config, space_id="42")
+
+    # Should be: 1 section-page + 1 child page (no "Index" page)
+    assert len(plan) == 2
+    section_action = plan[0]
+    assert section_action.title == "Guide"
+    assert not section_action.is_folder
+    assert section_action.action == "create"
+    assert section_action.xhtml is not None and "Landing content" in section_action.xhtml
+
+    child_action = plan[1]
+    assert child_action.title == "Page"
+    assert not child_action.is_folder
+
+
+def test_section_with_index_no_standalone_index_page(tmp_path: Path) -> None:
+    """The index.md must NOT appear as a separate page in the plan."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    section = _make_section_with_index("Guide", docs)
+
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+    client = MagicMock()
+    client.find_page.return_value = None
+
+    plan = plan_publish([section], client, config, conf_config, space_id="42")
+
+    titles = [a.title for a in plan]
+    assert "Index" not in titles
+
+
+def test_section_without_index_creates_folder(tmp_path: Path) -> None:
+    """A section with no index.md should still produce a folder (unchanged behaviour)."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    child_src = docs / "page.md"
+    child_src.write_text("# Page\n", encoding="utf-8")
+    child_node = NavNode(title="Page", docs_path="page.md", source_path=child_src, level=1)
+    section = NavNode(title="Guide", docs_path=None, source_path=None, level=0, children=(child_node,))
+
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+    client = MagicMock()
+    client.find_page.return_value = None
+
+    plan = plan_publish([section], client, config, conf_config, space_id="42")
+
+    section_action = plan[0]
+    assert section_action.title == "Guide"
+    assert section_action.is_folder
 
 
 def test_dry_run_prints_page_list(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:

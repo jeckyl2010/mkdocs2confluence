@@ -194,6 +194,14 @@ def compile_page(
 # ── Planning ──────────────────────────────────────────────────────────────────
 
 
+def _find_section_index(node: NavNode) -> NavNode | None:
+    """Return the first direct child whose docs_path ends with 'index.md'."""
+    for child in node.children:
+        if child.docs_path and child.docs_path.lower().endswith("index.md"):
+            return child
+    return None
+
+
 def plan_publish(
     nav_nodes: list[NavNode],
     client: ConfluenceClient,
@@ -230,6 +238,50 @@ def _plan_nodes(
         # preprocessor and raw shortcodes render as ??? in Confluence.
         clean_title = strip_icon_shortcodes(node.title).strip()
         if node.is_section:
+            index_child = _find_section_index(node)
+            if index_child is not None:
+                # Section has an index.md — compile it as the section landing page
+                # (mirrors Material for MkDocs section index behaviour).
+                ready: bool | None = None
+                if index_child.source_path is not None:
+                    try:
+                        raw = index_child.source_path.read_text(encoding="utf-8")
+                        ready = _extract_ready_flag(raw)
+                    except OSError:
+                        pass
+                if ready is not False and index_child.source_path is not None:
+                    print(f"  compiling  '{clean_title}'  (section index)")
+                    try:
+                        xhtml, attachments, labels = compile_page(index_child, config, link_map)
+                        existing = client.find_page(space_id, clean_title)
+                        page_action = PageAction(
+                            node=node,
+                            title=clean_title,
+                            action="create" if existing is None else "update",
+                            parent_id=parent_id,
+                            parent_is_folder=parent_is_folder,
+                            xhtml=xhtml,
+                            attachments=attachments,
+                            labels=labels,
+                            page_id=str(existing["id"]) if existing is not None else None,
+                            version=(
+                                existing["version"]["number"] if existing is not None else None
+                            ),
+                            is_folder=False,
+                        )
+                        actions.append(page_action)
+                        # Recurse remaining children — index.md is already consumed.
+                        non_index = [c for c in node.children if c is not index_child]
+                        _plan_nodes(
+                            non_index, client, config, space_id, None, False, actions, link_map
+                        )
+                        continue
+                    except (PageLoadError, OSError) as exc:
+                        print(
+                            f"  warning    '{clean_title}'  index.md error ({exc}),"
+                            " falling back to folder"
+                        )
+
             print(f"  compiling  '{clean_title}'  (folder)")
             # Folder find-or-create is deferred to execute_publish once the
             # parent folder ID is known (nested folders don't have a parent ID
