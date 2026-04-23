@@ -112,6 +112,8 @@ def main(argv: list[str] | None = None) -> None:
         parser.print_help()
         sys.exit(0)
 
+    print(f"mk2conf {__version__}")
+
     if args.command == "preview":
         _cmd_preview(args)
     elif args.command == "publish":
@@ -154,8 +156,6 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
 
 def _cmd_publish(args: argparse.Namespace) -> None:
-    from mkdocs_to_confluence import __version__
-    print(f"mk2conf {__version__}")
     config_path = Path(args.config).resolve()
     config = load_config(config_path)
 
