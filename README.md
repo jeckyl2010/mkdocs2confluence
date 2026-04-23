@@ -13,13 +13,13 @@ Requires Python 3.12+.
 **From the latest GitHub release** (recommended):
 
 ```bash
-pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.4.28/mkdocs_to_confluence-0.4.28-py3-none-any.whl
+pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.4.39/mkdocs_to_confluence-0.4.39-py3-none-any.whl
 ```
 
 Or with `pipx` for an isolated install (no virtual environment needed):
 
 ```bash
-pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.4.28/mkdocs_to_confluence-0.4.28-py3-none-any.whl
+pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/download/v0.4.39/mkdocs_to_confluence-0.4.39-py3-none-any.whl
 ```
 
 **From source** (see [Setup.md](Setup.md) for the full dev environment guide):
@@ -107,12 +107,23 @@ confluence:
   email: user@example.com
   token: !ENV CONFLUENCE_API_TOKEN   # never hardcode the token
   parent_page_id: "123456"           # optional root page
+  mermaid_render: kroki              # optional: "kroki" (default), "kroki:https://your-kroki" or "none"
 ```
 
 The API token is read from (in priority order):
 1. The `token:` field in `mkdocs.yml` (typically via `!ENV CONFLUENCE_API_TOKEN`)
 2. `CONFLUENCE_API_TOKEN` environment variable
 3. `MK2CONF_TOKEN` environment variable
+
+#### Mermaid rendering
+
+| `mermaid_render` value | Behaviour |
+|---|---|
+| `kroki` *(default)* | Render via `https://kroki.io` (public instance). Diagrams are POSTed as plain text; PNGs are cached locally in `~/.cache/mk2conf/mermaid/`. |
+| `kroki:https://your-kroki` | Render via a self-hosted Kroki instance (e.g. `docker run -p 8000:8000 yuzutech/kroki`). |
+| `none` | Skip rendering entirely — fall back to a `code` macro labelled `mermaid`. |
+
+If Kroki is unreachable, rendering degrades gracefully to the `code` macro fallback and a warning is printed — the publish run continues.
 
 #### Publish rules
 
@@ -181,7 +192,7 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --report publish-re
 | Content tabs `=== "Label"` (`pymdownx.tabbed`) | `expand` macros (one per tab) |
 | Details blocks `??? "title"` (`pymdownx.details`) | `expand` macro |
 | Footnotes `[^1]` / `[^1]: text` (`pymdownx.footnotes`) | Inline superscript anchor links + *Footnotes* section at page bottom |
-| Mermaid diagrams | `code` macro labelled `mermaid` |
+| Mermaid diagrams ` ```mermaid ` | Rendered to PNG via [Kroki](https://kroki.io) and uploaded as a page attachment (`<ac:image>`). SHA256-keyed local cache (`~/.cache/mk2conf/mermaid/`) avoids re-fetching unchanged diagrams. Falls back to a `code` macro if rendering fails. Configurable via `mermaid_render` — see below. |
 | Internal links `[text](page.md)` | `<ac:link><ri:page ac:title="...">` native Confluence page link; `#fragment` anchors preserved |
 | `awesome-pages` nav (`.pages` files) | Fully supported — nav is resolved from `.pages` files; bare directory entries auto-expand into sections |
 | Edit link banner | `info` macro with a link back to the source file in GitHub/GitLab (uses `repo_url` + `edit_uri` from `mkdocs.yml`) |
@@ -217,6 +228,8 @@ Field mapping:
 | `ready` | Status | `true` → ✅ Ready · `false` → 📝 Draft |
 | `source` | — | **Stripped** (internal tooling field) |
 | *other fields* | Title-cased key | Value stringified |
+
+> **Auto-generated rows:** if `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row is added linking to the source file in GitHub/GitLab. If `site_url` is set, a **Published Page** row links to the rendered MkDocs page.
 
 ### Abbreviation expansion
 
@@ -281,6 +294,7 @@ src/mkdocs_to_confluence/
 │   ├── assets.py       # IR tree transform: local image/file path resolution + attachment naming
 │   ├── images.py       # IR tree transform: image src resolution
 │   ├── internallinks.py# IR tree transform: .md hrefs → Confluence page title links
+│   ├── mermaid.py      # IR tree transform: Mermaid diagram rendering via Kroki → PNG attachments
 │   └── editlink.py     # IR tree transform: inject edit-on-GitHub banner
 ├── ir/
 │   └── nodes.py        # immutable IR node types
@@ -318,19 +332,19 @@ Planned features, roughly in priority order:
 - [ ] **Asset re-upload on every publish** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) are re-uploaded on every run so updated files are never left stale in Confluence. Confluence handles attachment versioning internally.
 - [ ] **View-only restrictions** — lock Confluence pages to the publishing service account so they can't be edited directly; Confluence is a read-only mirror of the Markdown source of truth.
 - [ ] **Full-width layout** — set `fullWidth: true` via the API so pages aren't constrained to the narrow default column.
-- [ ] **Mermaid diagram rendering** — currently degrades to a `code` macro labelled `mermaid` (readable, and renders automatically if the instance has a Mermaid plugin). Pre-rendering via self-hosted [Kroki](https://kroki.io) (`docker run -p 8000:8000 yuzutech/kroki`) is the preferred future path — no browser dependency.
 
 **Completed:**
 
+- [x] **Mermaid diagram rendering** — ` ```mermaid ` blocks rendered to PNG via [Kroki](https://kroki.io) (POST API, no encoding, no URL-length limits). PNGs uploaded as page attachments. SHA256 cache avoids re-fetching unchanged diagrams. Self-hosted Kroki supported via `mermaid_render: kroki:https://your-host`. Graceful fallback to `code` macro if rendering fails.
+- [x] **Published Page link in Page Properties** — if `site_url` is set in `mkdocs.yml`, each published page gets a "Published Page" row in its Page Properties macro linking to the rendered MkDocs site URL.
 - [x] **Scoped publish by nav section** — `--section "Guide"` scopes compile and publish to a single subtree of the nav; supports bare folder names as well as slash-separated paths (`"Guide/Setup"`)
-
 - [x] **Sequential asset uploads** — assets (images, PDFs, Word, Excel, etc.) are uploaded one at a time per page; Confluence holds a page-level write lock per attachment POST so concurrent uploads cause HTTP 500 transaction rollbacks
 - [x] **Publish summary report** — structured output after every run (`N created, N updated, N skipped · N assets uploaded`); `--report FILE` writes a JSON report; non-zero exit on errors
 - [x] **Source link in Page Properties** — each published page includes a link back to its editable source file in GitHub/GitLab as a row in the Page Properties table (driven by `repo_url` + `edit_uri` in `mkdocs.yml`)
 - [x] **Confluence REST API v2 compliance** — `minorEdit: true` prevents watcher notifications on automated updates; `find_page` no longer fetches the full page body; `id` removed from PUT body; `list_attachments` migrated to v2 endpoint; session `Content-Type` fixed for multipart uploads
 - [x] **Material icon shortcodes** — `:material-x:` / `:fontawesome-x:` / `:octicons-x:` mapped to BMP-safe Unicode symbols (≤ U+FFFF); unknown shortcodes stripped cleanly; nav titles are also cleaned
-- [x] **Ordered list numbering** — loose lists (blank-line-separated items) correctly merge into a single `<ol>` node instead of each item rendering as `1.`
-- [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ac:title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully
+- [x] **Internal link resolution** — `.md` hrefs rewritten to `<ac:link><ri:page ri:content-title="...">` Confluence page links using the nav resolver; anchors (`#fragment`) stripped gracefully
+- [x] **Ordered list numbering** — loose lists (blank-line-separated items) and items with continuation text correctly merge into a single `<ol>` node instead of each item rendering as `1.`
 - [x] **Publish command** — Confluence Cloud v2 REST API; nav-driven (only pages in `nav:` are published); creates/updates pages and uploads attachments; `ready: false` front matter skips pages; section nodes become parent pages to mirror nav hierarchy; `--dry-run` support
 - [x] **Local asset attachments** — all locally linked assets (images, PDFs, Word, Excel, and any other file type) resolved to absolute paths; collision-safe attachment names derived from `docs_dir`-relative path; uploaded as Confluence page attachments at publish time; local images embedded as base64 data URIs in the browser preview
 - [x] **Abbreviation expansion** — first-occurrence inline expansion with Glossary fallback section
