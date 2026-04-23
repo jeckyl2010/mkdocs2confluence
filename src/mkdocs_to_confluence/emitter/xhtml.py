@@ -309,6 +309,10 @@ def _emit_admonition(node: Admonition) -> str:
 
 
 def _emit_bullet_list(node: BulletList) -> str:
+    # If any item is a task item, render the whole list as an ac:task-list.
+    if any(i.task is not None for i in node.items):
+        items = "".join(_emit_task_item(i) for i in node.items)
+        return f"<ac:task-list>\n{items}</ac:task-list>\n"
     items = "".join(_emit_list_item(i) for i in node.items)
     return f"<ul>\n{items}</ul>\n"
 
@@ -331,6 +335,17 @@ _LIST_BLOCK_TYPES = (
     ContentTabs,
     Expandable,
 )
+
+
+def _emit_task_item(item: ListItem) -> str:
+    status = "complete" if item.task else "incomplete"
+    inner = _emit_inlines(item.children)
+    return (
+        f"  <ac:task>\n"
+        f"    <ac:task-status>{status}</ac:task-status>\n"
+        f"    <ac:task-body>{inner}</ac:task-body>\n"
+        f"  </ac:task>\n"
+    )
 
 
 def _emit_list_item(item: ListItem) -> str:
