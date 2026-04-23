@@ -143,6 +143,22 @@ class ConfluenceClient:
                 return item
         return None
 
+    def find_folder_in_space(self, space_id: str, title: str) -> dict[str, Any] | None:
+        """Return a folder matching *title* anywhere in *space_id*, or ``None``.
+
+        Used as a fallback when a folder cannot be located via its parent
+        (e.g. space-root folders created without a parentId).
+        """
+        resp = self._http.get(
+            self._v2("/folders"),
+            params={"spaceId": space_id, "title": title, "limit": 10},
+        )
+        self._raise_for_status(resp, f"find_folder_in_space({title!r})")
+        for item in resp.json().get("results", []):
+            if item.get("title") == title:
+                return item
+        return None
+
     def create_folder(
         self,
         space_id: str,
@@ -150,11 +166,22 @@ class ConfluenceClient:
         *,
         parent_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create a native Confluence folder and return the response dict."""
+        """Create a native Confluence folder and return the response dict.
+
+        If Confluence reports that a folder with the same title already exists
+        in the space (HTTP 400), we fall back to a space-wide lookup and return
+        the existing folder so callers can treat this as an idempotent operation.
+        """
         payload: dict[str, Any] = {"spaceId": space_id, "title": title}
         if parent_id is not None:
             payload["parentId"] = parent_id
         resp = self._http.post(self._v2("/folders"), json=payload)
+        if resp.status_code == 400:
+            body = resp.text
+            if "folder exists with the same title" in body.lower() or "same title" in body.lower():
+                existing = self.find_folder_in_space(space_id, title)
+                if existing is not None:
+                    return existing
         self._raise_for_status(resp, f"create_folder({title!r})")
         return resp.json()  # type: ignore[no-any-return]
 
