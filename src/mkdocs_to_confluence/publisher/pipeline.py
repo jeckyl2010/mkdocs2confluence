@@ -165,8 +165,9 @@ def compile_page(
     if front_matter is not None:
         ir_nodes = (front_matter,) + ir_nodes
     edit_url = config.page_edit_url(node.docs_path or "")
-    if edit_url:
-        ir_nodes = attach_source_url(ir_nodes, edit_url)
+    site_url = config.page_site_url(node.docs_path or "")
+    if edit_url or site_url:
+        ir_nodes = attach_source_url(ir_nodes, edit_url or "", site_url)
 
     # Extract labels from FrontMatter node (tags: field)
     labels: tuple[str, ...] = ()

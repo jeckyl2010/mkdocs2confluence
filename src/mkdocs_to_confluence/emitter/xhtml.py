@@ -212,7 +212,7 @@ def _emit_front_matter(node: FrontMatter) -> str:
     if node.subtitle:
         parts.append(f"<p><em>{html.escape(node.subtitle)}</em></p>\n")
 
-    has_table = node.properties or node.source_url
+    has_table = node.properties or node.source_url or node.site_url
     if has_table:
         rows = "".join(
             f"    <tr><th>{html.escape(display)}</th>"
@@ -225,6 +225,12 @@ def _emit_front_matter(node: FrontMatter) -> str:
             rows += (
                 f'    <tr><th>Source</th>'
                 f'<td><a href="{href}">{label}</a></td></tr>\n'
+            )
+        if node.site_url:
+            href = html.escape(node.site_url)
+            rows += (
+                f'    <tr><th>Published Page</th>'
+                f'<td><a href="{href}">View published page</a></td></tr>\n'
             )
         parts.append(
             '<ac:structured-macro ac:name="details">\n'
