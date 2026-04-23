@@ -138,3 +138,112 @@ def test_edit_uri_explicit_override(tmp_path):
     from mkdocs_to_confluence.loader.config import load_config
     config = load_config(yml)
     assert config.edit_uri == "edit/develop/docs/"
+
+
+# ── page_site_url ─────────────────────────────────────────────────────────────
+
+
+def test_page_site_url_regular_page(tmp_path):
+    from mkdocs_to_confluence.loader.config import MkDocsConfig
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=tmp_path,
+        repo_url=None,
+        edit_uri=None,
+        nav=None,
+        site_url="https://example.github.io/",
+    )
+    assert config.page_site_url("guide/installation.md") == "https://example.github.io/guide/installation/"
+
+
+def test_page_site_url_index_page(tmp_path):
+    from mkdocs_to_confluence.loader.config import MkDocsConfig
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=tmp_path,
+        repo_url=None,
+        edit_uri=None,
+        nav=None,
+        site_url="https://example.github.io/",
+    )
+    assert config.page_site_url("index.md") == "https://example.github.io/"
+
+
+def test_page_site_url_nested_index(tmp_path):
+    from mkdocs_to_confluence.loader.config import MkDocsConfig
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=tmp_path,
+        repo_url=None,
+        edit_uri=None,
+        nav=None,
+        site_url="https://example.github.io/",
+    )
+    assert config.page_site_url("guide/index.md") == "https://example.github.io/guide/"
+
+
+def test_page_site_url_none_when_no_site_url(tmp_path):
+    from mkdocs_to_confluence.loader.config import MkDocsConfig
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=tmp_path,
+        repo_url=None,
+        edit_uri=None,
+        nav=None,
+    )
+    assert config.page_site_url("guide/install.md") is None
+
+
+def test_page_site_url_loaded_from_yaml(tmp_path):
+    import textwrap
+    yml = tmp_path / "mkdocs.yml"
+    yml.write_text(textwrap.dedent("""\
+        site_name: Test
+        site_url: https://studious-enigma-61j576e.pages.github.io/
+        docs_dir: docs
+    """))
+    (tmp_path / "docs").mkdir()
+    from mkdocs_to_confluence.loader.config import load_config
+    config = load_config(yml)
+    assert config.site_url == "https://studious-enigma-61j576e.pages.github.io/"
+    assert config.page_site_url("arch/overview.md") == \
+        "https://studious-enigma-61j576e.pages.github.io/arch/overview/"
+
+
+# ── site_url in emitter ───────────────────────────────────────────────────────
+
+
+def test_published_page_row_in_emitter():
+    from mkdocs_to_confluence.emitter.xhtml import emit
+    fm = FrontMatter(
+        title="Test",
+        subtitle=None,
+        properties=(),
+        labels=(),
+        site_url="https://example.github.io/guide/install/",
+    )
+    out = emit((fm,))
+    assert "Published Page" in out
+    assert "https://example.github.io/guide/install/" in out
+
+
+def test_published_page_row_omitted_when_no_site_url():
+    from mkdocs_to_confluence.emitter.xhtml import emit
+    fm = FrontMatter(
+        title="Test",
+        subtitle=None,
+        properties=(),
+        labels=(),
+    )
+    out = emit((fm,))
+    assert "Published Page" not in out
+
+
+def test_site_url_attached_by_transform():
+    fm = FrontMatter(title="T", subtitle=None, properties=(), labels=())
+    result = attach_source_url(
+        (fm,), "https://github.com/edit", site_url="https://site.io/page/"
+    )
+    assert isinstance(result[0], FrontMatter)
+    assert result[0].source_url == "https://github.com/edit"
+    assert result[0].site_url == "https://site.io/page/"

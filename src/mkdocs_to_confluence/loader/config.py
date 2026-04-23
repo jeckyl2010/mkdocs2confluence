@@ -37,6 +37,7 @@ class MkDocsConfig:
     repo_url: str | None
     edit_uri: str | None  # e.g. "edit/main/docs/" — None means no edit link
     nav: list[Any] | None     # raw nav structure from YAML; None when using auto-nav plugins
+    site_url: str | None = None  # e.g. "https://example.github.io/" — None means no published-page link
     confluence: ConfluenceConfig | None = None
 
     def page_edit_url(self, docs_path: str) -> str | None:
@@ -50,6 +51,24 @@ class MkDocsConfig:
         if not self.repo_url:
             return None
         return self.repo_url.rstrip("/") + "/" + self.edit_uri.rstrip("/") + "/" + docs_path
+
+    def page_site_url(self, docs_path: str) -> str | None:
+        """Return the rendered MkDocs URL for *docs_path*, or ``None`` if not configured.
+
+        Converts e.g. ``guide/installation.md`` →
+        ``https://example.github.io/guide/installation/`` following MkDocs'
+        default ``use_directory_urls`` behaviour.
+        """
+        if not self.site_url:
+            return None
+        # Strip .md, collapse index pages, add trailing slash
+        path = docs_path
+        if path.endswith(".md"):
+            path = path[:-3]
+        # index pages collapse to their parent directory
+        if path.endswith("/index") or path == "index":
+            path = path[: -len("index")].rstrip("/")
+        return self.site_url.rstrip("/") + "/" + path.lstrip("/") + ("/" if path else "")
 
 
 _REPO_URL_RE = re.compile(r"^https?://")
@@ -139,6 +158,10 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         raise ConfigError("mkdocs.yml: 'docs_dir' must be a string.")
     docs_dir = (mkdocs_yml.parent / raw_docs_dir).resolve()
 
+    # --- site_url (optional) ---
+    raw_site_url = raw.get("site_url")
+    site_url: str | None = str(raw_site_url).rstrip("/") + "/" if isinstance(raw_site_url, str) and raw_site_url.strip() else None
+
     # --- repo_url (optional) ---
     repo_url: str | None = raw.get("repo_url")
     if repo_url is not None:
@@ -213,6 +236,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         docs_dir=docs_dir,
         repo_url=repo_url,
         edit_uri=edit_uri,
+        site_url=site_url,
         nav=nav,
         confluence=confluence,
     )

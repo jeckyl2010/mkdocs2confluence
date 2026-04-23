@@ -339,6 +339,8 @@ class FrontMatter(IRNode):
         source_url: Optional URL to the source file in the version-control
                     repository.  Rendered as a clickable link row ("Source")
                     at the bottom of the Page Properties table.
+        site_url:   Optional URL to the rendered page on the published MkDocs
+                    site.  Rendered as a "Published Page" row in the table.
     """
 
     title: str | None
@@ -346,6 +348,7 @@ class FrontMatter(IRNode):
     properties: tuple[tuple[str, str], ...]
     labels: tuple[str, ...]
     source_url: str | None = None
+    site_url: str | None = None
 
 
 # ── Footnotes ────────────────────────────────────────────────────────────────
