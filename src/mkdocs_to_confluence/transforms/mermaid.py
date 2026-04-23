@@ -10,7 +10,6 @@ of the Mermaid source so unchanged diagrams are never re-fetched.
 
 from __future__ import annotations
 
-import base64
 import dataclasses
 import hashlib
 import urllib.error
@@ -25,12 +24,19 @@ DEFAULT_KROKI_URL = "https://kroki.io"
 
 
 def _kroki_png(source: str, kroki_url: str) -> bytes:
-    """Fetch a PNG rendering of *source* from the Kroki service."""
-    import zlib
-    compressed = zlib.compress(source.encode(), 9)
-    encoded = base64.urlsafe_b64encode(compressed).decode()
-    url = f"{kroki_url.rstrip('/')}/mermaid/png/{encoded}"
-    req = urllib.request.Request(url, headers={"Accept": "image/png"})
+    """Fetch a PNG rendering of *source* from the Kroki service (POST)."""
+    url = f"{kroki_url.rstrip('/')}/mermaid/png"
+    body = source.encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "text/plain",
+            "Accept": "image/png",
+            "User-Agent": "mk2conf/1.0",
+        },
+        method="POST",
+    )
     with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
         return resp.read()
 
