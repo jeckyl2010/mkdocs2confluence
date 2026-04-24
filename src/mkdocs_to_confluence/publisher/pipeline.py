@@ -48,6 +48,8 @@ from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 from mkdocs_to_confluence.transforms.mermaid import DEFAULT_KROKI_URL, render_mermaid_diagrams
 
+from mkdocs_to_confluence.publisher.client import ConfluenceError
+
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
 
@@ -515,17 +517,39 @@ def execute_publish(
             elif action.action == "update":
                 assert action.page_id is not None
                 assert action.version is not None
-                client.update_page(
-                    action.page_id,
-                    action.title,
-                    action.xhtml or "",
-                    action.version + 1,
-                    parent_id=action.parent_id,
-                )
-                report.updated += 1
+                try:
+                    client.update_page(
+                        action.page_id,
+                        action.title,
+                        action.xhtml or "",
+                        action.version + 1,
+                        parent_id=action.parent_id,
+                    )
+                    report.updated += 1
+                except ConfluenceError as upd_exc:
+                    if "HTTP 404" not in str(upd_exc):
+                        raise
+                    # Page was deleted or belongs to a different space —
+                    # fall back to create so parent_id wiring can proceed.
+                    print(
+                        f"         [warn] update 404 — page_id={action.page_id}"
+                        " no longer exists; falling back to create"
+                    )
+                    action.page_id = None
+                    page = client.create_page(
+                        space_id,
+                        action.title,
+                        action.xhtml or "",
+                        parent_id=action.parent_id,
+                    )
+                    action.page_id = str(page["id"])
+                    report.created += 1
         except Exception as exc:
             report.errors.append((action.title, str(exc)))
-            continue
+            # Do NOT `continue` — all post-execute blocks below are guarded by
+            # action.page_id checks, so they are safely skipped on failure.
+            # Critically, child parent_id wiring must still run for section
+            # pages whose children were planned with parent_id=None.
 
         # Once a folder/section's page_id is known, wire it into all direct
         # children so that children created later use the correct parent_id.
