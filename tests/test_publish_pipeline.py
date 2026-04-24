@@ -328,6 +328,7 @@ def _make_execute_client(space_id: str = "~42") -> MagicMock:
     client.create_page.side_effect = create_page
     client.create_folder.side_effect = create_folder
     client.find_folder_under.return_value = None  # no pre-existing folders
+    client.find_page.return_value = None  # no pre-existing pages
     client.update_page.return_value = {"id": 99, "version": {"number": 2}}
     client.list_attachments.return_value = {}  # no pre-existing attachments
     return client
@@ -369,7 +370,7 @@ class TestExecutePublish:
         plan = [section_action, child_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         # Section was created first → got page_id
         assert section_action.page_id is not None
@@ -397,7 +398,7 @@ class TestExecutePublish:
         plan = [section_action, child_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert child_action.parent_id == "existing-99"
 
@@ -419,7 +420,7 @@ class TestExecutePublish:
         plan = [top_action, sub_action, page_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert sub_action.parent_id  == top_action.page_id, "SubSection must be under TopSection"
         assert page_action.parent_id == sub_action.page_id,  "DeepPage must be under SubSection"
@@ -444,7 +445,7 @@ class TestExecutePublish:
         plan = [folder_action, child_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         client.create_folder.assert_called_once_with("~42", "Appendix", parent_id=None)
         # parent_id="ROOT" is a page, not a folder — API doesn't accept page IDs as parentId
@@ -466,7 +467,7 @@ class TestExecutePublish:
         client = _make_execute_client()
         client.find_folder_under.return_value = {"id": "existing-folder-77", "title": "Appendix"}
 
-        execute_publish([folder_action], client, space_id="~42", docs_dir=docs_dir)
+        execute_publish([folder_action], client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         client.create_folder.assert_not_called()
         assert folder_action.page_id == "existing-folder-77"
@@ -489,7 +490,7 @@ class TestExecutePublish:
         plan = [top_action, sub_action, leaf_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         # Sub-folder search must use parent_is_folder=True
         calls = client.find_folder_under.call_args_list
@@ -521,7 +522,7 @@ class TestExecutePublish:
         plan = [top_action, sub_action, page_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         # OldPage must have been re-parented to the new sub-section
         assert page_action.parent_id == sub_action.page_id
@@ -577,7 +578,7 @@ class TestExecutePublish:
                        parent_id="ROOT"),
         ]
         client = _make_execute_client()
-        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert isinstance(report, PublishReport)
         assert report.created == 1
@@ -602,7 +603,7 @@ class TestExecutePublish:
                        parent_id="ROOT", xhtml="<p/>", attachments=[img1, img2]),
         ]
         client = _make_execute_client()
-        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert report.assets_uploaded == 2
         assert client.upload_attachment.call_count == 2
@@ -629,7 +630,7 @@ class TestExecutePublish:
             PageAction(node=page_node, title="Page", action="create",
                        parent_id="ROOT", xhtml="<p/>", attachments=[img]),
         ]
-        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert report.assets_skipped == 1
         assert report.assets_uploaded == 0
@@ -657,7 +658,7 @@ class TestExecutePublish:
             PageAction(node=page_node, title="Page", action="create",
                        parent_id="ROOT", xhtml="<p/>", attachments=[img]),
         ]
-        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert report.assets_uploaded == 1
         assert report.assets_skipped == 0
@@ -677,7 +678,7 @@ class TestExecutePublish:
 
         plan = [PageAction(node=page_node, title="Broken", action="create",
                            parent_id="ROOT", xhtml="<p/>")]
-        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert report.created == 0
         assert len(report.errors) == 1
@@ -724,11 +725,10 @@ class TestExecutePublish:
                 gdpr_action, gdpr_p1_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT_PAGE")
 
-        # appendix is a top-level folder whose parent is a regular page — the
-        # Confluence v2 /folders API rejects page IDs as parentId (returns 404),
-        # so the correct call must omit the parent (creates at space root).
+        # appendix is a top-level folder (parent_id == root_page_id) — use native folder API,
+        # but Confluence /folders API doesn't accept page IDs as parentId, so parent_id=None.
         appendix_call = next(
             c for c in client.create_folder.call_args_list if c.args[1] == "appendix"
         )
@@ -783,7 +783,7 @@ class TestExecutePublish:
         plan = [PageAction(node=page_node, title="Multi", action="create",
                            parent_id="ROOT", xhtml="<p/>", attachments=files)]
         client = _make_execute_client()
-        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert client.upload_attachment.call_count == 5
         assert report.assets_uploaded == 5
@@ -815,11 +815,57 @@ class TestExecutePublish:
         plan = [section_action, child_action]
         client = _make_execute_client()
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert section_action.page_id is not None, "section-index page must be created"
         assert child_action.parent_id == section_action.page_id, \
             "child must be nested under section-index page, not at space root"
+
+    def test_nested_folder_without_index_becomes_stub_page(self, tmp_path: Path) -> None:
+        """A section without index.md nested under a section-index page must become a stub page.
+
+        Confluence's /folders API only accepts a folder ID as parentId.
+        When the parent is a regular page (section-index), we must create a
+        stub page instead of a native folder so hierarchy is preserved.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        child = _make_page_node("2026 Plan", tmp_path, docs_dir)
+        nested_section = _make_section_node("2026", [child])
+        proposals = _make_section_node("Proposals", [nested_section])
+
+        # Proposals has index.md → section-index page (is_folder=False)
+        proposals_action = PageAction(
+            node=proposals, title="Proposals", action="create",
+            parent_id="ROOT_PAGE", xhtml="<p>index</p>", is_folder=False,
+        )
+        # 2026 has no index.md → would normally be a folder
+        nested_action = PageAction(
+            node=nested_section, title="2026", action="create",
+            parent_id=None, is_folder=True,
+        )
+        child_action = PageAction(
+            node=child, title="2026 Plan", action="create",
+            parent_id=None, xhtml="<p>content</p>",
+        )
+        plan = [proposals_action, nested_action, child_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT_PAGE")
+
+        # 2026 must be created as a page (stub), not a folder — its parent is a page
+        client.create_folder.assert_not_called()
+        calls = client.create_page.call_args_list
+        titles_created = [c.args[1] for c in calls]
+        assert "Proposals" in titles_created, "Proposals section-index must be created"
+        assert "2026" in titles_created, "2026 (no index.md) must be created as stub page"
+
+        # Child must be under 2026, not at space root
+        assert child_action.parent_id == nested_action.page_id, \
+            "2026 Plan must be nested under the 2026 stub page"
 
     def test_update_404_falls_back_to_create_and_wires_children(self, tmp_path: Path) -> None:
         """update with HTTP 404 must fall back to create and still wire children.
@@ -855,7 +901,7 @@ class TestExecutePublish:
             "update_page: HTTP 404 — page not found"
         )
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         # Must have fallen back to create and captured a new page_id
         assert section_action.page_id is not None
@@ -896,7 +942,7 @@ class TestExecutePublish:
             "update_page: HTTP 400 — Can't add a parent from another space"
         )
 
-        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT")
 
         assert section_action.page_id is not None
         assert section_action.page_id != "old-space-stale-id"
