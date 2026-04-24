@@ -332,3 +332,63 @@ class TestFootnoteEmitter:
         assert 'ac:name="anchor"' in html_out
         assert 'fn-1' in html_out
         assert 'My note.' in html_out
+
+
+# ── Inline HTML emitters ──────────────────────────────────────────────────────
+
+
+class TestInlineHtmlEmitters:
+    def test_line_break(self) -> None:
+        from mkdocs_to_confluence.ir import LineBreakNode
+        out = emit((Paragraph((TextNode("a"), LineBreakNode(), TextNode("b"))),))
+        assert "<br />" in out
+
+    def test_mark_emits_yellow_span(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="mark", children=(TextNode("hi"),)),)),))
+        assert '<span style="background-color: yellow;">hi</span>' in out
+
+    def test_kbd_emits_code(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="kbd", children=(TextNode("Ctrl+C"),)),)),))
+        assert "<code>Ctrl+C</code>" in out
+
+    def test_sub_passthrough(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="sub", children=(TextNode("2"),)),)),))
+        assert "<sub>2</sub>" in out
+
+    def test_sup_passthrough(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="sup", children=(TextNode("2"),)),)),))
+        assert "<sup>2</sup>" in out
+
+    def test_u_passthrough(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="u", children=(TextNode("text"),)),)),))
+        assert "<u>text</u>" in out
+
+    def test_small_passthrough(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="small", children=(TextNode("note"),)),)),))
+        assert "<small>note</small>" in out
+
+    def test_s_emits_strikethrough_span(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        out = emit((Paragraph((InlineHtmlNode(tag="s", children=(TextNode("old"),)),)),))
+        assert '<span style="text-decoration: line-through;">old</span>' in out
+
+    def test_nested_inline_in_mark(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode, BoldNode
+        inner = BoldNode(children=(TextNode("bold"),))
+        out = emit((Paragraph((InlineHtmlNode(tag="mark", children=(inner,)),)),))
+        assert '<span style="background-color: yellow;"><strong>bold</strong></span>' in out
+
+    def test_parse_and_emit_roundtrip(self) -> None:
+        """End-to-end: parse inline HTML then emit to Confluence XHTML."""
+        from mkdocs_to_confluence.parser import parse as md_parse
+        nodes = md_parse("Use <kbd>Enter</kbd> and H<sub>2</sub>O and <mark>yellow</mark>.\n")
+        out = emit(nodes)
+        assert "<code>Enter</code>" in out
+        assert "<sub>2</sub>" in out
+        assert '<span style="background-color: yellow;">yellow</span>' in out

@@ -86,6 +86,24 @@ class LinkNode(IRNode):
 
 
 @dataclass(frozen=True)
+class LineBreakNode(IRNode):
+    """A hard line break (``<br>``, ``<br/>``, or ``<br />``)."""
+
+
+@dataclass(frozen=True)
+class InlineHtmlNode(IRNode):
+    """An inline HTML element mapped to a Confluence-safe equivalent.
+
+    Supported tags: ``mark``, ``kbd``, ``sub``, ``sup``, ``u``, ``s``,
+    ``del``, ``small``.  The emitter maps each to the appropriate
+    Confluence storage-format construct.
+    """
+
+    tag: str
+    children: tuple[IRNode, ...]
+
+
+@dataclass(frozen=True)
 class ImageNode(IRNode):
     """An image reference.
 

@@ -27,9 +27,12 @@ from mkdocs_to_confluence.ir.nodes import (
     FootnoteRef,
     HorizontalRule,
     ImageNode,
+    # Inline HTML nodes
+    InlineHtmlNode,
     # Traversal utility
     IRNode,
     ItalicNode,
+    LineBreakNode,
     LinkNode,
     ListItem,
     MermaidDiagram,
@@ -67,6 +70,8 @@ __all__ = [
     "CodeInlineNode",
     "LinkNode",
     "ImageNode",
+    "LineBreakNode",
+    "InlineHtmlNode",
     # Block
     "Section",
     "Paragraph",
