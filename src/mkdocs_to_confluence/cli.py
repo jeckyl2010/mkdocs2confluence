@@ -8,6 +8,7 @@ from pathlib import Path
 
 from mkdocs_to_confluence import __version__
 from mkdocs_to_confluence.loader.config import load_config
+from mkdocs_to_confluence.emitter.xhtml import configure_styles
 from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import render_page
@@ -133,6 +134,7 @@ def main(argv: list[str] | None = None) -> None:
 def _cmd_preview(args: argparse.Namespace) -> None:
     config_path = Path(args.config).resolve()
     config = load_config(config_path)
+    configure_styles(config.extra_styles)
 
     nodes = resolve_nav(config)
 
@@ -168,6 +170,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 def _cmd_publish(args: argparse.Namespace) -> None:
     config_path = Path(args.config).resolve()
     config = load_config(config_path)
+    configure_styles(config.extra_styles)
 
     conf_config = config.confluence
     if conf_config is None:
