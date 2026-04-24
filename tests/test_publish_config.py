@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
-import yaml
 
 from mkdocs_to_confluence.loader.config import (
     ConfigError,
-    ConfluenceConfig,
     load_config,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

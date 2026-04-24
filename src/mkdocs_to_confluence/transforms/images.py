@@ -14,8 +14,8 @@ import dataclasses
 from pathlib import Path
 
 from mkdocs_to_confluence.ir.nodes import (
-    IRNode,
     ImageNode,
+    IRNode,
     walk,
 )
 

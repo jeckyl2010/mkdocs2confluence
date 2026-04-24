@@ -7,8 +7,6 @@ deployments that use MySQL ``utf8`` rather than ``utf8mb4``.
 
 from __future__ import annotations
 
-import pytest
-
 from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
 
 

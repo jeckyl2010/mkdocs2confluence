@@ -84,7 +84,7 @@ def render_mermaid_diagrams(
                     )
                     continue
             else:
-                print(f"        rendering  mermaid diagram (cached)")
+                print("        rendering  mermaid diagram (cached)")
 
             if path not in seen_paths:
                 attachments.append(path)

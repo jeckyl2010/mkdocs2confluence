@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from mkdocs_to_confluence.emitter.xhtml import emit
-from mkdocs_to_confluence.ir.nodes import CodeBlock, MermaidDiagram, Paragraph, TextNode
+from mkdocs_to_confluence.ir.nodes import CodeBlock, MermaidDiagram
 from mkdocs_to_confluence.parser.markdown import parse
 from mkdocs_to_confluence.transforms.mermaid import (
-    DEFAULT_KROKI_URL,
     render_mermaid_diagrams,
 )
 

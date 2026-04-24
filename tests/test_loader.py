@@ -547,7 +547,11 @@ class TestFindSection:
                             source_path=None,
                             level=2,
                             children=(
-                                NavNode(title="Vendor Assessment", docs_path="appendix/cctv/vendor.md", source_path=None, level=3, children=()),
+                                NavNode(
+                                    title="Vendor Assessment",
+                                    docs_path="appendix/cctv/vendor.md",
+                                    source_path=None, level=3, children=(),
+                                ),
                             ),
                         ),
                         NavNode(title="Index", docs_path="appendix/index.md", source_path=None, level=2, children=()),
@@ -612,7 +616,10 @@ class TestFindSectionByFolder:
                 level=0,
                 children=(
                     NavNode(title="Advanced", docs_path=None, source_path=None, level=1, children=(
-                        NavNode(title="Deep Dive", docs_path="guide/advanced/deep.md", source_path=None, level=2, children=()),
+                        NavNode(
+                            title="Deep Dive", docs_path="guide/advanced/deep.md",
+                            source_path=None, level=2, children=(),
+                        ),
                     )),
                     NavNode(title="Basics", docs_path="guide/basics.md", source_path=None, level=1, children=()),
                 ),

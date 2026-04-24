@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from mkdocs_to_confluence.loader.extra_css import (
     ExtraStyles,
     load_extra_styles,
     styles_to_attr,
 )
-
 
 # ── styles_to_attr ────────────────────────────────────────────────────────────
 

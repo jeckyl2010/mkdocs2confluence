@@ -19,13 +19,13 @@ from mkdocs_to_confluence.transforms.internallinks import (
     resolve_internal_links,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def _make_nav(pages: list[tuple[str, str]]):
     """Build a minimal list of NavNode-like objects from (docs_path, title) pairs."""
     from pathlib import Path
+
     from mkdocs_to_confluence.loader.nav import NavNode
     return [
         NavNode(title=title, docs_path=dp, source_path=Path("/docs") / dp, level=0)
