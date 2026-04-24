@@ -213,7 +213,15 @@ class ConfluenceClient:
         )
         self._raise_for_status(resp, f"find_page({title!r})")
         results: list[dict[str, Any]] = resp.json().get("results", [])
-        return results[0] if results else None
+        if not results:
+            return None
+        # Guard: the Confluence v2 API may ignore spaceId and return pages from
+        # other spaces.  Only accept the result when it actually belongs to the
+        # requested space.
+        page = results[0]
+        if str(page.get("spaceId", "")) != str(space_id):
+            return None
+        return page
 
     def create_page(
         self,
