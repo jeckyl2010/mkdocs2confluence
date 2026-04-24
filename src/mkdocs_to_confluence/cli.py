@@ -67,6 +67,16 @@ def _build_parser() -> argparse.ArgumentParser:
     publish = sub.add_parser(
         "publish",
         help="Compile all pages and publish to Confluence.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Authentication (required):\n"
+            "  Set one of these environment variables before running:\n"
+            "    CONFLUENCE_API_TOKEN=<token>   (primary)\n"
+            "    MK2CONF_TOKEN=<token>           (alias)\n"
+            "\n"
+            "  The token, email, base_url, space_key/parent_page_id must also be\n"
+            "  configured in the 'confluence:' block of mkdocs.yml.\n"
+        ),
     )
     publish.add_argument(
         "--config",
