@@ -1,5 +1,5 @@
 PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section reference
-mk2conf 0.5.1
+mk2conf 0.5.3
 Planning...
   compiling  'Reference'  (folder)
   compiling  'Stakeholders'
@@ -35,20 +35,18 @@ Planning...
 
 Publishing 17 page(s)...
   [1/17] create  'Reference'
-         folder id=6282510592  parent_id=6261964868  parent_is_folder=False
+         folder id=6282707096  parent_id=6261964868  parent_is_folder=False
   [2/17] create  'Stakeholders'
   [3/17] create  'Mobile Device Architecture'
-  [4/17] update  'Design'
-         [warn] update 404 — page_id=1555267761 no longer exists; falling back to create
+  [4/17] create  'Design'
         uploading  mermaid_245e2dbf43ff6d82ab12c3d964205b56c8bc646618bff958bb7e7424ea2f575b.png
-  [5/17] update  '01 Overview'
-         [warn] update 404 — page_id=6249971738 no longer exists; falling back to create
-  [6/17] update  '01A Cloud Identity And Management'
-        skipping   mermaid_91fde96e00b37b45305b86c683a4ce26d724f6dec85e59b777d9ca283047b47f.png (unchanged)
-        skipping   mermaid_88446582f8ca98dd1ccaa9081e48350bb1412c53c88c6e572864b5c41c626893.png (unchanged)
-        skipping   mermaid_d746a33ae434c9cd71fed4aa05e9b3988463d4327794bad78020e8eb3763ac26.png (unchanged)
-        skipping   mermaid_c83a33293fd0eb6f21b63dd85084636c2a6d206a2dc62cfdf4b79df3d2b23fe6.png (unchanged)
-        skipping   mermaid_4872b7ebe83e9b2d6580967f770e9bba58f93a4a0eb7de8918ff3dc6830fedd3.png (unchanged)
+  [5/17] create  '01 Overview'
+  [6/17] create  '01A Cloud Identity And Management'
+        uploading  mermaid_91fde96e00b37b45305b86c683a4ce26d724f6dec85e59b777d9ca283047b47f.png
+        uploading  mermaid_88446582f8ca98dd1ccaa9081e48350bb1412c53c88c6e572864b5c41c626893.png
+        uploading  mermaid_d746a33ae434c9cd71fed4aa05e9b3988463d4327794bad78020e8eb3763ac26.png
+        uploading  mermaid_c83a33293fd0eb6f21b63dd85084636c2a6d206a2dc62cfdf4b79df3d2b23fe6.png
+        uploading  mermaid_4872b7ebe83e9b2d6580967f770e9bba58f93a4a0eb7de8918ff3dc6830fedd3.png
   [7/17] create  '02 Device Model'
   [8/17] create  '03 Infrastructure'
         uploading  mermaid_60431b35227d64dea97e9799770abff9209c80d0467023c692b6beccbb9bf887.png
@@ -68,12 +66,10 @@ Publishing 17 page(s)...
         uploading  mermaid_d47f053ec01433b142aad1ab664e4e5adcd2dc42d6e4acd242c675704bc7e14c.png
         uploading  mermaid_9f65fbb76724141486540c0c44c47ac03fcd2c0bdb90b297833cb8eae3d48118.png
   [17/17] create  'Raw Unstructured Architecture'
-Published:  16 created, 0 updated, 0 skipped
-Assets:     9 uploaded, 5 skipped
-Errors:     1
-  ✗ 01A Cloud Identity And Management: update_page('6283591684'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
+Published:  17 created, 0 updated, 0 skipped
+Assets:     14 uploaded, 0 skipped
 PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section reference
-mk2conf 0.5.1
+mk2conf 0.5.3
 Planning...
   compiling  'Reference'  (folder)
   compiling  'Stakeholders'
@@ -111,10 +107,8 @@ Publishing 17 page(s)...
   [1/17] create  'Reference'
   [2/17] update  'Stakeholders'
   [3/17] update  'Mobile Device Architecture'
-  [4/17] update  'Design'
-        skipping   mermaid_245e2dbf43ff6d82ab12c3d964205b56c8bc646618bff958bb7e7424ea2f575b.png (unchanged)
-  [5/17] update  '01 Overview'
-         [warn] update 404 — page_id=6249971738 no longer exists; falling back to create
+  [4/17] create  'Design'
+  [5/17] create  '01 Overview'
   [6/17] update  '01A Cloud Identity And Management'
         skipping   mermaid_91fde96e00b37b45305b86c683a4ce26d724f6dec85e59b777d9ca283047b47f.png (unchanged)
         skipping   mermaid_88446582f8ca98dd1ccaa9081e48350bb1412c53c88c6e572864b5c41c626893.png (unchanged)
@@ -140,20 +134,9 @@ Publishing 17 page(s)...
         skipping   mermaid_d47f053ec01433b142aad1ab664e4e5adcd2dc42d6e4acd242c675704bc7e14c.png (unchanged)
         skipping   mermaid_9f65fbb76724141486540c0c44c47ac03fcd2c0bdb90b297833cb8eae3d48118.png (unchanged)
   [17/17] update  'Raw Unstructured Architecture'
-Published:  0 created, 4 updated, 0 skipped
-Assets:     0 uploaded, 14 skipped
-Errors:     13
-  ✗ Design: update_page('1555267761'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A content with the name(s) Design already exist(s) in the space TestHybertz. You must rename the content title before moving it.","detail":null}]}
-  ✗ 01 Overview: create_page('01 Overview'): HTTP 404 — {"errors":[{"status":404,"code":"NOT_FOUND","title":"Cannot find content with id [1555267761] in space key [6261964828]","detail":null}]}
-  ✗ 01A Cloud Identity And Management: update_page('6283591684'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 02 Device Model: update_page('6283984972'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 03 Infrastructure: update_page('6281920742'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 04 Manifest Deployment: update_page('6281986364'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 05 Authentication: update_page('6283821125'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 06 App Distribution: update_page('6283591814'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 07 Connector Resolution: update_page('6283624589'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 08 Observability: update_page('6281887950'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 09 Operational Procedures: update_page('6282051732'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 10 Phases: update_page('6282444974'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
-  ✗ 11 Architecture Concept: update_page('6284017823'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"Can't add a parent from another space.","detail":null}]}
+Published:  0 created, 15 updated, 0 skipped
+Assets:     0 uploaded, 13 skipped
+Errors:     2
+  ✗ Design: create_page('Design'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A page with this title already exists: A page already exists with the same TITLE in this space","detail":null}]}
+  ✗ 01 Overview: create_page('01 Overview'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A page with this title already exists: A page already exists with the same TITLE in this space","detail":null}]}
 PS C:\repos\rockwool\docs>
