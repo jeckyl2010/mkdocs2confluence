@@ -236,6 +236,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         report = execute_publish(
             plan, client, dry_run=False, space_id=space_id,
             docs_dir=config.docs_dir, full_width=conf_config.full_width,
+            root_page_id=conf_config.parent_page_id,
         )
 
     print(str(report))

@@ -424,6 +424,7 @@ def execute_publish(
     space_id: str,
     docs_dir: Path,
     full_width: bool = True,
+    root_page_id: str | None = None,
 ) -> PublishReport:
     """Execute the publish plan.
 
@@ -465,12 +466,12 @@ def execute_publish(
 
         try:
             if action.is_folder:
-                # Native Confluence folder: find-or-create (folders have no
-                # content to update so we never call update_page for them).
                 if action.page_id is not None:
-                    # Already known (e.g. pre-wired or plan found it) — reuse.
+                    # Already found at plan time — reuse.
                     report.updated += 1
-                else:
+                elif action.parent_is_folder or action.parent_id == root_page_id:
+                    # Parent is a Confluence folder, or this is a top-level section
+                    # directly under the configured root page — use native folder API.
                     existing_folder = None
                     if action.parent_id is not None:
                         try:
@@ -488,10 +489,6 @@ def execute_publish(
                         action.page_id = str(existing_folder["id"])
                         report.updated += 1
                     else:
-                        # The Confluence v2 /folders API only accepts a folder
-                        # ID as parentId — passing a page ID returns 404.  When
-                        # the immediate parent is a regular page (e.g. the root
-                        # parent_page_id), create the folder at the space root.
                         folder_parent = (
                             action.parent_id if action.parent_is_folder else None
                         )
@@ -505,6 +502,20 @@ def execute_publish(
                             f"  parent_id={action.parent_id}"
                             f"  parent_is_folder={action.parent_is_folder}"
                         )
+                else:
+                    # Parent is a dynamically-created page (e.g. a section-index page).
+                    # Confluence folders cannot be nested under pages — use a stub page.
+                    action.is_folder = False
+                    existing = client.find_page(space_id, action.title)
+                    if existing is not None:
+                        action.page_id = str(existing["id"])
+                        report.updated += 1
+                    else:
+                        stub = client.create_page(
+                            space_id, action.title, "", parent_id=action.parent_id,
+                        )
+                        action.page_id = str(stub["id"])
+                        report.created += 1
             elif action.action == "create":
                 page = client.create_page(
                     space_id,
