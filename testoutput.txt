@@ -1,453 +1,73 @@
-/* ===================================================================
-   LAYOUT: FULL-WIDTH CONTENT
-   =================================================================== */
-
-/* Make content fill browser width with dynamic middle section */
-.md-grid {
-    max-width: none;
-    margin-left: 1rem;
-    margin-right: 1rem;
-}
-
-.md-main__inner {
-    max-width: none;
-    margin: 0;
-}
-
-.md-content {
-    max-width: none;
-}
-
-/* Optional: Add some padding for better readability on very wide screens */
-@media screen and (min-width: 76.25em) {
-    .md-content__inner {
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-}
-
-/* ===================================================================
-   TABLES – MODERN + LIGHT/DARK AWARE
-   =================================================================== */
-
-/* Center specific tables when wrapped in a helper container.
-   Useful in this repo because we use full-width pages by default. */
-.md-typeset .center-table {
-  display: block;
-  overflow-x: auto;
-}
-
-.md-typeset .center-table table:not([class]) {
-  width: auto;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* Base table styling */
-.md-typeset table:not([class]) {
-    display: table;
-    width: 100%;
-    border-collapse: collapse;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-/* Table header styling - Light mode */
-[data-md-color-scheme="default"] .md-typeset table:not([class]) thead {
-  background-color: var(--md-primary-fg-color);
-    color: white;
-}
-
-/* Table header styling - Dark mode */
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) thead {
-  background-color: var(--md-primary-fg-color--dark);
-    color: white;
-}
-
-.md-typeset table:not([class]) thead th {
-    padding: 0.5rem 0.5rem;
-    font-weight: 600;
-    text-align: left;
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
-    border: none;
-}
-
-.md-typeset table:not([class]) thead th:last-child {
-    border-right: none;
-}
-
-/* Table body styling - Light mode */
-[data-md-color-scheme="default"] .md-typeset table:not([class]) tbody tr {
-  border-bottom: 1px solid var(--rw-border);
-    transition: background-color 0.2s ease;
-}
-
-[data-md-color-scheme="default"] .md-typeset table:not([class]) tbody tr:hover {
-  background-color: var(--rw-surface-muted);
-}
-
-[data-md-color-scheme="default"] .md-typeset table:not([class]) tbody td {
-  border-right: 1px solid var(--rw-border);
-}
-
-[data-md-color-scheme="default"] .md-typeset table:not([class]) tbody tr:nth-child(even) {
-  background-color: color-mix(in srgb, var(--rw-surface-muted) 55%, white);
-}
-
-[data-md-color-scheme="default"] .md-typeset table:not([class]) tbody tr:nth-child(even):hover {
-  background-color: color-mix(in srgb, var(--rw-surface-muted) 80%, white);
-}
-
-/* Table body styling - Dark mode */
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr {
-  border-bottom: 1px solid color-mix(in srgb, #ffffff 12%, transparent);
-    transition: background-color 0.2s ease;
-}
-
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:hover {
-  background-color: var(--rw-dark);
-}
-
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody td {
-  border-right: 1px solid color-mix(in srgb, #ffffff 12%, transparent);
-}
-
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:nth-child(even) {
-  background-color: color-mix(in srgb, var(--rw-charcoal) 88%, black);
-}
-
-[data-md-color-scheme="slate"] .md-typeset table:not([class]) tbody tr:nth-child(even):hover {
-  background-color: var(--rw-dark);
-}
-
-/* Common table body styles */
-.md-typeset table:not([class]) tbody tr:last-child {
-    border-bottom: none;
-}
-
-.md-typeset table:not([class]) tbody td {
-    padding: 0.875rem 1rem;
-    vertical-align: top;
-}
-
-.md-typeset table:not([class]) tbody td:last-child {
-    border-right: none;
-}
-
-/* Responsive table scroll on smaller screens */
-@media screen and (max-width: 76.25em) {
-    .md-typeset table:not([class]) {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-}
-
-/* ===================================================================
-   BRAND VARIABLES (ROCKWOOL)
-   =================================================================== */
-
-:root {
-  /* Tokens observed in Rockwool's public CSS bundles (brand + neutrals) */
-  --rw-brand: #d20014;
-  --rw-brand-hover: #9f000f;
-  --rw-charcoal: #2b2b2b;
-  --rw-dark: #383838;
-  --rw-surface: #ffffff;
-  --rw-surface-muted: #f5f5f5;
-  --rw-border: #e6e6e6;
-  --rw-text: #2b2b2b;
-  --rw-text-muted: #898989;
-  --rw-text-subtle: #9b9b9b;
-
-  --md-text-font: Avenir, Arial, Helvetica, "Helvetica Neue", sans-serif;
-  --md-code-font: "Consolas", "SFMono-Regular", Menlo, Monaco, "Courier New", monospace;
-
-  /* Material for MkDocs (primary: custom) */
-  --md-primary-fg-color: var(--rw-brand);
-  --md-primary-fg-color--light: color-mix(in srgb, var(--rw-brand) 80%, white);
-  --md-primary-fg-color--dark: color-mix(in srgb, var(--rw-brand) 80%, black);
-
-  --md-accent-fg-color: var(--rw-brand-hover);
-  --md-accent-fg-color--transparent: color-mix(in srgb, var(--rw-brand) 30%, transparent);
-
-  --md-default-bg-color: var(--rw-surface);
-  --md-default-fg-color: var(--rw-text);
-  --md-default-fg-color--light: color-mix(in srgb, var(--rw-text) 70%, white);
-  --md-default-fg-color--lighter: color-mix(in srgb, var(--rw-text) 40%, white);
-
-  --md-typeset-a-color: var(--rw-brand);
-  --md-warning-fg-color: #ffc000;
-  --md-info-fg-color: #00638e;
-  --md-success-fg-color: #009933;
-  --md-muted-fg-color: var(--rw-text-muted);
-
-}
-
-/* Dark scheme tuning: keep ROCKETWOOL neutrals + readable contrast */
-[data-md-color-scheme="slate"] {
-  --md-default-bg-color: var(--rw-charcoal);
-  --md-default-fg-color: #ffffff;
-  --md-default-fg-color--light: color-mix(in srgb, #ffffff 80%, transparent);
-  --md-default-fg-color--lighter: color-mix(in srgb, #ffffff 60%, transparent);
-  --md-typeset-a-color: color-mix(in srgb, var(--rw-brand) 85%, white);
-}
-
-/* ===================================================================
-   HEADER, TABS, FOOTER
-   =================================================================== */
-
-/* ===================================================================
-   CRITICALITY LEVEL CELL COLORS (C0-C4)
-   Background is applied directly to the td via :has() so the full
-   cell is filled regardless of row height.
-   =================================================================== */
-
-.md-typeset .crit-level {
-  display: block;
-  text-align: center;
-  font-weight: 700;
-}
-
-.md-typeset .crit-meaning {
-  display: block;
-  font-weight: 700;
-}
-
-/* Apply full-cell background on the td itself */
-.md-typeset table:not([class]) td:has(.crit-c0) {
-  background-color: #c00000 !important;
-  color: #fff;
-}
-
-.md-typeset table:not([class]) td:has(.crit-c1) {
-  background-color: #ff0000 !important;
-  color: #fff;
-}
-
-.md-typeset table:not([class]) td:has(.crit-c2) {
-  background-color: #ffc000 !important;
-  color: #000;
-}
-
-.md-typeset table:not([class]) td:has(.crit-c3) {
-  background-color: #00b050 !important;
-  color: #000;
-}
-
-.md-typeset table:not([class]) td:has(.crit-c4) {
-  background-color: #00a3e0 !important;
-  color: #000;
-}
-
-/* Dark shell color for header + tabs */
-.md-header,
-.md-tabs {
-  background-color: var(--rw-charcoal) !important;
-}
-
-/* Remove the thin primary border above header */
-.md-header {
-    border-top: none !important;
-}
-
-/* Remove top border on footer too (Material duplicates it) */
-.md-footer {
-    border-top: none !important;
-}
-
-/* ===================================================================
-   NAVIGATION: BOLD TOP-LEVEL ITEMS
-   =================================================================== */
-
-/* Primary (left) navigation only; keep nested levels normal-weight */
-.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link,
-.md-nav--primary > .md-nav__list > .md-nav__item > label.md-nav__link {
-  font-weight: 700;
-}
-
-/* Header text + icons in white for contrast */
-.md-header__title,
-.md-header__topic,
-.md-header__button,
-.md-header__button > svg,
-.md-logo,
-.md-nav__source,
-.md-nav__source a {
-  color: #ffffff !important;
-}
-
-/* Top navigation tabs */
-.md-tabs__link {
-  color: #ffffff !important;
-}
-
-.md-tabs__link--active {
-  border-bottom: 2px solid #ed7d31;  /* accent underline */
-  font-weight: 600;
-}
-
-/* ===================================================================
-   FOCUS REQUIREMENTS HIGHLIGHT
-   =================================================================== */
-
-.md-typeset h3.focuskrav {
-  border-left: 0.25rem solid var(--md-warning-fg-color);
-  padding-left: 0.5rem;
-  background-color: color-mix(in srgb, var(--md-warning-fg-color) 8%, transparent);
-}
-
-.md-tabs__link:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-}
-
-/* Optional: adjust shadow so it blends better when sticky */
-.md-header._sticky {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-}
-
-/* Footer aligned with header shell */
-.md-footer {
-  background-color: var(--rw-charcoal) !important;
-  color: #ffffff !important;
-}
-
-/* Footer links readable */
-.md-footer a {
-  color: #ffffff !important;
-}
-
-/* Keep the thin top border in brand primary */
-.md-header,
-.md-footer {
-  border-top: 3px solid var(--md-primary-fg-color);
-}
-
-/* ===================================================================
-   SEARCH BOX IN HEADER
-   =================================================================== */
-
-.md-search__input {
-  background-color: #ffffff !important;
-  color: #111111 !important;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.md-search__icon {
-  color: #444444 !important;
-}
-
-.md-search__input::placeholder {
-  color: #666666 !important;
-}
-
-.md-search__input:focus {
-  outline: none;
-  border-color: var(--md-primary-fg-color);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-primary-fg-color) 35%, transparent);
-}
-
-/* ===================================================================
-   TYPOGRAPHY + LINKS + CODE
-   =================================================================== */
-
-.md-typeset h1,
-.md-typeset h2,
-.md-typeset h3 {
-  font-family: var(--md-text-font);
-  color: var(--rw-text);
-  letter-spacing: 0.2px;
-}
-
-.md-typeset h1 { font-weight: 300; }
-.md-typeset h2 { font-weight: 300; }
-.md-typeset h3 { font-weight: 400; }
-
-.md-typeset a {
-  color: var(--md-typeset-a-color);
-}
-
-.md-typeset a:hover {
-  color: var(--rw-brand-hover);
-  text-decoration: underline;
-}
-
-/* Code blocks */
-.md-typeset code,
-.md-typeset pre code {
-  background: color-mix(in srgb, var(--rw-surface-muted) 75%, white);
-  color: #111111;
-}
-
-.md-typeset pre {
-  border-left: 4px solid var(--md-primary-fg-color);
-}
-
-/* ===================================================================
-   ADMONITIONS + NAV ACTIVE COLORS
-   =================================================================== */
-
-.md-typeset .admonition.tip {
-  border-color: var(--md-success-fg-color);
-}
-
-.md-typeset .admonition.warning {
-  border-color: var(--md-warning-fg-color);
-}
-
-.md-typeset .admonition.danger {
-  border-color: var(--md-primary-fg-color);
-}
-
-/* Side navigation active/hover colors tuned to primary */
-.md-nav__item .md-nav__link--active,
-.md-nav__item .md-nav__link:hover {
-  color: var(--md-primary-fg-color) !important;
-}
-
-/* ===================================================================
-   COMPACT LEGEND STYLE
-   =================================================================== */
-
-.md-typeset .legend.legend--compact {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.85rem;
-}
-
-.md-typeset .legend.legend--compact details.admonition,
-.md-typeset .legend.legend--compact .admonition {
-    margin: 0;
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
-}
-
-.md-typeset .legend.legend--compact dl {
-    margin: 0.15rem 0;
-}
-
-.md-typeset .legend.legend--compact dt {
-    font-weight: 600;
-}
-
-.md-typeset .legend.legend--compact dd {
-    margin: 0 0 0.15rem 0.6rem;
-}
-
-.md-typeset .legend.legend--compact p {
-    margin: 0.1rem 0;
-}
-
-
-.md-typeset .admonition,
-.md-typeset details {
-  border-width: 1px;
-  border-left-width: 4px;
-  font-size: 0.75rem;
-}
-
-.md-typeset .admonition-title,
-.md-typeset summary {
-  font-size: 0.75rem;
-}
+PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section reference
+mk2conf 0.5.0
+Planning...
+  compiling  'Reference'  (folder)
+  compiling  'Stakeholders'
+  compiling  'Mobile Device Architecture'  (section index)
+  compiling  'Design'  (section index)
+        rendering  mermaid diagram (cached)
+  compiling  '01 Overview'
+  compiling  '01A Cloud Identity And Management'
+        rendering  mermaid diagram via Kroki (https://kroki.io)
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram via Kroki (https://kroki.io)
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram (cached)
+  compiling  '02 Device Model'
+  compiling  '03 Infrastructure'
+        rendering  mermaid diagram (cached)
+  compiling  '04 Manifest Deployment'
+  compiling  '05 Authentication'
+        rendering  mermaid diagram (cached)
+  compiling  '06 App Distribution'
+  compiling  '07 Connector Resolution'
+  compiling  '08 Observability'
+  compiling  '09 Operational Procedures'
+  compiling  '10 Phases'
+  compiling  '11 Architecture Concept'
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram (cached)
+        rendering  mermaid diagram (cached)
+  compiling  'Raw Unstructured Architecture'
+
+Publishing 17 page(s)...
+  [1/17] create  'Reference'
+         folder id=6283395168  parent_id=6261964868  parent_is_folder=False
+  [2/17] create  'Stakeholders'
+  [3/17] create  'Mobile Device Architecture'
+  [4/17] update  'Design'
+  [5/17] update  '01 Overview'
+  [6/17] update  '01A Cloud Identity And Management'
+        uploading  mermaid_91fde96e00b37b45305b86c683a4ce26d724f6dec85e59b777d9ca283047b47f.png
+        skipping   mermaid_88446582f8ca98dd1ccaa9081e48350bb1412c53c88c6e572864b5c41c626893.png (unchanged)
+        uploading  mermaid_d746a33ae434c9cd71fed4aa05e9b3988463d4327794bad78020e8eb3763ac26.png
+        skipping   mermaid_c83a33293fd0eb6f21b63dd85084636c2a6d206a2dc62cfdf4b79df3d2b23fe6.png (unchanged)
+        skipping   mermaid_4872b7ebe83e9b2d6580967f770e9bba58f93a4a0eb7de8918ff3dc6830fedd3.png (unchanged)
+  [7/17] create  '02 Device Model'
+  [8/17] create  '03 Infrastructure'
+        uploading  mermaid_60431b35227d64dea97e9799770abff9209c80d0467023c692b6beccbb9bf887.png
+  [9/17] create  '04 Manifest Deployment'
+  [10/17] create  '05 Authentication'
+        uploading  mermaid_2b5d5d7642c3721b34d719cd9e8a95d0e21fa18e59d8294351802d0856b0520f.png
+  [11/17] create  '06 App Distribution'
+  [12/17] create  '07 Connector Resolution'
+  [13/17] create  '08 Observability'
+  [14/17] create  '09 Operational Procedures'
+  [15/17] create  '10 Phases'
+  [16/17] create  '11 Architecture Concept'
+        uploading  mermaid_aa3891974ba4c2157e2eced49d07e99695d91303e1c0a1e3a215e8321b7b3604.png
+        uploading  mermaid_7af9c124d47fd24d6bb31b1c4e24099f9fbdba000dda73ced2a0b89da6ffc423.png
+        uploading  mermaid_0318ba420a647426cfdc43c8791e073d88edc96100fa614205ee31e36772331f.png
+        uploading  mermaid_85ba25e80fa54bd2369f1cbab5caaa4e832a1264f41f50d9f86d0ae331fa2668.png
+        uploading  mermaid_d47f053ec01433b142aad1ab664e4e5adcd2dc42d6e4acd242c675704bc7e14c.png
+        uploading  mermaid_9f65fbb76724141486540c0c44c47ac03fcd2c0bdb90b297833cb8eae3d48118.png
+  [17/17] create  'Raw Unstructured Architecture'
+Published:  14 created, 1 updated, 0 skipped
+Assets:     10 uploaded, 3 skipped
+Errors:     2
+  ✗ Design: update_page('1555267761'): HTTP 404 — {"errors":[{"status":404,"code":"NOT_FOUND","title":"Not Found","detail":null}]}
+  ✗ 01 Overview: update_page('6249971738'): HTTP 404 — {"errors":[{"status":404,"code":"NOT_FOUND","title":"Not Found","detail":null}]}
+PS C:\repos\rockwool\docs>
