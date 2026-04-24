@@ -996,3 +996,55 @@ class TestFootnotes:
         labels = [fn.label for fn in blocks[0].items]
         assert "x" in labels
         assert "y" in labels
+
+
+# ── Inline HTML passthrough ───────────────────────────────────────────────────
+
+
+class TestInlineHtmlParsing:
+    def test_br_produces_line_break_node(self) -> None:
+        from mkdocs_to_confluence.ir import LineBreakNode
+        para = first(parse("Line one<br>Line two\n"), Paragraph)
+        assert any(isinstance(n, LineBreakNode) for n in para.children)
+
+    def test_br_self_closing_variants(self) -> None:
+        from mkdocs_to_confluence.ir import LineBreakNode
+        for variant in ("Line<br/>end", "Line<br />end", "Line<BR>end"):
+            para = first(parse(f"{variant}\n"), Paragraph)
+            assert any(isinstance(n, LineBreakNode) for n in para.children), variant
+
+    def test_mark_produces_inline_html_node(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        para = first(parse("Text <mark>highlight</mark> end\n"), Paragraph)
+        node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+        assert node.tag == "mark"
+        assert node.children[0].text == "highlight"  # type: ignore[union-attr]
+
+    def test_kbd_produces_inline_html_node(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        para = first(parse("Press <kbd>Ctrl+C</kbd> to copy\n"), Paragraph)
+        node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+        assert node.tag == "kbd"
+        assert node.children[0].text == "Ctrl+C"  # type: ignore[union-attr]
+
+    def test_sub_sup_u_small(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        for tag in ("sub", "sup", "u", "small"):
+            para = first(parse(f"Text <{tag}>x</{tag}> end\n"), Paragraph)
+            node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+            assert node.tag == tag
+
+    def test_s_del_normalised_to_s(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        for src_tag in ("s", "del"):
+            para = first(parse(f"Text <{src_tag}>old</{src_tag}> end\n"), Paragraph)
+            node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+            assert node.tag == "s", f"<{src_tag}> should normalise to 's'"
+
+    def test_unclosed_tag_falls_through_as_text(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode, TextNode
+        para = first(parse("Text <mark>no close\n"), Paragraph)
+        # No InlineHtmlNode — the tag text is emitted as raw characters
+        assert not any(isinstance(n, InlineHtmlNode) for n in para.children)
+        raw = "".join(n.text for n in para.children if isinstance(n, TextNode))
+        assert "<mark>" in raw

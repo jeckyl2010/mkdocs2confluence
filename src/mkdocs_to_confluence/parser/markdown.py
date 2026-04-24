@@ -53,8 +53,10 @@ from mkdocs_to_confluence.ir.nodes import (
     FootnoteRef,
     HorizontalRule,
     ImageNode,
+    InlineHtmlNode,
     IRNode,
     ItalicNode,
+    LineBreakNode,
     LinkNode,
     ListItem,
     MermaidDiagram,
@@ -681,6 +683,31 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                 nodes.append(ItalicNode(children=tuple(inner)))
                 i = close_idx + 1
                 continue
+
+        # Inline HTML: <br>, <br/>, <br /> and paired tags
+        if text[i] == "<":
+            # Hard line break
+            br_m = re.match(r"<br\s*/?\s*>", text[i:], re.IGNORECASE)
+            if br_m:
+                flush()
+                nodes.append(LineBreakNode())
+                i += len(br_m.group(0))
+                continue
+            # Paired inline tags
+            tag_m = re.match(
+                r"<(mark|kbd|sub|sup|u|s|del|small)>", text[i:], re.IGNORECASE
+            )
+            if tag_m:
+                raw_tag = tag_m.group(1).lower()
+                tag = "s" if raw_tag == "del" else raw_tag
+                close = f"</{raw_tag}>"
+                close_idx = text.lower().find(close, i + len(tag_m.group(0)))
+                if close_idx != -1:
+                    flush()
+                    inner = _scan_inline(text[i + len(tag_m.group(0)) : close_idx], _fn)
+                    nodes.append(InlineHtmlNode(tag=tag, children=tuple(inner)))
+                    i = close_idx + len(close)
+                    continue
 
         buf += text[i]
         i += 1

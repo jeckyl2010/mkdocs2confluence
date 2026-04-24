@@ -34,8 +34,10 @@ from mkdocs_to_confluence.ir.nodes import (
     FrontMatter,
     HorizontalRule,
     ImageNode,
+    InlineHtmlNode,
     IRNode,
     ItalicNode,
+    LineBreakNode,
     LinkNode,
     ListItem,
     MermaidDiagram,
@@ -473,6 +475,18 @@ def _emit_footnote_block(node: FootnoteBlock) -> str:
 
 # ── Inline emitters ───────────────────────────────────────────────────────────
 
+# Confluence storage-format mapping for inline HTML tags.
+# Each value is (open_tag, close_tag); confirmed valid per official docs.
+_INLINE_HTML_MAP: dict[str, tuple[str, str]] = {
+    "sub":   ("<sub>", "</sub>"),
+    "sup":   ("<sup>", "</sup>"),
+    "u":     ("<u>", "</u>"),
+    "small": ("<small>", "</small>"),
+    "s":     ('<span style="text-decoration: line-through;">', "</span>"),
+    "mark":  ('<span style="background-color: yellow;">', "</span>"),
+    "kbd":   ("<code>", "</code>"),
+}
+
 
 def _emit_inlines(nodes: Sequence[IRNode]) -> str:
     return "".join(_emit_inline(n) for n in nodes)
@@ -495,6 +509,11 @@ def _emit_inline(node: IRNode) -> str:
         return _emit_image(node)
     if isinstance(node, FootnoteRef):
         return _emit_footnote_ref(node)
+    if isinstance(node, LineBreakNode):
+        return "<br />"
+    if isinstance(node, InlineHtmlNode):
+        open_tag, close_tag = _INLINE_HTML_MAP.get(node.tag, ("<span>", "</span>"))
+        return f"{open_tag}{_emit_inlines(node.children)}{close_tag}"
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
 

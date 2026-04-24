@@ -180,6 +180,11 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --report publish-re
 | `[text](url)` | `<a href="...">` |
 | `[text](file.pdf)` | `<ac:link><ri:attachment .../>` (uploaded as attachment) |
 | `![alt](src)` | `<ac:image>` with `<ri:attachment>` (local) or `<ri:url>` (remote) |
+| `<br>` / `<br/>` | `<br />` (hard line break) |
+| `<sub>` / `<sup>` / `<u>` / `<small>` | Direct XHTML passthrough |
+| `<mark>text</mark>` | `<span style="background-color: yellow;">` |
+| `<kbd>text</kbd>` | `<code>` (monospace) |
+| `<s>text</s>` / `<del>text</del>` | `<span style="text-decoration: line-through;">` |
 
 ### MkDocs / Material extensions
 
@@ -330,11 +335,11 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 Planned features, roughly in priority order:
 
 - [ ] **Delete orphaned pages** — detect pages in Confluence that were previously published but have since been removed from `nav:`, and delete or archive them automatically.
-- [ ] **Inline HTML passthrough** — `<br>`, `<mark>`, `<kbd>` and other simple inline HTML tags passed through to storage format rather than stripped.
 - [ ] **GitHub Actions auto-publish** — workflow that builds and publishes to Confluence on push to main, driven by the existing `--report` JSON output.
 
 **Completed:**
 
+- [x] **Inline HTML passthrough** — `<br>`, `<mark>`, `<kbd>`, `<sub>`, `<sup>`, `<u>`, `<s>`/`<del>`, `<small>` detected in inline text and mapped to Confluence storage-format equivalents: direct XHTML passthrough for the valid tags; `<mark>` → `<span style="background-color: yellow;">`, `<kbd>` → `<code>`, `<s>`/`<del>` → `<span style="text-decoration: line-through;">`. Unclosed tags fall through safely as literal text.
 - [x] **Section index page** — if a nav section contains an `index.md` child, it is published as a Confluence page (titled after the section) with the `index.md` content as its body. All other children nest under it. Mirrors Material for MkDocs section index behaviour exactly. Sections without `index.md` continue to use Confluence folders.
 - [x] **Task lists** (`- [x]` / `- [ ]`) — checked/unchecked items rendered as native Confluence `<ac:task-list>` / `<ac:task>` macros with `complete`/`incomplete` status.
 - [x] **Smart asset skip** — assets already in Confluence are skipped if the local file's `mtime` is not newer than the attachment's `version.createdAt` timestamp; no local state required. Summary shows `N uploaded, N skipped`.
