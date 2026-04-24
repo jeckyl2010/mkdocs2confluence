@@ -787,3 +787,79 @@ class TestExecutePublish:
 
         assert client.upload_attachment.call_count == 5
         assert report.assets_uploaded == 5
+
+    def test_section_index_page_wires_children(self, tmp_path: Path) -> None:
+        """Section-index pages (is_folder=False, node.is_section=True) must wire children.
+
+        Regression: section-index pages (sections with an index.md that become a
+        regular Confluence page) must still propagate their page_id to children so
+        children are nested correctly instead of landing at the space root.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        child = _make_page_node("01 Overview", tmp_path, docs_dir)
+        section = _make_section_node("Design", [child])
+
+        # Section with index.md → is_folder=False (regular page, not a folder)
+        section_action = PageAction(
+            node=section, title="Design", action="create",
+            parent_id="ROOT", xhtml="<p>index</p>", page_id=None, is_folder=False,
+        )
+        child_action = PageAction(
+            node=child, title="01 Overview", action="create",
+            parent_id=None, xhtml="<p>content</p>",
+        )
+        plan = [section_action, child_action]
+        client = _make_execute_client()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert section_action.page_id is not None, "section-index page must be created"
+        assert child_action.parent_id == section_action.page_id, \
+            "child must be nested under section-index page, not at space root"
+
+    def test_update_404_falls_back_to_create_and_wires_children(self, tmp_path: Path) -> None:
+        """update with HTTP 404 must fall back to create and still wire children.
+
+        Regression: when find_page returns a stale page_id (page was deleted or
+        belongs to a different space), update_page raises HTTP 404.  The pipeline
+        must create the page instead, capture the new page_id, and wire that id
+        into the children — not leave them with parent_id=None at the space root.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        child = _make_page_node("01 Overview", tmp_path, docs_dir)
+        section = _make_section_node("Design", [child])
+
+        # Plan says "update" because find_page found a stale id="stale-99"
+        section_action = PageAction(
+            node=section, title="Design", action="update",
+            parent_id="ROOT", xhtml="<p>index</p>", page_id="stale-99", version=1,
+            is_folder=False,
+        )
+        child_action = PageAction(
+            node=child, title="01 Overview", action="create",
+            parent_id=None, xhtml="<p>content</p>",
+        )
+        plan = [section_action, child_action]
+        client = _make_execute_client()
+        # Simulate update returning 404 (stale page was deleted)
+        client.update_page.side_effect = ConfluenceError(
+            "update_page: HTTP 404 — page not found"
+        )
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        # Must have fallen back to create and captured a new page_id
+        assert section_action.page_id is not None
+        assert section_action.page_id != "stale-99", "page_id must be the new one, not the stale one"
+        # Child must be wired to the new page_id, not left at root
+        assert child_action.parent_id == section_action.page_id, \
+            "child must be nested under newly-created page, not at space root"
