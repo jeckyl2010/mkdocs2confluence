@@ -392,3 +392,12 @@ class TestInlineHtmlEmitters:
         assert "<code>Enter</code>" in out
         assert "<sub>2</sub>" in out
         assert '<span style="background-color: yellow;">yellow</span>' in out
+
+
+class TestMermaidEmitter:
+    def test_attachment_centered(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import MermaidDiagram
+        node = MermaidDiagram(source="graph TD; A-->B", attachment_name="diag.png")
+        out = emit((node,))
+        assert 'ac:align="center"' in out
+        assert 'ri:filename="diag.png"' in out
