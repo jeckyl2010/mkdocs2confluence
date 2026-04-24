@@ -527,13 +527,18 @@ def execute_publish(
                     )
                     report.updated += 1
                 except ConfluenceError as upd_exc:
-                    if "HTTP 404" not in str(upd_exc):
+                    err = str(upd_exc)
+                    # 404 = page deleted; 400 "another space" = stale page_id
+                    # from a different Confluence space.  Both mean the existing
+                    # page can't be updated — fall back to create a fresh one.
+                    is_stale = "HTTP 404" in err or (
+                        "HTTP 400" in err and "another space" in err.lower()
+                    )
+                    if not is_stale:
                         raise
-                    # Page was deleted or belongs to a different space —
-                    # fall back to create so parent_id wiring can proceed.
                     print(
-                        f"         [warn] update 404 — page_id={action.page_id}"
-                        " no longer exists; falling back to create"
+                        f"         [warn] update failed ({err[:80].strip()}) —"
+                        " stale page_id; falling back to create"
                     )
                     action.page_id = None
                     page = client.create_page(

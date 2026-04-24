@@ -863,3 +863,41 @@ class TestExecutePublish:
         # Child must be wired to the new page_id, not left at root
         assert child_action.parent_id == section_action.page_id, \
             "child must be nested under newly-created page, not at space root"
+
+    def test_update_400_cross_space_falls_back_to_create(self, tmp_path: Path) -> None:
+        """update with HTTP 400 'another space' must also fall back to create.
+
+        Regression: when a stale page_id belongs to a different Confluence space
+        and the new parent_id is in the current space, Confluence returns HTTP 400
+        'Can't add a parent from another space'.  The pipeline must catch this and
+        fall back to create, just like the 404 case.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        child = _make_page_node("Sub Page", tmp_path, docs_dir)
+        section = _make_section_node("01A Cloud Identity", [child])
+
+        section_action = PageAction(
+            node=section, title="01A Cloud Identity", action="update",
+            parent_id="new-space-design-id", xhtml="<p>index</p>",
+            page_id="old-space-stale-id", version=1, is_folder=False,
+        )
+        child_action = PageAction(
+            node=child, title="Sub Page", action="create",
+            parent_id=None, xhtml="<p>content</p>",
+        )
+        plan = [section_action, child_action]
+        client = _make_execute_client()
+        client.update_page.side_effect = ConfluenceError(
+            "update_page: HTTP 400 — Can't add a parent from another space"
+        )
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+
+        assert section_action.page_id is not None
+        assert section_action.page_id != "old-space-stale-id"
+        assert child_action.parent_id == section_action.page_id
