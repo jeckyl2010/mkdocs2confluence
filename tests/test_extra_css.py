@@ -174,3 +174,60 @@ class TestEmitterStyleInjection:
         configure_styles(None)
         out = emit((Paragraph((CodeInlineNode(code="x"),),),))
         assert '<code>x</code>' in out
+
+
+# ── CSS var() resolution ──────────────────────────────────────────────────────
+
+class TestVarResolution:
+    """Tests for CSS custom property (var()) resolution in load_extra_styles."""
+
+    def test_simple_var_resolved(self, tmp_path: Path) -> None:
+        """var(--primary) defined in :root is substituted."""
+        css = (tmp_path / "extra.css")
+        css.write_text(":root { --primary: #1e88e5; } th { background-color: var(--primary); }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert styles.th["background-color"] == "#1e88e5"
+
+    def test_nested_var_resolved(self, tmp_path: Path) -> None:
+        """--a references --b; --b is a literal — should chain-resolve."""
+        css = (tmp_path / "extra.css")
+        css.write_text(":root { --b: navy; --a: var(--b); } th { color: var(--a); }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert styles.th["color"] == "navy"
+
+    def test_unresolved_var_skips_property(self, tmp_path: Path) -> None:
+        """var(--undefined) with no fallback — property is silently skipped."""
+        css = (tmp_path / "extra.css")
+        css.write_text("th { background-color: var(--no-such-var); color: red; }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert "background-color" not in styles.th
+        assert styles.th["color"] == "red"  # other properties still applied
+
+    def test_fallback_used_when_var_missing(self, tmp_path: Path) -> None:
+        """var(--x, #fff) uses fallback when --x is not defined."""
+        css = (tmp_path / "extra.css")
+        css.write_text("th { background-color: var(--x, #ffffff); }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert styles.th["background-color"] == "#ffffff"
+
+    def test_fallback_ignored_when_var_defined(self, tmp_path: Path) -> None:
+        """var(--x, fallback) uses the variable, not the fallback, when --x is set."""
+        css = (tmp_path / "extra.css")
+        css.write_text(":root { --x: blue; } th { color: var(--x, red); }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert styles.th["color"] == "blue"
+
+    def test_cycle_guard(self, tmp_path: Path) -> None:
+        """Cyclic vars (--a: var(--b), --b: var(--a)) skip the property rather than looping."""
+        css = (tmp_path / "extra.css")
+        css.write_text(":root { --a: var(--b); --b: var(--a); } th { color: var(--a); }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert "color" not in styles.th
+
+    def test_var_in_non_root_rule_collected(self, tmp_path: Path) -> None:
+        """Custom properties defined outside :root are also collected."""
+        css = (tmp_path / "extra.css")
+        css.write_text("[data-md-color-scheme] { --accent: #e91e63; } th { color: var(--accent); }")
+        styles = load_extra_styles(tmp_path, ["extra.css"])
+        assert styles.th["color"] == "#e91e63"
+
