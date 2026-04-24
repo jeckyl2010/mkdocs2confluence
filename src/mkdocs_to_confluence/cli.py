@@ -223,10 +223,12 @@ def _cmd_publish(args: argparse.Namespace) -> None:
     from mkdocs_to_confluence.publisher.pipeline import execute_publish, plan_publish
 
     with ConfluenceClient(conf_config) as client:
-        if conf_config.space_key:
-            space_id = client.get_space_id(conf_config.space_key)
-        elif conf_config.parent_page_id:
+        if conf_config.parent_page_id:
+            # parent_page_id is the authoritative anchor — derive space from it.
+            # space_key is only used when no parent_page_id is configured.
             space_id = client.get_space_id_from_page(conf_config.parent_page_id)
+        elif conf_config.space_key:
+            space_id = client.get_space_id(conf_config.space_key)
         else:
             print("error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml", file=sys.stderr)
             sys.exit(1)
