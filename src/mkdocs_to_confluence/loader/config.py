@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from mkdocs_to_confluence.loader.extra_css import ExtraStyles, load_extra_styles
+
 
 class ConfigError(ValueError):
     """Raised when mkdocs.yml is missing required fields or is malformed."""
@@ -40,6 +42,7 @@ class MkDocsConfig:
     nav: list[Any] | None     # raw nav structure from YAML; None when using auto-nav plugins
     site_url: str | None = None  # e.g. "https://example.github.io/" — None means no published-page link
     confluence: ConfluenceConfig | None = None
+    extra_styles: ExtraStyles | None = None
 
     def page_edit_url(self, docs_path: str) -> str | None:
         """Return the full edit URL for *docs_path*, or ``None`` if not configured."""
@@ -233,6 +236,15 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             mermaid_render=str(raw_conf.get("mermaid_render", "kroki")),
         )
 
+    # --- extra_css (optional) ---
+    raw_extra_css = raw.get("extra_css")
+    extra_styles: ExtraStyles | None = None
+    if isinstance(raw_extra_css, list) and raw_extra_css:
+        css_entries = [str(e) for e in raw_extra_css if isinstance(e, str)]
+        if css_entries:
+            parsed = load_extra_styles(docs_dir, css_entries)
+            extra_styles = None if parsed.is_empty() else parsed
+
     return MkDocsConfig(
         site_name=site_name.strip(),
         docs_dir=docs_dir,
@@ -241,4 +253,5 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         site_url=site_url,
         nav=nav,
         confluence=confluence,
+        extra_styles=extra_styles,
     )

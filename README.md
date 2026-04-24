@@ -125,6 +125,21 @@ The API token is read from (in priority order):
 
 If Kroki is unreachable, rendering degrades gracefully to the `code` macro fallback and a warning is printed — the publish run continues.
 
+#### Styling from extra.css
+
+If your `mkdocs.yml` has an `extra_css:` list, mk2conf reads those files and applies a **whitelist of CSS properties** as inline `style="..."` attributes in the Confluence output:
+
+| Selector | Applied to |
+|---|---|
+| `th`, `thead th` | Table header cells |
+| `td` | Table body cells |
+| `h1` – `h6` | Headings |
+| `code` (not `pre code`) | Inline code spans |
+
+Supported properties: `background-color`, `color`, `font-weight`, `font-style`, `font-size`, `text-align`, `border`.
+
+Pseudo-classes (`:hover`), `@media` queries, `pre code`, and any property outside the whitelist are silently ignored. External CSS URLs are also skipped.
+
 #### Publish rules
 
 - **Only pages in `nav:` are published** — the nav is the publish gate. Pages not listed in the nav are never touched, keeping drafts and WIP content private.
@@ -339,6 +354,7 @@ Planned features, roughly in priority order:
 
 **Completed:**
 
+- [x] **extra.css style injection** — `extra_css:` files listed in `mkdocs.yml` are parsed at publish/preview time; whitelisted CSS properties (`background-color`, `color`, `font-weight`, `font-style`, `font-size`, `text-align`, `border`) for selectors `th`, `td`, `h1`–`h6`, and inline `code` are applied as `style="..."` attributes in the Confluence storage format output. External URLs and unsupported selectors (`:hover`, `pre code`, `@media`, …) are silently ignored.
 - [x] **Inline HTML passthrough** — `<br>`, `<mark>`, `<kbd>`, `<sub>`, `<sup>`, `<u>`, `<s>`/`<del>`, `<small>` detected in inline text and mapped to Confluence storage-format equivalents: direct XHTML passthrough for the valid tags; `<mark>` → `<span style="background-color: yellow;">`, `<kbd>` → `<code>`, `<s>`/`<del>` → `<span style="text-decoration: line-through;">`. Unclosed tags fall through safely as literal text.
 - [x] **Section index page** — if a nav section contains an `index.md` child, it is published as a Confluence page (titled after the section) with the `index.md` content as its body. All other children nest under it. Mirrors Material for MkDocs section index behaviour exactly. Sections without `index.md` continue to use Confluence folders.
 - [x] **Task lists** (`- [x]` / `- [ ]`) — checked/unchecked items rendered as native Confluence `<ac:task-list>` / `<ac:task>` macros with `complete`/`incomplete` status.

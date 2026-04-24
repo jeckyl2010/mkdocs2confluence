@@ -52,6 +52,17 @@ from mkdocs_to_confluence.ir.nodes import (
     TextNode,
     UnsupportedBlock,
 )
+from mkdocs_to_confluence.loader.extra_css import ExtraStyles, styles_to_attr
+
+# ── Extra-CSS style state (set once per run via configure_styles) ──────────────
+
+_styles: ExtraStyles | None = None
+
+
+def configure_styles(styles: ExtraStyles | None) -> None:
+    """Set the module-level extra-CSS styles used during emit."""
+    global _styles
+    _styles = styles
 
 # ── Admonition kind → Confluence macro name ───────────────────────────────────
 
@@ -182,7 +193,10 @@ def _emit_node(node: IRNode) -> str:
 def _emit_section(node: Section) -> str:
     tag = f"h{node.level}"
     title_html = _emit_inlines(node.title)
-    heading = f"<{tag}>{title_html}</{tag}>\n"
+    style_attr = ""
+    if _styles:
+        style_attr = styles_to_attr(_styles.headings.get(f"h{node.level}", {}))
+    heading = f"<{tag}{style_attr}>{title_html}</{tag}>\n"
     body = emit(node.children)
     return heading + body
 
@@ -378,9 +392,14 @@ def _emit_table_row(row: TableRow, *, is_header: bool) -> str:
 
 def _emit_table_cell(cell: TableCell, *, force_header: bool) -> str:
     tag = "th" if (cell.is_header or force_header) else "td"
-    align_attr = f' style="text-align: {cell.align};"' if cell.align else ""
+    props: dict[str, str] = {}
+    if _styles:
+        props = dict(_styles.th if tag == "th" else _styles.td)
+    if cell.align:
+        props["text-align"] = cell.align
+    style_attr = styles_to_attr(props)
     content = _emit_inlines(cell.children)
-    return f"      <{tag}{align_attr}>{content}</{tag}>\n"
+    return f"      <{tag}{style_attr}>{content}</{tag}>\n"
 
 
 def _emit_blockquote(node: BlockQuote) -> str:
@@ -502,7 +521,8 @@ def _emit_inline(node: IRNode) -> str:
     if isinstance(node, StrikethroughNode):
         return f"<s>{_emit_inlines(node.children)}</s>"
     if isinstance(node, CodeInlineNode):
-        return f"<code>{html.escape(node.code)}</code>"
+        style_attr = styles_to_attr(_styles.code_inline) if _styles else ""
+        return f"<code{style_attr}>{html.escape(node.code)}</code>"
     if isinstance(node, LinkNode):
         return _emit_link(node)
     if isinstance(node, ImageNode):
