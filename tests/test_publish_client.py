@@ -201,7 +201,7 @@ def test_set_page_full_width_updates_property_when_present() -> None:
 
 
 def test_find_page_returns_page_dict() -> None:
-    page = {"id": "99", "title": "My Page", "version": {"number": 3}}
+    page = {"id": "99", "spaceId": "42", "title": "My Page", "version": {"number": 3}}
     payload = {"results": [page]}
     transport = _MockTransport(_json_response(payload))
     config = _make_config()
@@ -214,7 +214,7 @@ def test_find_page_returns_page_dict() -> None:
 
 def test_find_page_does_not_request_body() -> None:
     """find_page should not include body-format — we only need metadata."""
-    payload = {"results": [{"id": "99", "title": "My Page", "version": {"number": 1}}]}
+    payload = {"results": [{"id": "99", "spaceId": "42", "title": "My Page", "version": {"number": 1}}]}
     transport = _MockTransport(_json_response(payload))
     config = _make_config()
     with ConfluenceClient(config) as client:
@@ -231,6 +231,19 @@ def test_find_page_returns_none_on_empty_results() -> None:
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         result = client.find_page("42", "Nonexistent")
+    assert result is None
+
+
+def test_find_page_returns_none_when_result_is_from_different_space() -> None:
+    """Confluence v2 /pages?spaceId= may return pages from other spaces.
+    find_page must reject results whose spaceId doesn't match the requested one."""
+    page = {"id": "1555267761", "spaceId": "99999", "title": "Design", "version": {"number": 7}}
+    payload = {"results": [page]}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.find_page("42", "Design")
     assert result is None
 
 
