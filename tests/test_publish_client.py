@@ -212,15 +212,16 @@ def test_find_page_returns_page_dict() -> None:
     assert result["id"] == "99"
 
 
-def test_find_page_does_not_request_body() -> None:
-    """find_page should not include body-format — we only need metadata."""
-    payload = {"results": [{"id": "99", "spaceId": "42", "title": "My Page", "version": {"number": 1}}]}
+def test_find_page_uses_space_scoped_endpoint() -> None:
+    """find_page must use /spaces/{id}/pages so the API enforces space scope server-side."""
+    payload = {"results": [{"id": "99", "title": "My Page", "version": {"number": 1}}]}
     transport = _MockTransport(_json_response(payload))
     config = _make_config()
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         client.find_page("42", "My Page")
     req = transport.requests[0]
+    assert "/spaces/42/pages" in str(req.url)
     assert "body-format" not in str(req.url)
 
 
@@ -231,19 +232,6 @@ def test_find_page_returns_none_on_empty_results() -> None:
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         result = client.find_page("42", "Nonexistent")
-    assert result is None
-
-
-def test_find_page_returns_none_when_result_is_from_different_space() -> None:
-    """Confluence v2 /pages?spaceId= may return pages from other spaces.
-    find_page must reject results whose spaceId doesn't match the requested one."""
-    page = {"id": "1555267761", "spaceId": "99999", "title": "Design", "version": {"number": 7}}
-    payload = {"results": [page]}
-    transport = _MockTransport(_json_response(payload))
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
-        result = client.find_page("42", "Design")
     assert result is None
 
 
