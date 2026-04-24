@@ -64,6 +64,17 @@ When your changes create orphans:
 
 Every changed line should trace directly to the user's request.
 
+### 3b. Incremental Refactoring
+**Refactor when earned, not speculatively.**
+
+As the application grows and evolves, incremental refactoring is a key skill.
+Refactor when:
+- A concept has stabilised and the right abstraction is clear.
+- A second or third similar case appears (duplication is now provable).
+- A change becomes hard to make safely without first clarifying the model.
+
+Apply the Boy Scout rule: leave the code slightly cleaner than you found it — but only when motivated by real friction, not anticipation. Flag refactor opportunities during review; act on them when the task makes them necessary.
+
 ### 4. Goal-Driven Execution
 **Define success criteria. Loop until verified.**
 
