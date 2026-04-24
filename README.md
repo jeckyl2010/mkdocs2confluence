@@ -164,7 +164,7 @@ CONFLUENCE_API_TOKEN=xxx mk2conf publish --config mkdocs.yml --report publish-re
 | Fenced code blocks (`` ``` `` / `~~~`) | `code` macro with language, title, and line numbers. Confluence accepts the full language name (e.g. `python`, `javascript`, `yaml`); Pygments short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is and will render without syntax highlighting on Confluence. |
 | Bullet lists `- ` / `* ` / `+ ` | `<ul>/<li>` |
 | Ordered lists `1. ` | `<ol>/<li>` |
-| Task lists `- [x]` / `- [ ]` | `<ul>/<li>` (checked state preserved) |
+| Task lists `- [x]` / `- [ ]` | Native `<ac:task-list>` / `<ac:task>` macros with `complete`/`incomplete` status |
 | Tables (GFM pipe syntax) | `<table>` with header and column alignment |
 | Blockquotes `> ` | `<blockquote>` |
 | Horizontal rules `---` | `<hr/>` |
@@ -330,12 +330,13 @@ These are deliberate tradeoffs, not bugs. The tool maps MkDocs constructs to the
 Planned features, roughly in priority order:
 
 - [ ] **Delete orphaned pages** — detect pages in Confluence that were previously published but have since been removed from `nav:`, and delete or archive them automatically.
-- [ ] **Task lists** (`- [x]`) — checked/unchecked items rendered as Confluence task list macro.
 - [ ] **Inline HTML passthrough** — `<br>`, `<mark>`, `<kbd>` and other simple inline HTML tags passed through to storage format rather than stripped.
 - [ ] **GitHub Actions auto-publish** — workflow that builds and publishes to Confluence on push to main, driven by the existing `--report` JSON output.
 
 **Completed:**
 
+- [x] **Section index page** — if a nav section contains an `index.md` child, it is published as a Confluence page (titled after the section) with the `index.md` content as its body. All other children nest under it. Mirrors Material for MkDocs section index behaviour exactly. Sections without `index.md` continue to use Confluence folders.
+- [x] **Task lists** (`- [x]` / `- [ ]`) — checked/unchecked items rendered as native Confluence `<ac:task-list>` / `<ac:task>` macros with `complete`/`incomplete` status.
 - [x] **Smart asset skip** — assets already in Confluence are skipped if the local file's `mtime` is not newer than the attachment's `version.createdAt` timestamp; no local state required. Summary shows `N uploaded, N skipped`.
 - [x] **Full-width layout** — pages published with `fullWidth: true` via the content properties API; configurable via `full_width:` in `confluence:` config block.
 - [x] **Tables** — GFM pipe tables rendered as native Confluence `<table>` storage format.
