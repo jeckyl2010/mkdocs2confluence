@@ -53,7 +53,7 @@ def test_emit_mermaid_attachment_image():
     """With attachment_name set the emitter produces an ac:image."""
     node = MermaidDiagram(source=_SAMPLE_SOURCE, attachment_name="mermaid_abc123.png")
     result = emit((node,))
-    assert "<ac:image>" in result
+    assert '<ac:image ac:align="center">' in result
     assert 'ri:filename="mermaid_abc123.png"' in result
     assert "code" not in result
 
