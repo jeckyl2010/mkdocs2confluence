@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -11,7 +10,6 @@ import pytest
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.publisher.pipeline import PageAction, compile_page, plan_publish
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -268,12 +266,12 @@ def test_dry_run_prints_page_list(tmp_path: Path, capsys: pytest.CaptureFixture)
 
     config_file = tmp_path / "mkdocs.yml"
     config_file.write_text(
-        f"site_name: Test\ndocs_dir: docs\n"
-        f"confluence:\n"
-        f"  base_url: https://example.atlassian.net\n"
-        f"  space_key: TECH\n"
-        f"  email: user@example.com\n"
-        f"  token: tok\n",
+        "site_name: Test\ndocs_dir: docs\n"
+        "confluence:\n"
+        "  base_url: https://example.atlassian.net\n"
+        "  space_key: TECH\n"
+        "  email: user@example.com\n"
+        "  token: tok\n",
         encoding="utf-8",
     )
 
@@ -414,9 +412,9 @@ class TestExecutePublish:
         sub = _make_section_node("SubSection", [page])
         top = _make_section_node("TopSection", [sub])
 
-        top_action  = PageAction(node=top,  title="TopSection", action="create", parent_id="ROOT", xhtml="", page_id=None, is_folder=True)
-        sub_action  = PageAction(node=sub,  title="SubSection", action="create", parent_id=None,   xhtml="", page_id=None, is_folder=True)
-        page_action = PageAction(node=page, title="DeepPage",   action="create", parent_id=None,   xhtml="<p>content</p>")
+        top_action  = PageAction(node=top,  title="TopSection", action="create", parent_id="ROOT", xhtml="", page_id=None, is_folder=True)  # noqa: E501
+        sub_action  = PageAction(node=sub,  title="SubSection", action="create", parent_id=None,   xhtml="", page_id=None, is_folder=True)  # noqa: E501
+        page_action = PageAction(node=page, title="DeepPage",   action="create", parent_id=None,   xhtml="<p>content</p>")  # noqa: E501
 
         plan = [top_action, sub_action, page_action]
         client = _make_execute_client()
@@ -516,9 +514,9 @@ class TestExecutePublish:
         sub  = _make_section_node("NewSubSection", [page])
         top  = _make_section_node("TopSection", [sub])
 
-        top_action  = PageAction(node=top,  title="TopSection",    action="update", parent_id="ROOT", xhtml="", page_id="top-99",  version=1, is_folder=True)
-        sub_action  = PageAction(node=sub,  title="NewSubSection",  action="create", parent_id=None,   xhtml="", page_id=None,       is_folder=True)
-        page_action = PageAction(node=page, title="OldPage",        action="update", parent_id=None,   xhtml="<p>body</p>", page_id="page-77", version=3)
+        top_action  = PageAction(node=top,  title="TopSection",   action="update", parent_id="ROOT", xhtml="", page_id="top-99",  version=1, is_folder=True)  # noqa: E501
+        sub_action  = PageAction(node=sub,  title="NewSubSection", action="create", parent_id=None,   xhtml="", page_id=None,       is_folder=True)  # noqa: E501
+        page_action = PageAction(node=page, title="OldPage",       action="update", parent_id=None,   xhtml="<p>body</p>", page_id="page-77", version=3)  # noqa: E501
 
         plan = [top_action, sub_action, page_action]
         client = _make_execute_client()

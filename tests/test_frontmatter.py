@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from mkdocs_to_confluence.emitter.xhtml import emit
-from mkdocs_to_confluence.emitter.xhtml import _source_link_label
+from mkdocs_to_confluence.emitter.xhtml import _source_link_label, emit
 from mkdocs_to_confluence.ir.nodes import FrontMatter
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 

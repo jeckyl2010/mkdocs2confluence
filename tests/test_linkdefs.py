@@ -1,13 +1,11 @@
 """Tests for reference-style link preprocessing."""
 
-import pytest
 
 from mkdocs_to_confluence.preprocess.linkdefs import (
     collect_link_defs,
     expand_link_refs,
     strip_link_defs,
 )
-
 
 # ── collect_link_defs ─────────────────────────────────────────────────────────
 

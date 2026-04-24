@@ -726,7 +726,7 @@ class TestFixtureIntegration:
 # ── Inline parsing ────────────────────────────────────────────────────────────
 
 
-from mkdocs_to_confluence.ir import (
+from mkdocs_to_confluence.ir import (  # noqa: E402
     BlockQuote,
     BoldNode,
     BulletList,
@@ -979,7 +979,7 @@ class TestFootnotes:
         assert blocks[0].items[0].label == "note"
 
     def test_footnote_numbers_by_definition_order(self) -> None:
-        from mkdocs_to_confluence.ir import FootnoteRef, FootnoteBlock
+        from mkdocs_to_confluence.ir import FootnoteRef
         md = "Ref B[^b] and Ref A[^a].\n\n[^a]: First defined.\n[^b]: Second defined.\n"
         nodes = parse(md)
         paras = [n for n in nodes if isinstance(n, Paragraph)]

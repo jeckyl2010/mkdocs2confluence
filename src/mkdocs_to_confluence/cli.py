@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 from mkdocs_to_confluence import __version__
-from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.emitter.xhtml import configure_styles
+from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import render_page
@@ -231,7 +231,10 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             print("error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml", file=sys.stderr)
             sys.exit(1)
         plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
-        report = execute_publish(plan, client, dry_run=False, space_id=space_id, docs_dir=config.docs_dir, full_width=conf_config.full_width)
+        report = execute_publish(
+            plan, client, dry_run=False, space_id=space_id,
+            docs_dir=config.docs_dir, full_width=conf_config.full_width,
+        )
 
     print(str(report))
 

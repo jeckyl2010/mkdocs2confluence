@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
 from mkdocs_to_confluence.loader.config import ConfluenceConfig
 from mkdocs_to_confluence.publisher.client import ConfluenceClient, ConfluenceError
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

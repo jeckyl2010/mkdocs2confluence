@@ -121,7 +121,9 @@ class TestAdmonitionEmitter:
         assert "Tip" in out
 
     def test_collapsible_maps_to_expand(self) -> None:
-        out = emit((Admonition(kind="note", title="Hidden", children=(Paragraph((TextNode("secret"),)),), collapsible=True),))
+        out = emit((
+            Admonition(kind="note", title="Hidden", children=(Paragraph((TextNode("secret"),)),), collapsible=True),
+        ))
         assert 'ac:name="expand"' in out
         assert 'ac:name="info"' not in out
         assert "Hidden" in out
@@ -236,7 +238,7 @@ class TestUnsupportedBlock:
 
 # ── Missing node coverage ─────────────────────────────────────────────────────
 
-from mkdocs_to_confluence.ir.nodes import (
+from mkdocs_to_confluence.ir.nodes import (  # noqa: E402
     BlockQuote,
     ImageNode,
     StrikethroughNode,
@@ -308,9 +310,8 @@ class TestTableEmitter:
 
 class TestFootnoteEmitter:
     def test_footnote_ref_emits_superscript_link(self) -> None:
-        from mkdocs_to_confluence.ir import FootnoteRef
         from mkdocs_to_confluence.emitter.xhtml import emit
-        from mkdocs_to_confluence.ir import Section, Paragraph
+        from mkdocs_to_confluence.ir import FootnoteRef, Paragraph, Section
         ref = FootnoteRef(label="1", number=1)
         para = Paragraph(children=[ref])
         section = Section(title="S", level=1, anchor="s", children=[para])
@@ -320,9 +321,8 @@ class TestFootnoteEmitter:
         assert '<![CDATA[1]]>' in html_out
 
     def test_footnote_block_emits_anchored_list(self) -> None:
-        from mkdocs_to_confluence.ir import FootnoteBlock, FootnoteDef, TextNode
         from mkdocs_to_confluence.emitter.xhtml import emit
-        from mkdocs_to_confluence.ir import Section
+        from mkdocs_to_confluence.ir import FootnoteBlock, FootnoteDef, Section, TextNode
         fn = FootnoteDef(label="1", number=1, children=[TextNode(text="My note.")])
         block = FootnoteBlock(items=[fn])
         section = Section(title="S", level=1, anchor="s", children=[block])
@@ -379,7 +379,7 @@ class TestInlineHtmlEmitters:
         assert '<span style="text-decoration: line-through;">old</span>' in out
 
     def test_nested_inline_in_mark(self) -> None:
-        from mkdocs_to_confluence.ir import InlineHtmlNode, BoldNode
+        from mkdocs_to_confluence.ir import BoldNode, InlineHtmlNode
         inner = BoldNode(children=(TextNode("bold"),))
         out = emit((Paragraph((InlineHtmlNode(tag="mark", children=(inner,)),)),))
         assert '<span style="background-color: yellow;"><strong>bold</strong></span>' in out

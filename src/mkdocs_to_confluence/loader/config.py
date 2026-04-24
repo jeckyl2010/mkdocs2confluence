@@ -164,7 +164,9 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
 
     # --- site_url (optional) ---
     raw_site_url = raw.get("site_url")
-    site_url: str | None = str(raw_site_url).rstrip("/") + "/" if isinstance(raw_site_url, str) and raw_site_url.strip() else None
+    site_url: str | None = (
+        str(raw_site_url).rstrip("/") + "/" if isinstance(raw_site_url, str) and raw_site_url.strip() else None
+    )
 
     # --- repo_url (optional) ---
     repo_url: str | None = raw.get("repo_url")

@@ -327,7 +327,7 @@ class TestTableNodes:
     def _header(self, *labels: str) -> TableRow:
         return TableRow(
             cells=tuple(
-                TableCell(children=(TextNode(l),), is_header=True) for l in labels
+                TableCell(children=(TextNode(label),), is_header=True) for label in labels
             )
         )
 

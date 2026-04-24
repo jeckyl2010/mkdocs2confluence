@@ -18,8 +18,8 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from mkdocs_to_confluence.ir.nodes import (
-    IRNode,
     ImageNode,
+    IRNode,
     LinkNode,
     walk,
 )

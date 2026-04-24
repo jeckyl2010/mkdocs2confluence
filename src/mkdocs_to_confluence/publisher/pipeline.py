@@ -13,7 +13,6 @@ The pipeline has two phases:
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,19 +21,14 @@ from typing import TYPE_CHECKING, Literal
 import yaml
 
 from mkdocs_to_confluence.emitter.xhtml import emit
+from mkdocs_to_confluence.ir.nodes import FrontMatter
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import PageLoadError, load_page
 from mkdocs_to_confluence.parser.markdown import parse
-from mkdocs_to_confluence.ir.nodes import FrontMatter
 from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
     strip_abbreviation_defs,
-)
-from mkdocs_to_confluence.preprocess.linkdefs import (
-    collect_link_defs,
-    expand_link_refs,
-    strip_link_defs,
 )
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
@@ -42,6 +36,11 @@ from mkdocs_to_confluence.preprocess.includes import (
     preprocess_includes,
     strip_html_comments,
     strip_unsupported_html,
+)
+from mkdocs_to_confluence.preprocess.linkdefs import (
+    collect_link_defs,
+    expand_link_refs,
+    strip_link_defs,
 )
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import _make_attachment_name, resolve_local_assets

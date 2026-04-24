@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import dataclasses
 from pathlib import Path
 
 import pytest
 
 from mkdocs_to_confluence.ir.nodes import ImageNode, Paragraph, TextNode
 from mkdocs_to_confluence.transforms.images import is_local, resolve_images
-
 
 # ── is_local ─────────────────────────────────────────────────────────────────
 

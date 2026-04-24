@@ -5,7 +5,6 @@ from __future__ import annotations
 from mkdocs_to_confluence.ir.nodes import FrontMatter, Paragraph, TextNode
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
 
-
 # ── attach_source_url ─────────────────────────────────────────────────────────
 
 
