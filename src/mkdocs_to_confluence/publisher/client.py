@@ -198,30 +198,19 @@ class ConfluenceClient:
     def find_page(self, space_id: str, title: str) -> dict[str, Any] | None:
         """Return the page dict for *title* in *space_id*, or ``None``.
 
-        Only metadata (including ``version.number``) is requested — the body
-        is intentionally omitted to reduce response size.
+        Uses ``GET /spaces/{id}/pages`` (space ID in path) so that Confluence
+        enforces the space scope server-side.  ``GET /pages?spaceId=...`` is
+        undocumented and unreliable — it ignores the spaceId filter and may
+        return pages from other spaces.
         """
-        url = self._v2("/pages")
+        url = self._v2(f"/spaces/{space_id}/pages")
         resp = self._http.get(
             url,
-            params={
-                "spaceId": space_id,
-                "title": title,
-                "status": "current",
-                "limit": 1,
-            },
+            params={"title": title, "status": "current", "limit": 10},
         )
         self._raise_for_status(resp, f"find_page({title!r})")
         results: list[dict[str, Any]] = resp.json().get("results", [])
-        if not results:
-            return None
-        # Guard: the Confluence v2 API may ignore spaceId and return pages from
-        # other spaces.  Only accept the result when it actually belongs to the
-        # requested space.
-        page = results[0]
-        if str(page.get("spaceId", "")) != str(space_id):
-            return None
-        return page
+        return results[0] if results else None
 
     def create_page(
         self,
