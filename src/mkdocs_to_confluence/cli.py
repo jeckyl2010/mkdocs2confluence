@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import webbrowser
 from pathlib import Path
 
 from mkdocs_to_confluence import __version__
@@ -164,7 +165,9 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         out_path = Path(args.out).resolve()
         out_path.write_text(output, encoding="utf-8")
         if args.html:
-            print(f"file://{out_path}")
+            url = f"file://{out_path}"
+            print(url)
+            webbrowser.open(url)
         else:
             print(f"Written to {out_path}")
     else:
