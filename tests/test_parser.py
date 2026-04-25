@@ -734,6 +734,7 @@ from mkdocs_to_confluence.ir import (  # noqa: E402
     DefinitionItem,
     DefinitionList,
     HorizontalRule,
+    ImageNode,
     ItalicNode,
     LinkNode,
     OrderedList,
@@ -800,6 +801,20 @@ class TestInlineParsing:
         section = nodes[0]
         assert isinstance(section, Section)
         assert any(isinstance(n, BoldNode) for n in section.title)
+
+    def test_image_attr_block_stripped(self) -> None:
+        """{ loading=lazy } and similar attribute blocks must not appear as text."""
+        para = first(parse("![Alt text](img.png){ loading=lazy }\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        img = next(n for n in para.children if isinstance(n, ImageNode))
+        assert img.src == "img.png"
+        assert img.alt == "Alt text"
+        # No stray text nodes containing the attribute block
+        text_content = "".join(
+            n.text for n in para.children if isinstance(n, TextNode)
+        )
+        assert "{" not in text_content
+        assert "loading" not in text_content
 
 
 # ── List parsing ──────────────────────────────────────────────────────────────
