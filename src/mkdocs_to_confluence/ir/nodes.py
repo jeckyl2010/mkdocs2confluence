@@ -14,6 +14,7 @@ Design rules
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Generator
 
 # ── Base ─────────────────────────────────────────────────────────────────────
@@ -302,6 +303,7 @@ class MermaidDiagram(IRNode):
 
     source: str
     attachment_name: str | None = None
+    local_path: Path | None = None  # set by mermaid transform; used by preview renderer
 
 
 @dataclass(frozen=True)

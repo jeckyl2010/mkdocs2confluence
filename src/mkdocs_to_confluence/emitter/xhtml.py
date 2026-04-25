@@ -419,7 +419,12 @@ def _emit_raw_html(node: RawHTML) -> str:
 def _emit_mermaid(node: MermaidDiagram) -> str:
     if node.attachment_name is not None:
         filename = html.escape(node.attachment_name)
-        return f'<ac:image ac:align="center"><ri:attachment ri:filename="{filename}"/></ac:image>\n'
+        local_attr = (
+            f' data-local-path="{html.escape(str(node.local_path))}"'
+            if node.local_path is not None
+            else ""
+        )
+        return f'<ac:image ac:align="center"{local_attr}><ri:attachment ri:filename="{filename}"/></ac:image>\n'
     # Fallback: show source as a code block when rendering was skipped/disabled.
     safe = node.source.replace("]]>", "]]]]><![CDATA[>")
     return (
