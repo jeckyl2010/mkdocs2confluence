@@ -28,6 +28,8 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
+    DefinitionItem,
+    DefinitionList,
     Expandable,
     FootnoteBlock,
     FootnoteRef,
@@ -46,6 +48,8 @@ from mkdocs_to_confluence.ir.nodes import (
     RawHTML,
     Section,
     StrikethroughNode,
+    SubscriptNode,
+    SuperscriptNode,
     Table,
     TableCell,
     TableRow,
@@ -163,6 +167,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_bullet_list(node)
     if isinstance(node, OrderedList):
         return _emit_ordered_list(node)
+    if isinstance(node, DefinitionList):
+        return _emit_definition_list(node)
     if isinstance(node, Table):
         return _emit_table(node)
     if isinstance(node, BlockQuote):
@@ -337,6 +343,16 @@ def _emit_ordered_list(node: OrderedList) -> str:
     items = "".join(_emit_list_item(i) for i in node.items)
     start_attr = f' start="{node.start}"' if node.start != 1 else ""
     return f"<ol{start_attr}>\n{items}</ol>\n"
+
+
+def _emit_definition_list(node: DefinitionList) -> str:
+    parts = ["<dl>\n"]
+    for item in node.items:
+        parts.append(f"<dt>{_emit_inlines(item.term)}</dt>\n")
+        for defn in item.definitions:
+            parts.append(f"<dd>{_emit_inlines(defn)}</dd>\n")
+    parts.append("</dl>\n")
+    return "".join(parts)
 
 
 _LIST_BLOCK_TYPES = (
@@ -525,6 +541,10 @@ def _emit_inline(node: IRNode) -> str:
         return f"<em>{_emit_inlines(node.children)}</em>"
     if isinstance(node, StrikethroughNode):
         return f"<s>{_emit_inlines(node.children)}</s>"
+    if isinstance(node, SubscriptNode):
+        return f"<sub>{_emit_inlines(node.children)}</sub>"
+    if isinstance(node, SuperscriptNode):
+        return f"<sup>{_emit_inlines(node.children)}</sup>"
     if isinstance(node, CodeInlineNode):
         style_attr = styles_to_attr(_styles.code_inline) if _styles else ""
         return f"<code{style_attr}>{html.escape(node.code)}</code>"

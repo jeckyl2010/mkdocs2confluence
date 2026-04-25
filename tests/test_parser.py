@@ -731,11 +731,15 @@ from mkdocs_to_confluence.ir import (  # noqa: E402
     BoldNode,
     BulletList,
     CodeInlineNode,
+    DefinitionItem,
+    DefinitionList,
     HorizontalRule,
     ItalicNode,
     LinkNode,
     OrderedList,
     StrikethroughNode,
+    SubscriptNode,
+    SuperscriptNode,
     Table,
 )
 
@@ -765,6 +769,18 @@ class TestInlineParsing:
         assert isinstance(para, Paragraph)
         strike = next(n for n in para.children if isinstance(n, StrikethroughNode))
         assert strike.children[0].text == "old"  # type: ignore[union-attr]
+
+    def test_subscript(self) -> None:
+        para = first(parse("H~2~O\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        sub = next(n for n in para.children if isinstance(n, SubscriptNode))
+        assert sub.children[0].text == "2"  # type: ignore[union-attr]
+
+    def test_superscript(self) -> None:
+        para = first(parse("x^2^\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        sup = next(n for n in para.children if isinstance(n, SuperscriptNode))
+        assert sup.children[0].text == "2"  # type: ignore[union-attr]
 
     def test_inline_code(self) -> None:
         para = first(parse("Use `foo()` here.\n"), Paragraph)
@@ -885,6 +901,40 @@ class TestListParsing:
             getattr(c, "text", "") for c in ols[0].items[0].children
         )
         assert "Continuation" in item_text or "First point" in item_text
+
+
+# ── Definition list parsing ───────────────────────────────────────────────────
+
+
+class TestDefinitionListParsing:
+    def test_basic_definition_list(self) -> None:
+        md = "Apple\n:   A fruit\n"
+        dl = first(parse(md), DefinitionList)
+        assert isinstance(dl, DefinitionList)
+        assert len(dl.items) == 1
+        item = dl.items[0]
+        assert isinstance(item, DefinitionItem)
+        assert item.term[0].text == "Apple"  # type: ignore[union-attr]
+        assert item.definitions[0][0].text == "A fruit"  # type: ignore[union-attr]
+
+    def test_multiple_definitions_per_term(self) -> None:
+        md = "Color\n:   Red\n:   Blue\n"
+        dl = first(parse(md), DefinitionList)
+        assert isinstance(dl, DefinitionList)
+        assert len(dl.items[0].definitions) == 2
+
+    def test_multiple_terms(self) -> None:
+        md = "Cat\n:   A feline\n\nDog\n:   A canine\n"
+        nodes = parse(md)
+        dls = [n for n in nodes if isinstance(n, DefinitionList)]
+        assert len(dls) == 2
+
+    def test_definition_list_inline_term(self) -> None:
+        md = "**Bold** term\n:   Description\n"
+        dl = first(parse(md), DefinitionList)
+        assert isinstance(dl, DefinitionList)
+        from mkdocs_to_confluence.ir.nodes import BoldNode
+        assert any(isinstance(n, BoldNode) for n in dl.items[0].term)
 
 
 # ── Table parsing ─────────────────────────────────────────────────────────────

@@ -60,6 +60,20 @@ class StrikethroughNode(IRNode):
 
 
 @dataclass(frozen=True)
+class SuperscriptNode(IRNode):
+    """Superscript inline content (``^text^``)."""
+
+    children: tuple[IRNode, ...]
+
+
+@dataclass(frozen=True)
+class SubscriptNode(IRNode):
+    """Subscript inline content (``~text~``)."""
+
+    children: tuple[IRNode, ...]
+
+
+@dataclass(frozen=True)
 class CodeInlineNode(IRNode):
     """An inline code span (`` `code` ``)."""
 
@@ -231,7 +245,25 @@ class OrderedList(IRNode):
     start: int = 1
 
 
-# ── Table nodes ──────────────────────────────────────────────────────────────
+# ── Definition list ───────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class DefinitionItem(IRNode):
+    """A single term with one or more definitions."""
+
+    term: tuple[IRNode, ...]
+    definitions: tuple[tuple[IRNode, ...], ...]
+
+
+@dataclass(frozen=True)
+class DefinitionList(IRNode):
+    """A definition list (``term\\n:   definition``)."""
+
+    items: tuple[DefinitionItem, ...]
+
+
+# ── Table nodes ───────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)

@@ -240,8 +240,12 @@ class TestUnsupportedBlock:
 
 from mkdocs_to_confluence.ir.nodes import (  # noqa: E402
     BlockQuote,
+    DefinitionItem,
+    DefinitionList,
     ImageNode,
     StrikethroughNode,
+    SubscriptNode,
+    SuperscriptNode,
     Table,
     TableCell,
     TableRow,
@@ -252,6 +256,36 @@ class TestStrikethroughEmitter:
     def test_strikethrough_node(self) -> None:
         out = emit((Paragraph((StrikethroughNode((TextNode("old"),)),)),))
         assert "<s>old</s>" in out
+
+
+class TestSubscriptSuperscriptEmitter:
+    def test_subscript(self) -> None:
+        out = emit((Paragraph((SubscriptNode((TextNode("2"),)),)),))
+        assert "<sub>2</sub>" in out
+
+    def test_superscript(self) -> None:
+        out = emit((Paragraph((SuperscriptNode((TextNode("2"),)),)),))
+        assert "<sup>2</sup>" in out
+
+
+class TestDefinitionListEmitter:
+    def test_basic_dl(self) -> None:
+        item = DefinitionItem(
+            term=(TextNode("Apple"),),
+            definitions=((TextNode("A fruit"),),),
+        )
+        out = emit((DefinitionList(items=(item,)),))
+        assert "<dl>" in out
+        assert "<dt>Apple</dt>" in out
+        assert "<dd>A fruit</dd>" in out
+
+    def test_multiple_definitions(self) -> None:
+        item = DefinitionItem(
+            term=(TextNode("Color"),),
+            definitions=((TextNode("Red"),), (TextNode("Blue"),)),
+        )
+        out = emit((DefinitionList(items=(item,)),))
+        assert out.count("<dd>") == 2
 
 
 class TestBlockQuoteEmitter:
