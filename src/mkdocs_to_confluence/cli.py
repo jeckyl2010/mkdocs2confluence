@@ -161,8 +161,12 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     output = render_page(xhtml, page=args.page) if args.html else xhtml
 
     if args.out:
-        Path(args.out).write_text(output, encoding="utf-8")
-        print(f"Written to {args.out}")
+        out_path = Path(args.out).resolve()
+        out_path.write_text(output, encoding="utf-8")
+        if args.html:
+            print(f"file://{out_path}")
+        else:
+            print(f"Written to {out_path}")
     else:
         print(output)
 
