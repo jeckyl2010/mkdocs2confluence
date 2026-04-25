@@ -12,7 +12,7 @@ from mkdocs_to_confluence.emitter.xhtml import configure_styles
 from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
-from mkdocs_to_confluence.preview.render import render_page
+from mkdocs_to_confluence.preview.render import render_index, render_page
 from mkdocs_to_confluence.publisher.pipeline import compile_page
 from mkdocs_to_confluence.transforms.internallinks import build_link_map
 
@@ -44,8 +44,8 @@ def _build_parser() -> argparse.ArgumentParser:
     preview.add_argument(
         "--page",
         metavar="PATH",
-        required=True,
-        help="Relative path to the markdown file to compile.",
+        default=None,
+        help="Relative path to the markdown file to compile. Omit when --section is given to preview the whole section.",
     )
     preview.add_argument(
         "--out",
@@ -132,6 +132,20 @@ def main(argv: list[str] | None = None) -> None:
         _cmd_publish(args)
 
 
+def _parse_out_path(out_arg: str | None) -> tuple[Path, str]:
+    """Derive (output_dir, index_filename) from an --out value.
+
+    Examples
+    --------
+    ``None``            → ``(cwd, "preview.html")``
+    ``"/tmp/test.html"`` → ``(Path("/tmp"), "test.html")``
+    """
+    if out_arg is None:
+        return Path(".").resolve(), "preview.html"
+    p = Path(out_arg).resolve()
+    return p.parent, p.name
+
+
 def _cmd_preview(args: argparse.Namespace) -> None:
     config_path = Path(args.config).resolve()
     config = load_config(config_path)
@@ -139,14 +153,61 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
     nodes = resolve_nav(config)
 
-    # Optionally scope link resolution to a section subtree
-    if getattr(args, "section", None):
+    section_given = bool(getattr(args, "section", None))
+    page_given = bool(args.page)
+
+    if not section_given and not page_given:
+        print("error: --page is required when --section is not given.", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve section subtree (both single-page and section-mode use this)
+    if section_given:
         section_node = find_section(nodes, args.section) or find_section_by_folder(nodes, args.section)
         if section_node is None:
             print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
             sys.exit(1)
         nodes = [section_node]
 
+    # ── Section mode: render every page in the section ───────────────────────
+    if section_given and not page_given:
+        pages = flat_pages(nodes)
+        if not pages:
+            print("error: section contains no pages.", file=sys.stderr)
+            sys.exit(1)
+
+        out_dir, index_name = _parse_out_path(args.out)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        link_map = build_link_map(nodes)
+        # Map page title → html filename for cross-page link rewriting
+        page_link_map = {
+            node.title: f"{Path(node.docs_path).stem}.html"
+            for node in pages
+            if node.docs_path is not None
+        }
+
+        rendered: list[tuple[str, str]] = []  # (title, html_filename)
+        for node in pages:
+            html_name = page_link_map.get(node.title, f"{Path(node.docs_path or node.title).stem}.html")
+            try:
+                xhtml, _attachments, _labels = compile_page(node, config, link_map)
+            except PageLoadError as exc:
+                print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
+                continue
+            html = render_page(xhtml, page=node.title, page_link_map=page_link_map)
+            (out_dir / html_name).write_text(html, encoding="utf-8")
+            rendered.append((node.title, html_name))
+
+        index_html = render_index(args.section, rendered)
+        index_path = out_dir / index_name
+        index_path.write_text(index_html, encoding="utf-8")
+
+        url = f"file://{index_path}"
+        print(f"Section preview ({len(rendered)} pages): {url}")
+        webbrowser.open(url)
+        return
+
+    # ── Single-page mode ─────────────────────────────────────────────────────
     node = find_page(nodes, args.page)
     if node is None:
         print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)

@@ -54,6 +54,12 @@ _AC_ALT_RE = re.compile(r'ac:alt="(?P<alt>[^"]*)"')
 _AC_TITLE_RE = re.compile(r'ac:title="(?P<title>[^"]*)"')
 _DATA_LOCAL_PATH_RE = re.compile(r'data-local-path="(?P<path>[^"]*)"')
 
+# Matches <ac:link ...>...</ac:link> blocks for cross-page link rewriting.
+_AC_LINK_RE = re.compile(r'<ac:link(?P<link_attrs>[^>]*)>(?P<link_body>.*?)</ac:link>', re.DOTALL)
+_RI_PAGE_TITLE_RE = re.compile(r'ri:content-title="(?P<title>[^"]*)"')
+_AC_LINK_BODY_RE = re.compile(r'<ac:link-body>(.*?)</ac:link-body>', re.DOTALL)
+_AC_ANCHOR_ATTR_RE = re.compile(r'ac:anchor="(?P<anchor>[^"]*)"')
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 
@@ -273,25 +279,65 @@ def _load_image_data(path: Path) -> str:
     return f"data:{mime};base64,{data}"
 
 
-def render_html(xhtml: str) -> str:
+def render_html(xhtml: str, page_link_map: dict[str, str] | None = None) -> str:
     """Translate Confluence XHTML macros into browser-renderable HTML.
 
     Iterates until no more macros remain (handles nested macros such as a
     code block inside a warning panel).
+
+    Parameters
+    ----------
+    page_link_map:
+        Optional ``{page_title: html_filename}`` map.  When provided,
+        ``<ac:link>`` cross-page references are rewritten to relative
+        ``<a href="...">`` links so previewed pages are navigable.
     """
     prev: str | None = None
     result = xhtml
     while result != prev:
         prev = result
         result = _MACRO_RE.sub(_render_macro, result)
-    # Convert ac:image elements after macros are resolved
     result = _IMAGE_RE.sub(_render_image, result)
+    if page_link_map:
+        result = _rewrite_page_links(result, page_link_map)
     return result
 
 
-def render_page(xhtml: str, page: str = "") -> str:
+def _rewrite_page_links(html: str, page_link_map: dict[str, str]) -> str:
+    """Replace ``<ac:link>`` elements with HTML ``<a>`` tags."""
+    def _replace(m: re.Match) -> str:
+        link_attrs = m.group("link_attrs")
+        link_body = m.group("link_body")
+
+        title_m = _RI_PAGE_TITLE_RE.search(link_body)
+        body_m = _AC_LINK_BODY_RE.search(link_body)
+        anchor_m = _AC_ANCHOR_ATTR_RE.search(link_attrs)
+
+        label = body_m.group(1).strip() if body_m else ""
+        anchor = f"#{_html.escape(anchor_m.group('anchor'))}" if anchor_m else ""
+
+        if title_m:
+            title = title_m.group("title")
+            fname = page_link_map.get(title)
+            if fname:
+                return f'<a href="{_html.escape(fname)}{anchor}">{label}</a>'
+            return (
+                f'<a href="#" style="color:#c00;text-decoration:line-through;" '
+                f'title="Page not in section: {_html.escape(title)}">{label}</a>'
+            )
+
+        # Anchor-only link (same-page heading reference)
+        if anchor_m:
+            return f'<a href="{anchor}">{label}</a>'
+
+        return m.group(0)
+
+    return _AC_LINK_RE.sub(_replace, html)
+
+
+def render_page(xhtml: str, page: str = "", page_link_map: dict[str, str] | None = None) -> str:
     """Wrap rendered HTML in a full browser page with Confluence-like styles."""
-    body = render_html(xhtml)
+    body = render_html(xhtml, page_link_map=page_link_map)
     escaped_page = _html.escape(page)
     return (
         f'<!DOCTYPE html>\n<html>\n<head>\n'
@@ -300,5 +346,32 @@ def render_page(xhtml: str, page: str = "") -> str:
         f"<style>{_CSS}</style>\n"
         f"</head>\n<body>\n"
         f"{body}\n"
+        f"</body>\n</html>\n"
+    )
+
+
+def render_index(section_title: str, pages: list[tuple[str, str]]) -> str:
+    """Generate a simple HTML index page linking to all section pages.
+
+    Parameters
+    ----------
+    section_title:
+        Human-readable name of the section (used as the page ``<h1>``).
+    pages:
+        List of ``(page_title, html_filename)`` pairs in nav order.
+    """
+    items = "\n".join(
+        f'  <li><a href="{_html.escape(fname)}">{_html.escape(title)}</a></li>'
+        for title, fname in pages
+    )
+    escaped_title = _html.escape(section_title)
+    return (
+        f'<!DOCTYPE html>\n<html>\n<head>\n'
+        f'<meta charset="utf-8">\n'
+        f'<title>mk2conf preview — {escaped_title}</title>\n'
+        f"<style>{_CSS}</style>\n"
+        f"</head>\n<body>\n"
+        f"<h1>{escaped_title}</h1>\n"
+        f"<ul>\n{items}\n</ul>\n"
         f"</body>\n</html>\n"
     )
