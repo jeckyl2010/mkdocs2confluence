@@ -681,6 +681,7 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
             continue
 
         # Image: ![alt](src) or ![alt](src "title")
+        # Optionally followed by a Python-Markdown attribute block { ... }
         if text[i : i + 2] == "![":
             m = re.match(
                 r'!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\s*\)', text[i:]
@@ -691,6 +692,10 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                     ImageNode(src=m.group(2), alt=m.group(1), title=m.group(3))
                 )
                 i += len(m.group(0))
+                # Strip optional attribute block: { key=value ... }
+                attr_m = re.match(r'\s*\{[^}]*\}', text[i:])
+                if attr_m:
+                    i += len(attr_m.group(0))
                 continue
 
         # Footnote reference: [^label] — must be checked before generic link
