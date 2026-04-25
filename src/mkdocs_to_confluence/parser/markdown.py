@@ -48,6 +48,8 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
+    DefinitionItem,
+    DefinitionList,
     FootnoteBlock,
     FootnoteDef,
     FootnoteRef,
@@ -64,6 +66,8 @@ from mkdocs_to_confluence.ir.nodes import (
     Paragraph,
     Section,
     StrikethroughNode,
+    SubscriptNode,
+    SuperscriptNode,
     Tab,
     Table,
     TableCell,
@@ -172,6 +176,17 @@ class _FootnoteDefToken:
     content: str  # raw inline content of the definition
 
 
+@dataclass
+class _DefListItemData:
+    term: str
+    definitions: list[str]
+
+
+@dataclass
+class _DefListToken:
+    items: list[_DefListItemData]
+
+
 _Token = Union[
     _HeadingToken,
     _CodeToken,
@@ -184,6 +199,7 @@ _Token = Union[
     _ContentTabsToken,
     _TableToken,
     _FootnoteDefToken,
+    _DefListToken,
 ]
 
 
@@ -221,6 +237,9 @@ _FOOTNOTE_DEF_RE = re.compile(r'^\[\^(?P<label>[^\]]+)\]:\s+(?P<content>.+)$')
 
 # Matches an inline footnote reference: [^label]
 _FOOTNOTE_REF_RE = re.compile(r'^\[\^(?P<label>[^\]]+)\]')
+
+# Matches a definition list definition line:  :   text
+_DEFLIST_DEF_RE = re.compile(r'^:\s+(?P<text>.+)$')
 
 
 def _tokenize(text: str) -> list[_Token]:
@@ -464,6 +483,47 @@ def _tokenize(text: str) -> list[_Token]:
             i += 1
             continue
 
+        # ── Definition list ──────────────────────────────────────────────────
+        # A definition list starts when a non-blank, non-special line is
+        # immediately followed by a `:   definition` line.
+        if (
+            line.strip()
+            and not _HEADING_RE.match(line)
+            and not _FENCE_OPEN_RE.match(line)
+            and not _ADMONITION_RE.match(line)
+            and not _HR_RE.match(line)
+            and not (line.startswith("> ") or line == ">")
+            and not (_BULLET_RE.match(line) and not _BULLET_RE.match(line).group("indent"))  # type: ignore[union-attr]
+            and not (_ORDERED_RE.match(line) and not _ORDERED_RE.match(line).group("indent"))  # type: ignore[union-attr]
+            and not line.strip().startswith("|")
+            and not _TAB_RE.match(line)
+            and i + 1 < len(lines)
+            and _DEFLIST_DEF_RE.match(lines[i + 1])
+        ):
+            dl_items: list[_DefListItemData] = []
+            while i < len(lines) and lines[i].strip():
+                term_line = lines[i]
+                # term must not itself be a definition line
+                if _DEFLIST_DEF_RE.match(term_line):
+                    break
+                defs: list[str] = []
+                i += 1
+                while i < len(lines):
+                    def_m = _DEFLIST_DEF_RE.match(lines[i])
+                    if def_m:
+                        defs.append(def_m.group("text"))
+                        i += 1
+                    else:
+                        break
+                if defs:
+                    dl_items.append(_DefListItemData(term=term_line.strip(), definitions=defs))
+                else:
+                    # Not actually a def-list item; rewind and fall through to paragraph
+                    break
+            if dl_items:
+                tokens.append(_DefListToken(items=dl_items))
+                continue
+
         # ── Paragraph accumulation ───────────────────────────────────────────
         para_lines: list[str] = []
         while i < len(lines):
@@ -674,6 +734,26 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                 i = close_idx + 2
                 continue
 
+        # Subscript: ~text~ (single tilde, checked after ~~ strikethrough)
+        if text[i] == "~" and (i + 1 >= len(text) or text[i + 1] != "~"):
+            close_idx = text.find("~", i + 1)
+            if close_idx != -1 and close_idx > i + 1:
+                flush()
+                inner = _scan_inline(text[i + 1 : close_idx], _fn)
+                nodes.append(SubscriptNode(children=tuple(inner)))
+                i = close_idx + 1
+                continue
+
+        # Superscript: ^text^
+        if text[i] == "^":
+            close_idx = text.find("^", i + 1)
+            if close_idx != -1 and close_idx > i + 1:
+                flush()
+                inner = _scan_inline(text[i + 1 : close_idx], _fn)
+                nodes.append(SuperscriptNode(children=tuple(inner)))
+                i = close_idx + 1
+                continue
+
         # Italic: *text* — only for *, not _ (avoids false positives in code)
         if text[i] == "*":
             close_idx = text.find("*", i + 1)
@@ -840,6 +920,18 @@ def _build_tree(
                 for t in token.tabs
             )
             _append_content(ContentTabs(tabs=tab_nodes), stack, root)
+
+        elif isinstance(token, _DefListToken):
+            dl_items = tuple(
+                DefinitionItem(
+                    term=_parse_inline(item.term, fn_map=_fn),
+                    definitions=tuple(
+                        _parse_inline(d, fn_map=_fn) for d in item.definitions
+                    ),
+                )
+                for item in token.items
+            )
+            _append_content(DefinitionList(items=dl_items), stack, root)
 
     # Close all remaining open sections.
     _close_from_level(0, stack, root)

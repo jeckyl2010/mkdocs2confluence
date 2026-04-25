@@ -20,6 +20,9 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
+    # Definition list
+    DefinitionItem,
+    DefinitionList,
     Expandable,
     # Footnote nodes
     FootnoteBlock,
@@ -42,6 +45,8 @@ from mkdocs_to_confluence.ir.nodes import (
     # Block nodes
     Section,
     StrikethroughNode,
+    SubscriptNode,
+    SuperscriptNode,
     Tab,
     # Table nodes
     Table,
@@ -67,6 +72,8 @@ __all__ = [
     "BoldNode",
     "ItalicNode",
     "StrikethroughNode",
+    "SuperscriptNode",
+    "SubscriptNode",
     "CodeInlineNode",
     "LinkNode",
     "ImageNode",
@@ -83,6 +90,9 @@ __all__ = [
     "BulletList",
     "OrderedList",
     "ListItem",
+    # Definition list
+    "DefinitionList",
+    "DefinitionItem",
     # Tables
     "Table",
     "TableRow",

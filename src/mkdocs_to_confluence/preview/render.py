@@ -219,6 +219,9 @@ code {
 ul, ol { padding-left: 1.5em; }
 li { margin: 4px 0; }
 hr { border: none; border-top: 1px solid #dfe1e6; margin: 1.5em 0; }
+dl { margin: 1em 0; }
+dt { font-weight: 600; margin-top: 0.5em; }
+dd { margin-left: 2em; margin-top: 2px; }
 """
 
 

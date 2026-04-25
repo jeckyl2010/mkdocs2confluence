@@ -30,6 +30,8 @@ from mkdocs_to_confluence.ir import (
     RawHTML,
     Section,
     StrikethroughNode,
+    SubscriptNode,
+    SuperscriptNode,
     Tab,
     Table,
     TableCell,
@@ -180,6 +182,14 @@ class TestInlineNodes:
 
     def test_strikethrough_node(self) -> None:
         node = StrikethroughNode(children=(TextNode(text="strike"),))
+        assert len(node.children) == 1
+
+    def test_subscript_node(self) -> None:
+        node = SubscriptNode(children=(TextNode(text="2"),))
+        assert len(node.children) == 1
+
+    def test_superscript_node(self) -> None:
+        node = SuperscriptNode(children=(TextNode(text="2"),))
         assert len(node.children) == 1
 
     def test_code_inline_node(self) -> None:
