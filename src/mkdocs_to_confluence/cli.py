@@ -153,7 +153,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
     try:
         link_map = build_link_map(nodes)
-        xhtml, _attachments = compile_page(node, config, link_map)
+        xhtml, _attachments, _labels = compile_page(node, config, link_map)
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
