@@ -91,7 +91,7 @@ def render_mermaid_diagrams(
                 seen_paths.add(path)
 
             replacements[id(node)] = dataclasses.replace(
-                node, attachment_name=path.name
+                node, attachment_name=path.name, local_path=path
             )
 
     if not replacements:
