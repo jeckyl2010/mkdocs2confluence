@@ -40,7 +40,7 @@ def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
             replaced = replacements.get(id(value), _rebuild(value, replacements))
             if replaced is not value:
                 changes[field.name] = replaced
-        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
+        elif isinstance(value, tuple) and any(isinstance(item, IRNode) for item in value):
             rebuilt = replace_nodes(value, replacements)
             if rebuilt is not value:
                 changes[field.name] = rebuilt
