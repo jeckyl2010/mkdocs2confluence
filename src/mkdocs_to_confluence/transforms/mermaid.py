@@ -18,6 +18,7 @@ import warnings
 from pathlib import Path
 
 from mkdocs_to_confluence.ir.nodes import IRNode, MermaidDiagram, walk
+from mkdocs_to_confluence.ir.treeutil import replace_nodes
 
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "mermaid"
 DEFAULT_KROKI_URL = "https://kroki.io"
@@ -97,37 +98,4 @@ def render_mermaid_diagrams(
     if not replacements:
         return nodes, attachments
 
-    return _replace_nodes(nodes, replacements), attachments
-
-
-# ── IR tree replacement helpers ───────────────────────────────────────────────
-
-
-def _replace_nodes(
-    nodes: tuple[IRNode, ...],
-    replacements: dict[int, IRNode],
-) -> tuple[IRNode, ...]:
-    result: list[IRNode] = []
-    for node in nodes:
-        if id(node) in replacements:
-            result.append(replacements[id(node)])
-        else:
-            result.append(_rebuild(node, replacements))
-    return tuple(result)
-
-
-def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
-    changes: dict[str, object] = {}
-    for field in dataclasses.fields(node):  # type: ignore[arg-type]
-        value = getattr(node, field.name)
-        if isinstance(value, IRNode):
-            replaced = replacements.get(id(value), _rebuild(value, replacements))
-            if replaced is not value:
-                changes[field.name] = replaced
-        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
-            rebuilt = _replace_nodes(value, replacements)
-            if rebuilt is not value:
-                changes[field.name] = rebuilt
-    if changes:
-        return dataclasses.replace(node, **changes)
-    return node
+    return replace_nodes(nodes, replacements), attachments
