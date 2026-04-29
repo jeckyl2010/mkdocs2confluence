@@ -816,6 +816,41 @@ class TestInlineParsing:
         assert "{" not in text_content
         assert "loading" not in text_content
 
+    def test_image_width_attr(self) -> None:
+        """{ width="400" } sets ImageNode.width."""
+        para = first(parse('![logo](img.png){ width="400" }\n'), Paragraph)
+        img = next(n for n in para.children if isinstance(n, ImageNode))
+        assert img.width == 400
+        assert img.height is None
+
+    def test_image_height_attr(self) -> None:
+        """{ height="200" } sets ImageNode.height."""
+        para = first(parse('![logo](img.png){ height="200" }\n'), Paragraph)
+        img = next(n for n in para.children if isinstance(n, ImageNode))
+        assert img.height == 200
+        assert img.width is None
+
+    def test_image_width_and_height_attr(self) -> None:
+        """Both width and height can be set together."""
+        para = first(parse('![logo](img.png){ width="640" height="480" }\n'), Paragraph)
+        img = next(n for n in para.children if isinstance(n, ImageNode))
+        assert img.width == 640
+        assert img.height == 480
+
+    def test_image_align_attr(self) -> None:
+        """{ align="center" } sets ImageNode.align."""
+        para = first(parse('![logo](img.png){ align="center" }\n'), Paragraph)
+        img = next(n for n in para.children if isinstance(n, ImageNode))
+        assert img.align == "center"
+
+    def test_image_no_attr_block(self) -> None:
+        """Images without attr blocks have None sizing fields."""
+        para = first(parse("![logo](img.png)\n"), Paragraph)
+        img = next(n for n in para.children if isinstance(n, ImageNode))
+        assert img.width is None
+        assert img.height is None
+        assert img.align is None
+
 
 # ── List parsing ──────────────────────────────────────────────────────────────
 
@@ -1113,3 +1148,51 @@ class TestInlineHtmlParsing:
         assert not any(isinstance(n, InlineHtmlNode) for n in para.children)
         raw = "".join(n.text for n in para.children if isinstance(n, TextNode))
         assert "<mark>" in raw
+
+
+class TestKeyboardKeys:
+    def test_single_key(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        para = first(parse("Press ++ctrl++\n"), Paragraph)
+        node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+        assert node.tag == "kbd"
+        assert node.children[0].text == "Ctrl"  # type: ignore[union-attr]
+
+    def test_combined_keys(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode, TextNode
+        para = first(parse("Press ++ctrl+alt+del++\n"), Paragraph)
+        kbd_nodes = [n for n in para.children if isinstance(n, InlineHtmlNode)]
+        sep_nodes = [n for n in para.children if isinstance(n, TextNode) and n.text == "+"]
+        assert len(kbd_nodes) == 3
+        assert len(sep_nodes) == 2
+        assert kbd_nodes[0].children[0].text == "Ctrl"  # type: ignore[union-attr]
+        assert kbd_nodes[1].children[0].text == "Alt"   # type: ignore[union-attr]
+        assert kbd_nodes[2].children[0].text == "Del"   # type: ignore[union-attr]
+
+    def test_known_key_names_normalised(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        cases = [
+            ("++enter++", "Enter"),
+            ("++esc++", "Esc"),
+            ("++shift++", "Shift"),
+            ("++cmd++", "⌘"),
+            ("++tab++", "Tab"),
+            ("++up++", "↑"),
+            ("++page-up++", "PgUp"),
+        ]
+        for src, expected in cases:
+            para = first(parse(f"{src}\n"), Paragraph)
+            node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+            assert node.children[0].text == expected, f"{src} → {node.children[0].text!r}"  # type: ignore[union-attr]
+
+    def test_unknown_key_falls_back_to_title_case(self) -> None:
+        from mkdocs_to_confluence.ir import InlineHtmlNode
+        para = first(parse("++mykey++\n"), Paragraph)
+        node = next(n for n in para.children if isinstance(n, InlineHtmlNode))
+        assert node.children[0].text == "Mykey"  # type: ignore[union-attr]
+
+    def test_double_plus_in_plain_text_not_matched(self) -> None:
+        """++ not followed by valid key pattern should pass through as text."""
+        para = first(parse("C++ is a language\n"), Paragraph)
+        text = "".join(n.text for n in para.children if isinstance(n, TextNode))
+        assert "C++" in text

@@ -36,6 +36,7 @@ a proper library (e.g. ``markdown-it-py``) later without touching the IR.
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass, field
 from typing import Union
@@ -638,6 +639,51 @@ def _parse_table_aligns(sep_line: str) -> list[str | None]:
     return aligns
 
 
+# ── Keyboard key names (pymdownx.keys) ───────────────────────────────────────
+
+# Maps lowercase pymdownx.keys key identifiers to their display strings.
+# Keys not in this dict fall back to .title() (e.g. "shift" → "Shift").
+_KEY_NAMES: dict[str, str] = {
+    "ctrl": "Ctrl",
+    "control": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "cmd": "⌘",
+    "meta": "⌘",
+    "win": "Win",
+    "enter": "Enter",
+    "return": "Enter",
+    "backspace": "Backspace",
+    "tab": "Tab",
+    "esc": "Esc",
+    "escape": "Esc",
+    "space": "Space",
+    "delete": "Del",
+    "del": "Del",
+    "insert": "Ins",
+    "home": "Home",
+    "end": "End",
+    "page-up": "PgUp",
+    "page-down": "PgDn",
+    "up": "↑",
+    "down": "↓",
+    "left": "←",
+    "right": "→",
+    "plus": "+",
+    "minus": "-",
+    "f1": "F1", "f2": "F2", "f3": "F3", "f4": "F4",
+    "f5": "F5", "f6": "F6", "f7": "F7", "f8": "F8",
+    "f9": "F9", "f10": "F10", "f11": "F11", "f12": "F12",
+}
+
+# Matches ++key++ or ++key1+key2++ (pymdownx.keys syntax).
+_KEYS_RE = re.compile(r"\+\+([a-z][a-z0-9-]*(?:\+[a-z][a-z0-9-]*)*)\+\+")
+
+
+def _normalize_key(key: str) -> str:
+    return _KEY_NAMES.get(key.lower(), key.title())
+
+
 # ── Inline parser ─────────────────────────────────────────────────────────────
 
 
@@ -664,6 +710,19 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
             buf = ""
 
     while i < n:
+        # Keyboard keys: ++ctrl+alt+del++ (pymdownx.keys)
+        if text[i] == "+" and text[i : i + 2] == "++":
+            m = _KEYS_RE.match(text, i)
+            if m:
+                flush()
+                keys = m.group(1).split("+")
+                for idx, key in enumerate(keys):
+                    if idx > 0:
+                        nodes.append(TextNode(text="+"))
+                    nodes.append(InlineHtmlNode(tag="kbd", children=(TextNode(text=_normalize_key(key)),)))
+                i = m.end()
+                continue
+
         # Inline code: backtick span (supports multi-backtick like `` ` ``)
         if text[i] == "`":
             j = i
@@ -688,14 +747,35 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
             )
             if m:
                 flush()
-                nodes.append(
-                    ImageNode(src=m.group(2), alt=m.group(1), title=m.group(3))
-                )
                 i += len(m.group(0))
-                # Strip optional attribute block: { key=value ... }
-                attr_m = re.match(r'\s*\{[^}]*\}', text[i:])
+                # Parse optional attribute block: { key="value" key=value ... }
+                width: int | None = None
+                height: int | None = None
+                align: str | None = None
+                attr_m = re.match(r'\s*\{([^}]*)\}', text[i:])
                 if attr_m:
+                    attr_str = attr_m.group(1)
+                    for kv in re.finditer(r'(\w+)\s*=\s*["\']?(\w+)["\']?', attr_str):
+                        key, val = kv.group(1).lower(), kv.group(2)
+                        if key == "width":
+                            with contextlib.suppress(ValueError):
+                                width = int(val)
+                        elif key == "height":
+                            with contextlib.suppress(ValueError):
+                                height = int(val)
+                        elif key == "align":
+                            align = val
                     i += len(attr_m.group(0))
+                nodes.append(
+                    ImageNode(
+                        src=m.group(2),
+                        alt=m.group(1),
+                        title=m.group(3),
+                        width=width,
+                        height=height,
+                        align=align,
+                    )
+                )
                 continue
 
         # Footnote reference: [^label] — must be checked before generic link
