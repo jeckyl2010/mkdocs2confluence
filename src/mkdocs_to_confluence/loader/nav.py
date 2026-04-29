@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -91,7 +91,7 @@ def _read_nav_file(directory: Path, nav_file: str) -> list[Any] | None:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         if isinstance(data, dict) and isinstance(data.get("nav"), list):
-            return data["nav"]
+            return cast(list[Any], data["nav"])
         if isinstance(data, list):
             return data
     except Exception:

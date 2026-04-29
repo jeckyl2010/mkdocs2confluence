@@ -304,7 +304,7 @@ def _plan_nodes(
             )
         else:
             # Page node — read raw to check ready flag
-            ready: bool | None = None
+            ready = None
             if node.source_path is not None:
                 try:
                     raw = node.source_path.read_text(encoding="utf-8")

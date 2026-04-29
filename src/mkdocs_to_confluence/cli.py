@@ -208,14 +208,14 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         return
 
     # ── Single-page mode ─────────────────────────────────────────────────────
-    node = find_page(nodes, args.page)
-    if node is None:
+    page_node = find_page(nodes, args.page)
+    if page_node is None:
         print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)
         sys.exit(1)
 
     try:
         link_map = build_link_map(nodes)
-        xhtml, _attachments, _labels = compile_page(node, config, link_map)
+        xhtml, _attachments, _labels = compile_page(page_node, config, link_map)
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)

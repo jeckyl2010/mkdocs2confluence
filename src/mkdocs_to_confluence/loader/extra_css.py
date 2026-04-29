@@ -26,6 +26,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import tinycss2
 
@@ -86,7 +87,7 @@ def _collect_custom_props(css_text: str) -> dict[str, str]:
     return custom_props
 
 
-def _resolve_var_call(arguments: list, custom_props: dict[str, str], depth: int) -> list | None:
+def _resolve_var_call(arguments: list[Any], custom_props: dict[str, str], depth: int) -> list[Any] | None:
     """Resolve a single ``var(--name[, fallback])`` token list.
 
     Returns a token list with the variable substituted, or ``None`` if the
@@ -118,8 +119,8 @@ def _resolve_var_call(arguments: list, custom_props: dict[str, str], depth: int)
 
 
 def _resolve_var_tokens(
-    tokens: list, custom_props: dict[str, str], depth: int = 0
-) -> list | None:
+    tokens: list[Any], custom_props: dict[str, str], depth: int = 0
+) -> list[Any] | None:
     """Walk *tokens*, recursively resolving every ``var()`` call.
 
     Returns the resolved token list, or ``None`` if any ``var()`` is
@@ -128,7 +129,7 @@ def _resolve_var_tokens(
     if depth > _MAX_VAR_DEPTH:
         return None  # guard against cycles or very deep chains
 
-    result: list = []
+    result: list[Any] = []
     for token in tokens:
         if token.type == "function" and token.lower_name == "var":
             resolved = _resolve_var_call(token.arguments, custom_props, depth)
