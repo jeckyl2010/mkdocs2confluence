@@ -287,25 +287,29 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             print(f"  {page.docs_path} → '{page.title}'")
         return
 
-    from mkdocs_to_confluence.publisher.client import ConfluenceClient
+    from mkdocs_to_confluence.publisher.client import ConfluenceClient, ConfluenceError
     from mkdocs_to_confluence.publisher.pipeline import execute_publish, plan_publish
 
-    with ConfluenceClient(conf_config) as client:
-        if conf_config.parent_page_id:
-            # parent_page_id is the authoritative anchor — derive space from it.
-            # space_key is only used when no parent_page_id is configured.
-            space_id = client.get_space_id_from_page(conf_config.parent_page_id)
-        elif conf_config.space_key:
-            space_id = client.get_space_id(conf_config.space_key)
-        else:
-            print("error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml", file=sys.stderr)
-            sys.exit(1)
-        plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
-        report = execute_publish(
-            plan, client, dry_run=False, space_id=space_id,
-            docs_dir=config.docs_dir, full_width=conf_config.full_width,
-            root_page_id=conf_config.parent_page_id,
-        )
+    try:
+        with ConfluenceClient(conf_config) as client:
+            if conf_config.parent_page_id:
+                # parent_page_id is the authoritative anchor — derive space from it.
+                # space_key is only used when no parent_page_id is configured.
+                space_id = client.get_space_id_from_page(conf_config.parent_page_id)
+            elif conf_config.space_key:
+                space_id = client.get_space_id(conf_config.space_key)
+            else:
+                print("error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml", file=sys.stderr)
+                sys.exit(1)
+            plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
+            report = execute_publish(
+                plan, client, dry_run=False, space_id=space_id,
+                docs_dir=config.docs_dir, full_width=conf_config.full_width,
+                root_page_id=conf_config.parent_page_id,
+            )
+    except ConfluenceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     print(str(report))
 
