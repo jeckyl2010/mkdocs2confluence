@@ -17,6 +17,7 @@ import warnings
 from pathlib import Path
 from urllib.parse import unquote
 
+from mkdocs_to_confluence.ir.treeutil import replace_nodes
 from mkdocs_to_confluence.ir.nodes import (
     ImageNode,
     IRNode,
@@ -125,7 +126,7 @@ def resolve_local_assets(
     if not replacements:
         return nodes, attachments
 
-    updated = _replace_nodes(nodes, replacements)
+    updated = replace_nodes(nodes, replacements)
     return updated, attachments
 
 
@@ -142,34 +143,3 @@ def _resolve_path(src: str, page_dir: Path, docs_dir: Path) -> Path | None:
     if candidate.exists():
         return candidate
     return None
-
-
-def _replace_nodes(
-    nodes: tuple[IRNode, ...],
-    replacements: dict[int, IRNode],
-) -> tuple[IRNode, ...]:
-    result: list[IRNode] = []
-    for node in nodes:
-        if id(node) in replacements:
-            result.append(replacements[id(node)])
-            continue
-        updated = _rebuild(node, replacements)
-        result.append(updated)
-    return tuple(result)
-
-
-def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
-    changes: dict[str, object] = {}
-    for field in dataclasses.fields(node):
-        value = getattr(node, field.name)
-        if isinstance(value, IRNode):
-            replaced = replacements.get(id(value), _rebuild(value, replacements))
-            if replaced is not value:
-                changes[field.name] = replaced
-        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
-            rebuilt = _replace_nodes(value, replacements)
-            if rebuilt is not value:
-                changes[field.name] = rebuilt
-    if changes:
-        return dataclasses.replace(node, **changes)
-    return node

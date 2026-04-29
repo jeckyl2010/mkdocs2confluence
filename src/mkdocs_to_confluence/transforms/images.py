@@ -13,6 +13,7 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
+from mkdocs_to_confluence.ir.treeutil import replace_nodes
 from mkdocs_to_confluence.ir.nodes import (
     ImageNode,
     IRNode,
@@ -77,39 +78,5 @@ def resolve_images(
     if not replacements:
         return nodes, attachments
 
-    updated = _replace_nodes(nodes, replacements)
+    updated = replace_nodes(nodes, replacements)
     return updated, attachments
-
-
-def _replace_nodes(
-    nodes: tuple[IRNode, ...],
-    replacements: dict[int, IRNode],
-) -> tuple[IRNode, ...]:
-    """Recursively rebuild *nodes*, substituting entries from *replacements*."""
-    result: list[IRNode] = []
-    for node in nodes:
-        if id(node) in replacements:
-            result.append(replacements[id(node)])
-            continue
-        # Rebuild children if the node has them.
-        updated = _rebuild(node, replacements)
-        result.append(updated)
-    return tuple(result)
-
-
-def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
-    """Return *node* with any matching descendants replaced."""
-    changes: dict[str, object] = {}
-    for field in dataclasses.fields(node):
-        value = getattr(node, field.name)
-        if isinstance(value, IRNode):
-            replaced = replacements.get(id(value), _rebuild(value, replacements))
-            if replaced is not value:
-                changes[field.name] = replaced
-        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
-            rebuilt = _replace_nodes(value, replacements)
-            if rebuilt is not value:
-                changes[field.name] = rebuilt
-    if changes:
-        return dataclasses.replace(node, **changes)
-    return node

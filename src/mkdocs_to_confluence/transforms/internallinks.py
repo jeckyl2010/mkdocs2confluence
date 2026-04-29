@@ -20,6 +20,7 @@ import posixpath
 from urllib.parse import unquote
 
 from mkdocs_to_confluence.ir.nodes import IRNode, LinkNode, walk
+from mkdocs_to_confluence.ir.treeutil import replace_nodes
 from mkdocs_to_confluence.loader.nav import NavNode, flat_pages
 
 
@@ -99,7 +100,7 @@ def resolve_internal_links(
     if not replacements:
         return nodes
 
-    return _replace_nodes(nodes, replacements)
+    return replace_nodes(nodes, replacements)
 
 
 def _resolve_md_href(href: str, current_docs_path: str) -> tuple[str, str] | None:
@@ -128,36 +129,3 @@ def _resolve_md_href(href: str, current_docs_path: str) -> tuple[str, str] | Non
     joined = posixpath.join(current_dir, path_part) if current_dir else path_part
     normalized = posixpath.normpath(joined)
     return normalized, anchor
-
-
-# ── Tree rewriting (same pattern as transforms/assets.py) ────────────────────
-
-
-def _replace_nodes(
-    nodes: tuple[IRNode, ...],
-    replacements: dict[int, IRNode],
-) -> tuple[IRNode, ...]:
-    result: list[IRNode] = []
-    for node in nodes:
-        if id(node) in replacements:
-            result.append(replacements[id(node)])
-            continue
-        result.append(_rebuild(node, replacements))
-    return tuple(result)
-
-
-def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
-    changes: dict[str, object] = {}
-    for field in dataclasses.fields(node):
-        value = getattr(node, field.name)
-        if isinstance(value, IRNode):
-            replaced = replacements.get(id(value), _rebuild(value, replacements))
-            if replaced is not value:
-                changes[field.name] = replaced
-        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
-            rebuilt = _replace_nodes(value, replacements)
-            if rebuilt is not value:
-                changes[field.name] = rebuilt
-    if changes:
-        return dataclasses.replace(node, **changes)
-    return node
