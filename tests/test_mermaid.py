@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.ir.nodes import CodeBlock, MermaidDiagram
 from mkdocs_to_confluence.parser.markdown import parse
@@ -14,7 +12,7 @@ from mkdocs_to_confluence.transforms.mermaid import (
 )
 
 _SAMPLE_SOURCE = "graph TD\n    A --> B\n"
-_FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16  # minimal fake PNG bytes
+_FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100  # fake PNG > _MIN_PNG_BYTES (67)
 
 
 # ── Parser ────────────────────────────────────────────────────────────────────
@@ -103,7 +101,7 @@ def test_render_deduplicates_identical_diagrams(tmp_path):
     assert len(attachments) == 1
 
 
-def test_render_fallback_on_network_error(tmp_path):
+def test_render_fallback_on_network_error(tmp_path, capsys):
     """When Kroki is unreachable, node is left unchanged (code block fallback)."""
     import urllib.error
 
@@ -113,14 +111,59 @@ def test_render_fallback_on_network_error(tmp_path):
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
         patch(
             "mkdocs_to_confluence.transforms.mermaid._kroki_png",
-            side_effect=urllib.error.URLError("timeout"),
+            side_effect=urllib.error.URLError("timed out"),
         ),
-        pytest.warns(UserWarning, match="Mermaid rendering failed"),
     ):
         updated_nodes, attachments = render_mermaid_diagrams((node,))
 
     assert len(attachments) == 0
     assert updated_nodes[0].attachment_name is None  # type: ignore[union-attr]
+    err = capsys.readouterr().err
+    assert "Kroki unreachable" in err
+    assert "falling back to code block" in err
+
+
+def test_render_fallback_on_http_error(tmp_path, capsys):
+    """When Kroki returns an HTTP error, node falls back to code block."""
+    import urllib.error
+
+    node = MermaidDiagram(source=_SAMPLE_SOURCE)
+
+    with (
+        patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
+        patch(
+            "mkdocs_to_confluence.transforms.mermaid._kroki_png",
+            side_effect=urllib.error.HTTPError(
+                url=None, code=503, msg="Service Unavailable", hdrs=None, fp=None  # type: ignore[arg-type]
+            ),
+        ),
+    ):
+        updated_nodes, attachments = render_mermaid_diagrams((node,))
+
+    assert len(attachments) == 0
+    assert updated_nodes[0].attachment_name is None  # type: ignore[union-attr]
+    err = capsys.readouterr().err
+    assert "HTTP 503" in err
+    assert "falling back to code block" in err
+
+
+def test_render_fallback_on_empty_response(tmp_path, capsys):
+    """When Kroki returns too-small a response, node falls back to code block."""
+    node = MermaidDiagram(source=_SAMPLE_SOURCE)
+
+    with (
+        patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
+        patch(
+            "mkdocs_to_confluence.transforms.mermaid._kroki_png",
+            return_value=b"",  # empty response
+        ),
+    ):
+        updated_nodes, attachments = render_mermaid_diagrams((node,))
+
+    assert len(attachments) == 0
+    assert updated_nodes[0].attachment_name is None  # type: ignore[union-attr]
+    err = capsys.readouterr().err
+    assert "falling back to code block" in err
 
 
 def test_render_uses_custom_kroki_url(tmp_path):
