@@ -133,6 +133,9 @@ class ImageNode(IRNode):
     alt: str
     title: str | None = None
     attachment_name: str | None = None
+    width: int | None = None
+    height: int | None = None
+    align: str | None = None
 
 
 # ── Block nodes ──────────────────────────────────────────────────────────────

@@ -239,10 +239,12 @@ extra_css:
 | `[text](url)` | `<a href="...">` |
 | `[text](file.pdf)` | `<ac:link><ri:attachment .../>` (uploaded as attachment) |
 | `![alt](src)` | `<ac:image>` with `<ri:attachment>` (local) or `<ri:url>` (remote) |
+| `![alt](src){ width="400" }` | `<ac:image ac:width="400">` — also supports `height` and `align` |
 | `<br>` / `<br/>` | `<br />` |
 | `<sub>` / `<sup>` / `<u>` / `<small>` | Direct XHTML passthrough |
 | `<mark>text</mark>` | `<span style="background-color: yellow;">` |
 | `<kbd>text</kbd>` | `<code>` |
+| `++ctrl+alt+del++` | `<code>Ctrl</code>+<code>Alt</code>+<code>Del</code>` (pymdownx.keys) |
 | `<s>text</s>` / `<del>text</del>` | `<span style="text-decoration: line-through;">` |
 
 ### MkDocs / Material extensions

@@ -310,6 +310,24 @@ class TestImageEmitter:
         out = emit((Paragraph((ImageNode(src="img.png", alt="", title="My title"),),),))
         assert 'ac:title="My title"' in out
 
+    def test_image_width(self) -> None:
+        out = emit((Paragraph((ImageNode(src="img.png", alt="", width=400),),),))
+        assert 'ac:width="400"' in out
+
+    def test_image_height(self) -> None:
+        out = emit((Paragraph((ImageNode(src="img.png", alt="", height=200),),),))
+        assert 'ac:height="200"' in out
+
+    def test_image_align(self) -> None:
+        out = emit((Paragraph((ImageNode(src="img.png", alt="", align="center"),),),))
+        assert 'ac:align="center"' in out
+
+    def test_image_no_sizing_attrs_absent(self) -> None:
+        out = emit((Paragraph((ImageNode(src="img.png", alt=""),),),))
+        assert "ac:width" not in out
+        assert "ac:height" not in out
+        assert "ac:align" not in out
+
 
 class TestTableEmitter:
     def _simple_table(self) -> Table:
