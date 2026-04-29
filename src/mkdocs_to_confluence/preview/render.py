@@ -308,7 +308,7 @@ def render_html(xhtml: str, page_link_map: dict[str, str] | None = None) -> str:
 
 def _rewrite_page_links(html: str, page_link_map: dict[str, str]) -> str:
     """Replace ``<ac:link>`` elements with HTML ``<a>`` tags."""
-    def _replace(m: re.Match) -> str:
+    def _replace(m: re.Match[str]) -> str:
         link_attrs = m.group("link_attrs")
         link_body = m.group("link_body")
 
@@ -333,7 +333,7 @@ def _rewrite_page_links(html: str, page_link_map: dict[str, str]) -> str:
         if anchor_m:
             return f'<a href="{anchor}">{label}</a>'
 
-        return m.group(0)
+        return str(m.group(0))
 
     return _AC_LINK_RE.sub(_replace, html)
 

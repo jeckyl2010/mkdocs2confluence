@@ -410,8 +410,10 @@ def _tokenize(text: str) -> list[_Token]:
                 # Collect continuation lines (non-blank, non-list) into this item.
                 while i < len(lines) and lines[i].strip():
                     cont = lines[i]
-                    if (_BULLET_RE.match(cont) and not _BULLET_RE.match(cont).group("indent")) or (
-                        _ORDERED_RE.match(cont) and not _ORDERED_RE.match(cont).group("indent")
+                    bullet_m = _BULLET_RE.match(cont)
+                    ordered_m2 = _ORDERED_RE.match(cont)
+                    if (bullet_m and not bullet_m.group("indent")) or (
+                        ordered_m2 and not ordered_m2.group("indent")
                     ):
                         break
                     item_text = item_text.rstrip() + " " + cont.strip()
@@ -444,8 +446,10 @@ def _tokenize(text: str) -> list[_Token]:
                 # Collect continuation lines (non-blank, non-list) into this item.
                 while i < len(lines) and lines[i].strip():
                     cont = lines[i]
-                    if (_ORDERED_RE.match(cont) and not _ORDERED_RE.match(cont).group("indent")) or (
-                        _BULLET_RE.match(cont) and not _BULLET_RE.match(cont).group("indent")
+                    ordered_m3 = _ORDERED_RE.match(cont)
+                    bullet_m2 = _BULLET_RE.match(cont)
+                    if (ordered_m3 and not ordered_m3.group("indent")) or (
+                        bullet_m2 and not bullet_m2.group("indent")
                     ):
                         break
                     item_text = item_text.rstrip() + " " + cont.strip()

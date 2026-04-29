@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -140,7 +140,7 @@ class ConfluenceClient:
         self._raise_for_status(resp, f"find_folder_under({title!r})")
         for item in resp.json().get("results", []):
             if item.get("type") == "folder" and item.get("title") == title:
-                return item
+                return cast(dict[str, Any], item)
         return None
 
     def find_folder_in_space(self, space_id: str, title: str) -> dict[str, Any] | None:
@@ -164,7 +164,7 @@ class ConfluenceClient:
         self._raise_for_status(resp, f"find_folder_in_space({title!r})")
         for item in resp.json().get("results", []):
             if item.get("title") == title:
-                return item
+                return cast(dict[str, Any], item)
         return None
 
     def create_folder(

@@ -16,6 +16,7 @@ import urllib.error
 import urllib.request
 import warnings
 from pathlib import Path
+from typing import cast
 
 from mkdocs_to_confluence.ir.nodes import IRNode, MermaidDiagram, walk
 from mkdocs_to_confluence.ir.treeutil import replace_nodes
@@ -39,7 +40,7 @@ def _kroki_png(source: str, kroki_url: str) -> bytes:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-        return resp.read()
+        return cast(bytes, resp.read())
 
 
 def _cache_path(source: str) -> Path:
