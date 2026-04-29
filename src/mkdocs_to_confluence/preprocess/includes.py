@@ -187,7 +187,7 @@ def preprocess_includes(
         raw_spec = m.group("path")
         rel_path, start_line, end_line = _parse_spec(raw_spec, source_path, lineno)
 
-        included_path = _resolve_path(rel_path, source_path, docs_dir)
+        included_path = _resolve_include_path(rel_path, source_path, docs_dir)
         if included_path is None:
             raise IncludeError(
                 f"{source_path}:{lineno}: included file not found: {rel_path!r}\n"
@@ -281,7 +281,7 @@ def _parse_spec(
     )
 
 
-def _resolve_path(rel_path: str, source_path: Path, docs_dir: Path) -> Path | None:
+def _resolve_include_path(rel_path: str, source_path: Path, docs_dir: Path) -> Path | None:
     """Resolve *rel_path* to an existing file.
 
     Resolution order:

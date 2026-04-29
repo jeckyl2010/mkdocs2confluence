@@ -75,7 +75,7 @@ def _collect_custom_props(css_text: str) -> dict[str, str]:
     for rule in rules:
         if rule.type != "qualified-rule":
             continue
-        decls = tinycss2.parse_blocks_contents(rule.content, skip_whitespace=True)  # type: ignore[arg-type]
+        decls = tinycss2.parse_blocks_contents(rule.content, skip_whitespace=True)
         for decl in decls:
             if decl.type != "declaration":
                 continue
@@ -106,7 +106,7 @@ def _resolve_var_call(arguments: list, custom_props: dict[str, str], depth: int)
 
     if var_name and var_name in custom_props:
         sub_tokens = [
-            t for t in tinycss2.parse_component_value_list(custom_props[var_name])  # type: ignore[attr-defined]
+            t for t in tinycss2.parse_component_value_list(custom_props[var_name])
             if t.type != "whitespace"
         ]
         return _resolve_var_tokens(sub_tokens, custom_props, depth + 1)
@@ -145,7 +145,7 @@ def _parse_declarations(
 ) -> dict[str, str]:
     """Extract whitelisted property→value pairs from a rule's content tokens."""
     result: dict[str, str] = {}
-    decls = tinycss2.parse_blocks_contents(content, skip_whitespace=True)  # type: ignore[arg-type]
+    decls = tinycss2.parse_blocks_contents(content, skip_whitespace=True)
     for decl in decls:
         if decl.type != "declaration":
             continue
