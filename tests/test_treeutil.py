@@ -1,6 +1,8 @@
 """Tests for ir.treeutil.replace_nodes."""
 
 from mkdocs_to_confluence.ir.nodes import (
+    DefinitionItem,
+    LinkNode,
     Paragraph,
     Section,
     TextNode,
@@ -75,3 +77,16 @@ class TestReplaceNodes:
         new_child = BoldNode(children=(_text("BOLD"),))
         result = replace_nodes((para,), {id(child): new_child})
         assert result[0].children[0].children[0].text == "BOLD"
+
+    def test_nested_tuple_definition_item(self):
+        """IRNodes inside DefinitionItem.definitions (tuple of tuples) must be replaced."""
+        old_link = LinkNode(href="old.md", children=(_text("link"),))
+        item = DefinitionItem(
+            term=(_text("Term"),),
+            definitions=((_text("see "), old_link),),
+        )
+        new_link = LinkNode(href="new.md", children=(_text("link"),))
+        result = replace_nodes((item,), {id(old_link): new_link})
+        replaced_item = result[0]
+        assert isinstance(replaced_item, DefinitionItem)
+        assert replaced_item.definitions[0][1] is new_link

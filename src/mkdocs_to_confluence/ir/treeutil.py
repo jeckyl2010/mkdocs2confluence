@@ -44,6 +44,22 @@ def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
             rebuilt = replace_nodes(value, replacements)
             if rebuilt is not value:
                 changes[field.name] = rebuilt
+        elif isinstance(value, tuple) and any(
+            isinstance(item, tuple) and any(isinstance(x, IRNode) for x in item)
+            for item in value
+        ):
+            # tuple[tuple[IRNode, ...], ...] e.g. DefinitionItem.definitions
+            new_outer: list[tuple[IRNode, ...]] = []
+            changed = False
+            for item in value:
+                if isinstance(item, tuple) and any(isinstance(x, IRNode) for x in item):
+                    new_item = replace_nodes(item, replacements)  # type: ignore[arg-type]
+                    new_outer.append(new_item)
+                    changed = changed or new_item is not item
+                else:
+                    new_outer.append(item)  # type: ignore[arg-type]
+            if changed:
+                changes[field.name] = tuple(new_outer)
     if changes:
         return dataclasses.replace(node, **changes)
     return node
