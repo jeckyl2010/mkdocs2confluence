@@ -80,7 +80,7 @@ def resolve_local_assets(
             if isinstance(node, ImageNode):
                 if is_url(node.src):
                     continue
-                candidate = _resolve_path(node.src, page_dir, docs_dir)
+                candidate = _resolve_asset_path(node.src, page_dir, docs_dir)
                 if candidate is None:
                     continue
                 attachment_name = _make_attachment_name(candidate, docs_dir)
@@ -107,7 +107,7 @@ def resolve_local_assets(
                 if "/" not in href and "." not in href:
                     # Bare word with no extension/slash — skip
                     continue
-                candidate = _resolve_path(unquote(href.split("#")[0]), page_dir, docs_dir)
+                candidate = _resolve_asset_path(unquote(href.split("#")[0]), page_dir, docs_dir)
                 if candidate is None:
                     warnings.warn(
                         f"Local file link not found and will render as plain text: {href!r}",
@@ -130,7 +130,7 @@ def resolve_local_assets(
     return updated, attachments
 
 
-def _resolve_path(src: str, page_dir: Path, docs_dir: Path) -> Path | None:
+def _resolve_asset_path(src: str, page_dir: Path, docs_dir: Path) -> Path | None:
     """Try to find *src* relative to *page_dir* then *docs_dir*.
 
     Returns the resolved absolute path, or ``None`` when the file cannot be

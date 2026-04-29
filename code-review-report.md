@@ -1,353 +1,129 @@
 # Code Review Report
-**Project**: mkdocs2confluence  
-**Language**: Python 3.12+  
-**Review Date**: 2025-01-29  
-**Overall Decision**: **REJECTED**  
-**Quality Score**: 75/100
+**Version**: v0.5.10
+**Language**: Python 3.11+
+**Review Date**: 2026-04-29
+**Overall Decision**: **Approved**
+**Quality Score**: **95/100**
+
+---
 
 ## Summary
-- Total Items Reviewed: 30 source modules, 20 test modules
-- KEEP: 28 source modules, 20 test modules
-- DISCARD: 1 item (DRY violation)
-- ESCALATE: 1 item (global state design choice)
+- Total Items Reviewed: 56 files (34 source + 22 test)
+- KEEP: 54
+- DISCARD: 0
+- ESCALATE: 2 (both resolved favourably)
+- Tests: 720 passed in 0.36s
+
+---
 
 ## Technical Validation
+
 ### Test Execution
 ```
-................................................................................................................ [ 15%]
-................................................................................................................ [ 31%]
-................................................................................................................ [ 47%]
-................................................................................................................ [ 62%]
-................................................................................................................ [ 78%]
-................................................................................................................ [ 94%]
-........................................                                                                         [100%]
-712 passed in 0.36s
+720 passed in 0.36s
 ```
+All tests pass cleanly.
 
-**Result**: ✅ All 712 tests pass  
-**Verdict**: Test suite is comprehensive and functional
+---
+
+## DRY Fix Verification ✅
+
+**Status: CORRECTLY IMPLEMENTED**
+
+The previous DISCARD (DRY violation — `_replace_nodes`/`_rebuild` duplicated across 4 transform files) is **fully resolved**.
+
+1. `src/mkdocs_to_confluence/ir/treeutil.py` created — clean extraction with docstrings, two pure functions: `replace_nodes()` and `_rebuild()`
+2. All 4 transform files import and use `replace_nodes` from `treeutil`:
+   - `transforms/images.py`
+   - `transforms/mermaid.py`
+   - `transforms/assets.py`
+   - `transforms/internallinks.py`
+3. No duplicate implementations remain
+4. `tests/test_treeutil.py` added with 8 tests
+
+---
 
 ## Detailed Review
 
-### KEEP Items
+### KEEP Items (54)
 
-**IR Module** (`src/mkdocs_to_confluence/ir/`)
-- All node types correctly frozen dataclasses ✅
-- Document class intentionally mutable with clear justification in docstring ✅
-- Clean separation of concerns between nodes.py and document.py ✅
-- Comprehensive node types covering all markdown constructs ✅
-- `walk()` utility is elegant and well-documented ✅
+**Architecture & Design** ✅
+- Clean pipeline separation: loader → preprocess → IR → transforms → emitter → publisher
+- Frozen IR dataclasses — immutable by design, no mutation
+- Pure functions for tree transformations via `treeutil.py`
+- Typed models throughout with Python 3.12+ type hints
 
-**Loader Module** (`src/mkdocs_to_confluence/loader/`)
-- Config parsing robust with comprehensive error handling ✅
-- !ENV tag support for environment variables ✅
-- Nav resolution handles both explicit nav and awesome-pages ✅
-- Clear separation between config, nav, and page loading ✅
-- Proper validation of required fields ✅
+**Code Quality** ✅
+- No bare `except:` clauses
+- Custom exceptions properly defined (IncludeError, PageLoadError, ConfluenceError, ConfigError)
+- No TODO/FIXME/XXX/HACK comments
+- 11 `# type: ignore` comments, all justified
 
-**Parser Module** (`src/mkdocs_to_confluence/parser/markdown.py`)
-- Two-phase tokenize-then-build architecture is sound ✅
-- Comprehensive inline parsing with proper nesting ✅
-- Good handling of Material for MkDocs extensions ✅
-- Footnote support is complete ✅
+**Type Safety** ✅
+- mypy strict mode enabled
+- 21 minor mypy issues (unused ignores, generic type args, REST API `Any` returns) — none are logic errors
 
-**Preprocess Module** (`src/mkdocs_to_confluence/preprocess/`)
-- Include resolution with circular-dependency detection ✅
-- Frontmatter extraction with proper field ordering ✅
-- Icon shortcode mapping comprehensive ✅
-- Fence tracking used consistently to protect code blocks ✅
-- Link definition preprocessing clean ✅
-
-**Transforms Module** (`src/mkdocs_to_confluence/transforms/`)
-- Internal link resolution logic is sound ✅
-- Mermaid rendering with local caching ✅
-- Asset resolution with collision-safe naming ✅
-- Edit link injection clean ✅
-- Abbreviation expansion thorough ✅
-
-**Emitter Module** (`src/mkdocs_to_confluence/emitter/xhtml.py`)
-- Proper Confluence storage format constructs ✅
-- Comprehensive node type coverage ✅
-- Good use of ac:structured-macro for native rendering ✅
-- HTML escaping consistent ✅
-
-**Publisher Module** (`src/mkdocs_to_confluence/publisher/`)
-- Client abstraction clean with proper context manager ✅
-- Pipeline separates plan and execute phases ✅
-- Attachment upload handles mtime comparison for skipping ✅
-- Error collection allows partial success ✅
-- Folder vs page distinction handled correctly ✅
-
-**CLI Module** (`src/mkdocs_to_confluence/cli.py`)
-- Command structure clear (preview/publish) ✅
-- Section-mode preview with index generation ✅
-- Single-page mode with --html option ✅
-- Proper error handling with exit codes ✅
-
-**Preview Module** (`src/mkdocs_to_confluence/preview/render.py`)
-- HTML rendering for local preview ✅
-- Mermaid PNG embedding for preview ✅
-- Index page generation for section previews ✅
-
-**Test Suite** (all test files)
-- 712 tests with 100% pass rate ✅
-- Comprehensive coverage of all modules ✅
-- Good use of fixtures ✅
-- Tests are meaningful with proper assertions ✅
-- No trivial or stub tests found ✅
+**Testing** ✅
+- 22 test files, comprehensive coverage
+- Descriptive test names, TDD approach evident
 
 ### DISCARD Items
 
-#### 1. Duplicated Tree-Rebuilding Code
-**Files**: 
-- `src/mkdocs_to_confluence/transforms/internallinks.py:149-163`
-- `src/mkdocs_to_confluence/transforms/mermaid.py:119-133`
-- `src/mkdocs_to_confluence/transforms/assets.py:145-159`
-- `src/mkdocs_to_confluence/transforms/images.py:94-108`
+**None.**
 
-**Violation**: DRY (Don't Repeat Yourself)
+### ESCALATE Items (2 — both resolved)
 
-**Description**: The `_rebuild()` and `_replace_nodes()` helper functions are duplicated identically across 4 transform modules. This is approximately 30 lines of code duplicated 4 times (120 total lines of duplication).
+#### 1. Global `_styles` in `emitter/xhtml.py` → **APPROVED**
 
-**Evidence**:
-```python
-# Identical in all 4 files:
-def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
-    changes: dict[str, object] = {}
-    for field in dataclasses.fields(node):
-        value = getattr(node, field.name)
-        if isinstance(value, IRNode):
-            replaced = replacements.get(id(value), _rebuild(value, replacements))
-            if replaced is not value:
-                changes[field.name] = replaced
-        elif isinstance(value, tuple) and value and isinstance(value[0], IRNode):
-            rebuilt = _replace_nodes(value, replacements)
-            if rebuilt is not value:
-                changes[field.name] = rebuilt
-    if changes:
-        return dataclasses.replace(node, **changes)
-    return node
-```
+Now documented with a clear section header and docstring. Set-once semantics via `configure_styles()`, called once at CLI entry. Single-threaded CLI — no concurrency concern. Design is sound and appropriate.
 
-**Suggested Fix**: Extract these functions to a shared utility module (e.g., `src/mkdocs_to_confluence/ir/utils.py`) and import them in the transform modules.
+#### 2. Two `_resolve_path` functions in `preprocess/includes.py` and `transforms/assets.py` → **NOT A VIOLATION**
 
-**Why This Matters**: 
-1. Maintenance burden - any bug fix or enhancement must be applied 4 times
-2. Risk of divergence - already 1 file has a docstring, others don't
-3. Violates stated "Simplicity First" principle from CLAUDE.md
-4. Test coverage must be maintained in 4 places
+Different signatures, different resolution order, different validation (`.is_file()` vs `.exists()`). Each serves a different pipeline stage with different semantics. Extracting a shared function would create coupling across stages that should remain independent.
 
-### ESCALATE Items
+---
 
-#### 1. Global State in Emitter Module
-**File**: `src/mkdocs_to_confluence/emitter/xhtml.py:63-69`
+## Coding Principles Compliance
 
-**Ambiguity**: The emitter uses module-level global state (`_styles`) configured via `configure_styles()` before emission.
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| Think Before Coding | ✅ | Clear architecture, explicit assumptions in docstrings |
+| Simplicity First | ✅ | No over-engineering, abstractions only where proven necessary |
+| Surgical Changes | ✅ | v0.5.10 refactor touched only treeutil.py and 4 transform files |
+| Goal-Driven Execution | ✅ | TDD evident, all tests pass after changes |
 
-**Code**:
-```python
-_styles: ExtraStyles | None = None
-
-def configure_styles(styles: ExtraStyles | None) -> None:
-    """Set the module-level extra-CSS styles used during emit."""
-    global _styles
-    _styles = styles
-```
-
-**Analysis**:
-- **Pro**: Avoids threading styles through every emit function
-- **Pro**: Called once per CLI invocation from `cli.py` before any emission
-- **Pro**: Simplifies function signatures throughout emitter
-- **Con**: Not thread-safe (but CLI is single-threaded)
-- **Con**: Makes testing slightly more complex (must configure before each test)
-- **Con**: Global state is generally discouraged
-
-**Current Usage**: Called twice in `cli.py`:
-- Line 152: `configure_styles(config.extra_styles)` in `_cmd_preview()`
-- Line 242: `configure_styles(config.extra_styles)` in `_cmd_publish()`
-
-**Recommendation**: This is a pragmatic design choice for a single-threaded CLI tool. The alternative (passing ExtraStyles through 15+ emit functions) would be more complex. However, document this design decision and consider refactoring if multi-threading is ever needed.
-
-**Why Not DISCARD**: This is an intentional design tradeoff, not a bug or oversight. The simplicity gain is real for a CLI tool.
-
-## Coding Principles Violations
-
-### 1. DRY Violation (Duplicated Tree Rebuilding)
-**Severity**: High  
-**Files**: `transforms/internallinks.py`, `transforms/mermaid.py`, `transforms/assets.py`, `transforms/images.py`  
-**Lines**: ~30 lines duplicated 4x = 120 lines total  
-**Principle**: Simplicity First ("If you write 200 lines and it could be 50, rewrite it")  
-**Description**: Identical tree-rebuilding logic duplicated across transform modules
-
-### 2. Print Statements Instead of Logging
-**Severity**: Low  
-**Count**: 21 print() calls in source code  
-**Principle**: Best practices (logging > print for libraries/tools)  
-**Description**: All output uses `print()` instead of a logging framework. However, this is acceptable for a CLI tool where all output is user-facing status messages, not debug logs.  
-**Verdict**: Not a violation for this use case.
-
-## Minimality Analysis
-
-### ✅ No Speculative Code Found
-- All features map to documented MkDocs/Material constructs
-- No "future-proofing" abstractions
-- No unused classes or functions detected
-- All IR node types are actively used by parser and emitter
-
-### ✅ No Over-Engineering
-- Parser is appropriately simple (two-phase tokenize/build)
-- Transform passes are single-purpose
-- No unnecessary abstraction layers
-- Client code is thin wrapper over HTTP library
-
-### ⚠️ One Minimality Concern
-The duplicated tree-rebuilding code (30 lines × 4 = 120 lines) could be 30 lines in a shared utility. This violates the "minimum code that solves the problem" principle.
-
-## Architecture Compliance
-
-### ✅ Pipeline Stages Properly Separated
-- **Loader** → only reads config/nav, no parsing ✅
-- **Preprocess** → string manipulation only, no IR ✅
-- **Parser** → produces IR, no transforms ✅
-- **Transforms** → IR → IR, no emission ✅
-- **Emitter** → IR → XHTML, no publishing ✅
-- **Publisher** → orchestrates pipeline, calls Confluence API ✅
-
-### ✅ No Cross-Stage Leakage
-Verified via grep:
-- Preprocess does not import parser ✅
-- Parser does not import transforms ✅
-- Transforms do not import emitter ✅
-- All stages consume IR but don't modify node types ✅
-
-### ✅ IR Integrity Maintained
-- All IRNode subclasses are `frozen=True` ✅
-- Document is mutable by design (explicitly documented) ✅
-- Children use `tuple[IRNode, ...]`, never `list` ✅
-- Transform passes use `dataclasses.replace()` for immutable updates ✅
-
-## Test Quality
-
-### Strengths
-- 712 tests, 100% pass rate
-- Comprehensive coverage across all modules
-- Good use of fixtures for common test data
-- Tests have meaningful assertions (no `assert True` stubs)
-- Integration tests against real fixture files
-- Proper test isolation (no shared mutable state)
-
-### Sample Test Quality
-From `tests/test_ir.py`:
-```python
-def test_deterministic(self) -> None:
-    assert compute_sha("hello") == compute_sha("hello")
-
-def test_different_inputs_differ(self) -> None:
-    assert compute_sha("hello") != compute_sha("world")
-```
-✅ Clear, focused, verifiable
-
-From `tests/test_emitter.py`:
-```python
-def test_bold_node(self) -> None:
-    out = emit((Paragraph((BoldNode((TextNode("bold"),)),)),))
-    assert "<strong>bold</strong>" in out
-```
-✅ Tests actual output format
-
-### No Issues Found
-- No trivial tests (e.g., `assert True`)
-- No stub tests with `pass`
-- No tests with only setup and no assertions
-- Good coverage of edge cases (empty strings, unicode, errors)
-
-## Confluence Correctness
-
-### ✅ Storage Format Constructs
-Verified proper use of Confluence storage XHTML:
-- `<ac:structured-macro>` for built-in macros ✅
-- `<ac:parameter>` for macro parameters ✅
-- `<ac:rich-text-body>` for rendered content ✅
-- `<ac:plain-text-body>` for literal text (code) ✅
-- `<ri:attachment>` for asset references ✅
-- `<ri:page>` for internal page links ✅
-- `<ri:url>` for external links ✅
-
-### ✅ Native Constructs Preferred
-- Admonitions → `info`, `warning`, `tip`, `note` macros ✅
-- Code blocks → `code` macro with language/title params ✅
-- Expandable → `expand` macro ✅
-- Mermaid → `<ac:image>` with PNG attachment ✅
-- Tables → native `<table>` with proper attributes ✅
+---
 
 ## Quality Score Breakdown
 
-| Category                  | Max | Score | Notes                                    |
-|---------------------------|-----|-------|------------------------------------------|
-| Test Execution            | 20  | 20    | All 712 tests pass                       |
-| Minimality                | 20  | 15    | -5 for duplicated tree-rebuilding code   |
-| Coding Principles         | 30  | 25    | -5 for DRY violation                     |
-| Test Quality              | 10  | 10    | Comprehensive, meaningful tests          |
-| Architecture Compliance   | 20  | 20    | Perfect stage separation, IR integrity   |
-| **Deductions**            |     | -15   | DRY violation (-10), global state (-5)   |
-| **Final Score**           | 100 | **75**| **Below approval threshold**             |
+| Category | Score | Notes |
+|----------|-------|-------|
+| Architecture | 20/20 | Clean pipeline, immutable IR, typed models |
+| Testing | 20/20 | 720 tests pass, TDD evident |
+| DRY/Maintainability | 18/20 | DRY violation fixed; minor mypy issues |
+| Code Quality | 19/20 | Clean and readable; minor type improvements possible |
+| Documentation | 18/20 | Good docstrings; global _styles documented |
+| **Total** | **95/100** | |
 
-## Technical Debt Identified
-
-| File | Line | Type | Description |
-|------|------|------|-------------|
-| transforms/internallinks.py | 149 | Code Duplication | _rebuild() duplicated 4x |
-| transforms/mermaid.py | 119 | Code Duplication | _rebuild() duplicated 4x |
-| transforms/assets.py | 145 | Code Duplication | _rebuild() duplicated 4x |
-| transforms/images.py | 94 | Code Duplication | _rebuild() duplicated 4x |
-| emitter/xhtml.py | 63 | Design | Global _styles state (document or refactor) |
+---
 
 ## Recommendations
 
-### 1. MUST FIX (Blocking)
-**Extract duplicated tree-rebuilding code**
-- Create `src/mkdocs_to_confluence/ir/treeutil.py`
-- Move `replace_nodes()` and `rebuild_node()` there
-- Import in all 4 transform modules
-- Add comprehensive tests for the utility
-- **Estimated effort**: 30 minutes
-- **Impact**: Eliminates 90 lines of duplication
+### Medium Priority
+- **Type safety cleanup** (30 min): remove 3 unused `# type: ignore` comments; add missing generic type args in ~6 locations
+- **Structured logging** (post-1.0): 37 print statements are fine for MVP CLI; consider Python `logging` for `--verbose`/`--quiet` flags
 
-### 2. SHOULD FIX (Non-blocking)
-**Document global state design choice**
-- Add module-level docstring to `emitter/xhtml.py` explaining why global state is used
-- Add note about thread-safety assumptions
-- **Estimated effort**: 5 minutes
-- **Impact**: Clarifies design intent for future maintainers
+### Low Priority
+- **Rename `_resolve_path` functions**: `_resolve_include_path` and `_resolve_asset_path` to reduce naming confusion
+- **Inline comments** on complex regex patterns in `parser/markdown.py`
 
-### 3. NICE TO HAVE
-**Type ignore audit**
-- 12 `# type: ignore` comments exist
-- Most are for third-party library typing issues
-- Consider wrapping problematic library calls if types become more complete
-- **Estimated effort**: 1-2 hours
-- **Impact**: Improved type safety
+---
 
-## Verdict Explanation
+## Final Verdict
 
-**Why REJECTED**: The single DISCARD item (DRY violation with 120 lines of duplicated code) is sufficient grounds for rejection under the stated rule: *"ZERO TOLERANCE — single DISCARD or quality score below 80 blocks approval."*
+**APPROVED — 95/100**
 
-**Quality Score**: 75/100 is below the 80 threshold primarily due to:
-1. **DRY violation** (-10 points): 120 lines of duplicated tree-rebuilding code across 4 modules
-2. **Design debt** (-5 points): Global state in emitter (though pragmatic, it's still a deviation from best practices)
+Previous score: REJECTED 75/100 (DRY violation)
+Current score: **APPROVED 95/100** (DRY violation fixed, all other areas strong)
 
-**Positive Notes**:
-- Architecture is excellent - clean stage separation
-- IR design is exemplary - frozen dataclasses, proper immutability
-- Test suite is comprehensive (712 tests, 100% pass)
-- No speculative code or over-engineering
-- Confluence constructs used correctly
-- Code is generally clean and well-documented
-
-**What This Means**: This is a high-quality codebase with one clear technical debt item that must be addressed. The fix is straightforward (extract common code to utility module) and non-risky. After this single issue is resolved, the codebase should easily achieve 85+/100 and approval.
-
-## Next Steps
-1. Fix DRY violation by extracting tree utilities
-2. Re-run full test suite (should still be 712 passed)
-3. Re-submit for review
-4. Expected outcome: **APPROVED** with score ~85/100
+The codebase is production-ready. Strong adherence to coding principles, clean architecture, comprehensive test coverage, and no significant issues or anti-patterns.
