@@ -32,3 +32,4 @@ graphify-out/
 # macOS
 .DS_Store
 coverage.xml
+junit.xml
