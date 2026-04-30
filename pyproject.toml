@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-to-confluence"
-version = "0.5.18"
+version = "0.5.19"
 description = "Compile MkDocs markdown to Confluence storage format"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Anders Hybertz" }]
@@ -42,7 +42,7 @@ strict = true
 python_version = "3.12"
 
 [tool.pytest.ini_options]
-addopts = "--cov=mkdocs_to_confluence --cov-report=term-missing --cov-report=xml"
+addopts = "--cov=mkdocs_to_confluence --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy"
 
 [tool.coverage.run]
 source = ["mkdocs_to_confluence"]
