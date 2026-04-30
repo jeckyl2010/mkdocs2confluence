@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-to-confluence"
-version = "0.5.17"
+version = "0.5.18"
 description = "Compile MkDocs markdown to Confluence storage format"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Anders Hybertz" }]
