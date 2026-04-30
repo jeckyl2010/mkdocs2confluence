@@ -23,6 +23,12 @@ jobs:
       - name: Run tests
         run: uv run pytest -q
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
       - name: Build
         run: uv build -q
 
