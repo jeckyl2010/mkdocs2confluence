@@ -33,6 +33,7 @@ from mkdocs_to_confluence.ir.nodes import (
     BulletList,
     ContentTabs,
     Expandable,
+    HorizontalRule,
     IRNode,
     ItalicNode,
     LinkNode,
@@ -180,18 +181,19 @@ def _find_mentioned(text: str, abbrevs: dict[str, str]) -> set[str]:
     }
 
 
-def _build_glossary_section(terms: dict[str, str]) -> Section:
-    """Return a ``Section`` listing abbreviations that could not be expanded inline."""
+def _build_glossary_section(terms: dict[str, str]) -> tuple[IRNode, ...]:
+    """Return an HR + h6 ``Section`` listing abbreviations that could not be expanded inline."""
     items = tuple(
         ListItem(children=(Paragraph(children=(TextNode(f"{abbr} — {defn}"),)),))
         for abbr, defn in sorted(terms.items())
     )
-    return Section(
-        level=2,
+    section = Section(
+        level=6,
         anchor="glossary",
         title=(TextNode("Glossary"),),
         children=(BulletList(items=items),),
     )
+    return (HorizontalRule(), section)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -232,6 +234,6 @@ def apply_abbreviations(
     }
 
     if glossary_needed:
-        transformed = transformed + (_build_glossary_section(glossary_needed),)
+        transformed = transformed + _build_glossary_section(glossary_needed)
 
     return transformed
