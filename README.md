@@ -7,6 +7,7 @@
 [![codecov](https://codecov.io/gh/jeckyl2010/mkdocs2confluence/graph/badge.svg)](https://codecov.io/gh/jeckyl2010/mkdocs2confluence)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![mypy](https://img.shields.io/badge/type--checked-mypy-blue.svg)](https://mypy-lang.org/)
+[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
 A Python CLI tool that compiles MkDocs-flavoured Markdown into native Confluence storage XHTML and publishes it to Confluence.
 
@@ -335,7 +336,8 @@ Any unrecognised block is preserved as a visible `warning` macro — no content 
 See [Setup.md](Setup.md) for environment setup.
 
 ```bash
-pytest           # run tests
-ruff check src   # lint
-mypy src         # type-check
+pytest              # run tests
+ruff check src      # lint
+mypy src            # type-check
+bandit -r src -ll   # security scan
 ```
