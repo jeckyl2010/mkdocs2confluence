@@ -326,7 +326,6 @@ Any unrecognised block is preserved as a visible `warning` macro — no content 
 ## Roadmap
 
 - [ ] **Delete orphaned pages** — detect and remove Confluence pages that were previously published but have since been removed from `nav:`.
-- [ ] **GitHub Actions workflow** — auto-publish on push to main.
 
 ---
 

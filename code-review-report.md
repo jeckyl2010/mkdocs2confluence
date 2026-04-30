@@ -97,7 +97,7 @@ All 13 priority features from CLAUDE.md are implemented:
 | 12 | local Confluence XHTML preview | ✅ |
 | 13 | publish/update to Confluence | ✅ |
 
-Roadmap items (GitHub Actions workflow, orphaned page detection) are future enhancements — not gaps in core functionality. Tool is **feature-complete** for its stated purpose.
+Roadmap items (orphaned page detection) are future enhancements — not gaps in core functionality. The GitHub Actions release workflow is now implemented. Tool is **feature-complete** for its stated purpose.
 
 ---
 
