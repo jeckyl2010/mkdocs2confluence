@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Latest Release](https://img.shields.io/github/v/release/jeckyl2010/mkdocs2confluence)](https://github.com/jeckyl2010/mkdocs2confluence/releases/latest)
+[![CI](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/ci.yml/badge.svg)](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/ci.yml)
 [![Release](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/release.yml/badge.svg)](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/jeckyl2010/mkdocs2confluence/graph/badge.svg)](https://codecov.io/gh/jeckyl2010/mkdocs2confluence)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
