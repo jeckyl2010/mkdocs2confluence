@@ -6,8 +6,6 @@ Install system tools (once):
 
 ```bash
 brew install uv          # fast Python package/version manager
-brew install gh          # GitHub CLI (needed for gh release create)
-gh auth login            # authenticate with your GitHub account
 ```
 
 ## Create a Virtual Environment
@@ -34,18 +32,17 @@ mk2conf --help
 pytest
 ```
 
-## Build a release wheel
-
-```bash
-python -m build          # produces dist/mkdocs_to_confluence-x.y.z-py3-none-any.whl
-```
-
 ## Publish a GitHub release
 
+Bump the version in `pyproject.toml`, commit, tag, and push — GitHub Actions handles the rest:
+
 ```bash
-git tag vX.Y.Z && git push --tags
-gh release create vX.Y.Z dist/*.whl dist/*.tar.gz --title "vX.Y.Z — <title>" --notes "<notes>"
+git add pyproject.toml
+git commit -m "chore: bump version to vX.Y.Z"
+git tag vX.Y.Z && git push origin main --tags
 ```
+
+The release workflow will run tests, build the wheel, and create the GitHub release automatically.
 
 ## Deactivate
 
