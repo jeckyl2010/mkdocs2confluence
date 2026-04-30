@@ -42,13 +42,12 @@ from mkdocs_to_confluence.preprocess.linkdefs import (
     expand_link_refs,
     strip_link_defs,
 )
+from mkdocs_to_confluence.publisher.client import ConfluenceError
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import _make_attachment_name, resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 from mkdocs_to_confluence.transforms.mermaid import DEFAULT_KROKI_URL, render_mermaid_diagrams
-
-from mkdocs_to_confluence.publisher.client import ConfluenceError
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient

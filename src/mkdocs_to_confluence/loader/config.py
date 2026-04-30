@@ -141,7 +141,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         raise FileNotFoundError(f"mkdocs.yml not found: {mkdocs_yml}")
 
     with mkdocs_yml.open(encoding="utf-8") as fh:
-        raw: object = yaml.load(fh, Loader=_make_env_loader())
+        raw: object = yaml.load(fh, Loader=_make_env_loader())  # nosec B506
 
     if not isinstance(raw, dict):
         raise ConfigError("mkdocs.yml must be a YAML mapping at the top level.")

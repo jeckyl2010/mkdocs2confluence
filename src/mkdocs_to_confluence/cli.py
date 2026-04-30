@@ -45,7 +45,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--page",
         metavar="PATH",
         default=None,
-        help="Relative path to the markdown file to compile. Omit when --section is given to preview the whole section.",
+        help=(
+            "Relative path to the markdown file to compile. "
+            "Omit when --section is given to preview the whole section."
+        ),
     )
     preview.add_argument(
         "--out",
@@ -299,7 +302,10 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             elif conf_config.space_key:
                 space_id = client.get_space_id(conf_config.space_key)
             else:
-                print("error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml", file=sys.stderr)
+                print(
+                    "error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
             report = execute_publish(
