@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-to-confluence"
-version = "0.5.16"
+version = "0.5.17"
 description = "Compile MkDocs markdown to Confluence storage format"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Anders Hybertz" }]
@@ -14,6 +14,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
+  "pytest-cov",
   "ruff",
   "mypy",
   "types-PyYAML",
@@ -39,3 +40,17 @@ select = ["E", "F", "I"]
 [tool.mypy]
 strict = true
 python_version = "3.12"
+
+[tool.pytest.ini_options]
+addopts = "--cov=mkdocs_to_confluence --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+source = ["mkdocs_to_confluence"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]

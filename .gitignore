@@ -31,3 +31,4 @@ graphify-out/
 
 # macOS
 .DS_Store
+coverage.xml
