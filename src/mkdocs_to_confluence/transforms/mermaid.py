@@ -27,7 +27,7 @@ from mkdocs_to_confluence.ir.treeutil import replace_nodes
 
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "mermaid"
 DEFAULT_KROKI_URL = "https://kroki.io"
-_TIMEOUT = 15  # seconds — fail fast when Kroki is down
+_TIMEOUT = 30  # seconds — fail fast when Kroki is down
 _MIN_PNG_BYTES = 67  # smallest valid PNG (1×1 px) is 67 bytes
 
 
