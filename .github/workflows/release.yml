@@ -23,6 +23,15 @@ jobs:
       - name: Run tests
         run: uv run pytest -q
 
+      - name: Lint (ruff)
+        run: uv run ruff check src
+
+      - name: Type check (mypy)
+        run: uv run mypy src
+
+      - name: Security scan (bandit)
+        run: uv run bandit -r src -ll -q
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

@@ -13,12 +13,12 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-from mkdocs_to_confluence.ir.treeutil import replace_nodes
 from mkdocs_to_confluence.ir.nodes import (
     ImageNode,
     IRNode,
     walk,
 )
+from mkdocs_to_confluence.ir.treeutil import replace_nodes
 
 
 def is_local(src: str) -> bool:

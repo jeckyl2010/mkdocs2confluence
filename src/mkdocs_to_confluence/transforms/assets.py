@@ -17,13 +17,13 @@ import warnings
 from pathlib import Path
 from urllib.parse import unquote
 
-from mkdocs_to_confluence.ir.treeutil import replace_nodes
 from mkdocs_to_confluence.ir.nodes import (
     ImageNode,
     IRNode,
     LinkNode,
     walk,
 )
+from mkdocs_to_confluence.ir.treeutil import replace_nodes
 
 
 def is_url(value: str) -> bool:

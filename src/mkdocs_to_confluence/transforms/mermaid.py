@@ -45,7 +45,7 @@ def _kroki_png(source: str, kroki_url: str) -> bytes:
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310  # nosec B310
         return cast(bytes, resp.read())
 
 

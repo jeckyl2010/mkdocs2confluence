@@ -53,11 +53,11 @@ def _rebuild(node: IRNode, replacements: dict[int, IRNode]) -> IRNode:
             changed = False
             for item in value:
                 if isinstance(item, tuple) and any(isinstance(x, IRNode) for x in item):
-                    new_item = replace_nodes(item, replacements)  # type: ignore[arg-type]
+                    new_item = replace_nodes(item, replacements)
                     new_outer.append(new_item)
                     changed = changed or new_item is not item
                 else:
-                    new_outer.append(item)  # type: ignore[arg-type]
+                    new_outer.append(item)
             if changed:
                 changes[field.name] = tuple(new_outer)
     if changes:

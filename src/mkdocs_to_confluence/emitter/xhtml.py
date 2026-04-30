@@ -28,7 +28,6 @@ from mkdocs_to_confluence.ir.nodes import (
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
-    DefinitionItem,
     DefinitionList,
     Expandable,
     FootnoteBlock,
