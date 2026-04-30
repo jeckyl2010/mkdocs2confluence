@@ -7,6 +7,7 @@ from mkdocs_to_confluence.ir.nodes import (
     BoldNode,
     BulletList,
     CodeBlock,
+    HorizontalRule,
     LinkNode,
     Paragraph,
     Section,
@@ -130,11 +131,13 @@ def test_glossary_appended_for_heading_only_abbrev():
         children=(),
     )
     result = apply_abbreviations((section,), abbrevs, page_text="IAM Platform")
-    # A Glossary section should be appended
-    assert len(result) == 2
-    glossary = result[1]
+    # An HR separator and a Glossary section should be appended
+    assert len(result) == 3
+    assert isinstance(result[1], HorizontalRule)
+    glossary = result[2]
     assert isinstance(glossary, Section)
     assert glossary.anchor == "glossary"
+    assert glossary.level == 6
     # Glossary should list the term
     bullet_list = glossary.children[0]
     assert isinstance(bullet_list, BulletList)
@@ -148,7 +151,8 @@ def test_no_glossary_when_abbrev_expanded_inline():
     nodes = (_para("The IAM platform."),)
     result = apply_abbreviations(nodes, abbrevs, page_text="The IAM platform.")
     # Expanded inline, but also added to glossary for bottom-of-page reference
-    assert len(result) == 2
+    assert len(result) == 3
+    assert isinstance(result[1], HorizontalRule)
     glossary = result[-1]
     assert isinstance(glossary, Section)
     assert glossary.anchor == "glossary"
@@ -242,7 +246,8 @@ def test_glossary_includes_inline_expanded_abbrevs():
     assert "API (Application Programming Interface)" in body_text
     assert "IAM (Identity and Access Management)" in body_text
     # ...AND both should appear in the glossary at the bottom.
-    assert len(result) == 2
+    assert len(result) == 3
+    assert isinstance(result[1], HorizontalRule)
     glossary = result[-1]
     assert isinstance(glossary, Section)
     items = glossary.children[0].items  # type: ignore[union-attr]
