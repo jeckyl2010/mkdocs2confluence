@@ -3,6 +3,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("mkdocs-to-confluence")
+    __version__ = version("mkdocs2confluence")
 except PackageNotFoundError:
     __version__ = "unknown"
