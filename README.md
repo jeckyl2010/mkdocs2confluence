@@ -18,52 +18,7 @@ It is a **compiler/transpiler**, not an HTML converter — every Markdown constr
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Input
-        A[mkdocs.yml\nconf config + nav]
-        B[Markdown files\n+ assets]
-    end
-
-    subgraph Loader
-        C[Config loader\nMkDocsConfig\nConfluenceConfig]
-        D[Nav resolver\nNavNode tree]
-    end
-
-    subgraph Preprocess
-        E[Front matter\nIncludes / snippets\nAbbreviations\nIcon shortcodes\nLink definitions]
-    end
-
-    subgraph IR
-        F[Markdown → IR\nDocument node tree]
-    end
-
-    subgraph Transforms
-        G[Mermaid → PNG\nInternal links\nAsset paths\nAbbrev expansion\nEdit link\nCSS styles]
-    end
-
-    subgraph Emitter
-        H[IR → Confluence\nstorage XHTML]
-    end
-
-    subgraph Publisher
-        I[Plan\ncreate / update / skip\nper nav node]
-        J[Execute\nPages · Folders\nStub pages · Assets]
-        K[Confluence Cloud\nREST API v2]
-    end
-
-    A --> C
-    A --> D
-    B --> E
-    C --> E
-    D --> I
-    E --> F
-    F --> G
-    G --> H
-    H --> I
-    I --> J
-    J --> K
-```
+![Architecture](https://raw.githubusercontent.com/jeckyl2010/mkdocs2confluence/main/docs/architecture.png)
 
 Each stage is a separate Python module under `src/mkdocs_to_confluence/`. The **plan** phase makes all API read calls (find existing pages); the **execute** phase makes all write calls, ensuring parents always exist before children.
 
