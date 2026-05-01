@@ -56,3 +56,8 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+
+      - name: Publish to PyPI
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}

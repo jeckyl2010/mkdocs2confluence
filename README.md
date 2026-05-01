@@ -73,19 +73,17 @@ Each stage is a separate Python module under `src/mkdocs_to_confluence/`. The **
 
 Requires Python 3.12+.
 
-**From the latest GitHub release:**
+**From PyPI:**
 
 ```bash
-pip install https://github.com/jeckyl2010/mkdocs2confluence/releases/latest/download/mkdocs_to_confluence-latest-py3-none-any.whl
+pip install mkdocs2confluence
 ```
 
 Or with `pipx` for an isolated install:
 
 ```bash
-pipx install https://github.com/jeckyl2010/mkdocs2confluence/releases/latest/download/mkdocs_to_confluence-latest-py3-none-any.whl
+pipx install mkdocs2confluence
 ```
-
-Find the exact URL for a specific version on the [Releases page](https://github.com/jeckyl2010/mkdocs2confluence/releases).
 
 **From source** (see [Setup.md](Setup.md)):
 
