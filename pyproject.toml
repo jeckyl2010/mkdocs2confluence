@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs2confluence"
-version = "0.5.27"
+version = "0.5.28"
 description = "Publish MkDocs Material pages to Confluence Cloud — admonitions, Mermaid diagrams, tabs, page properties and more"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
