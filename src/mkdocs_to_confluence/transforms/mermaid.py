@@ -17,8 +17,10 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import sys
+import threading
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import cast
 
@@ -29,6 +31,8 @@ _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "mermaid"
 DEFAULT_KROKI_URL = "https://kroki.io"
 _TIMEOUT = 30  # seconds — fail fast when Kroki is down
 _MIN_PNG_BYTES = 67  # smallest valid PNG (1×1 px) is 67 bytes
+_CACHE_LOCK = threading.Lock()
+_MAX_WORKERS = 8
 
 
 def _kroki_png(source: str, kroki_url: str) -> bytes:
@@ -58,12 +62,36 @@ def _warn(msg: str) -> None:
     print(f"  warning    {msg}", file=sys.stderr)
 
 
+def _render_one(source: str, kroki_url: str) -> Path | None:
+    """Render a single diagram to cache. Returns cache path on success, None on failure."""
+    path = _cache_path(source)
+    if path.exists():
+        print("        rendering  mermaid diagram (cached)")
+        return path
+    try:
+        print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
+        png = _kroki_png(source, kroki_url)
+        if len(png) < _MIN_PNG_BYTES:
+            raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
+        with _CACHE_LOCK:
+            path.write_bytes(png)
+        return path
+    except urllib.error.HTTPError as exc:
+        _warn(f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason} — falling back to code block")
+    except urllib.error.URLError as exc:
+        _warn(f"mermaid diagram: Kroki unreachable ({exc.reason}) — falling back to code block")
+    except (OSError, ValueError) as exc:
+        _warn(f"mermaid diagram: {exc} — falling back to code block")
+    return None
+
+
 def render_mermaid_diagrams(
     nodes: tuple[IRNode, ...],
     kroki_url: str = DEFAULT_KROKI_URL,
 ) -> tuple[tuple[IRNode, ...], list[Path]]:
     """Render all :class:`MermaidDiagram` nodes to PNG via Kroki.
 
+    Diagrams are rendered concurrently (up to ``_MAX_WORKERS`` threads).
     Returns the updated IR node tuple (with ``attachment_name`` set on each
     successfully rendered diagram) and a list of PNG :class:`Path` objects to
     upload as page attachments.
@@ -76,47 +104,44 @@ def render_mermaid_diagrams(
     except OSError as exc:
         _warn(f"cannot create mermaid cache dir {_CACHE_DIR}: {exc} — all diagrams will fall back to code blocks")
 
+    # Collect all unresolved MermaidDiagram nodes (deduplicated by source).
+    diagrams: list[MermaidDiagram] = []
+    seen_sources: set[str] = set()
+    for top_node in nodes:
+        for node in walk(top_node):
+            if isinstance(node, MermaidDiagram) and node.attachment_name is None:
+                if node.source not in seen_sources:
+                    diagrams.append(node)
+                    seen_sources.add(node.source)
+
+    if not diagrams:
+        return nodes, []
+
+    # Render all diagrams concurrently, preserving source → result mapping.
+    source_to_path: dict[str, Path | None] = {}
+    with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(diagrams))) as pool:
+        future_to_source = {
+            pool.submit(_render_one, d.source, kroki_url): d.source for d in diagrams
+        }
+        for future in as_completed(future_to_source):
+            source = future_to_source[future]
+            source_to_path[source] = future.result()
+
+    # Build replacements and attachments from results.
     attachments: list[Path] = []
     replacements: dict[int, IRNode] = {}
     seen_paths: set[Path] = set()
 
     for top_node in nodes:
         for node in walk(top_node):
-            if not isinstance(node, MermaidDiagram):
+            if not isinstance(node, MermaidDiagram) or node.attachment_name is not None:
                 continue
-            if node.attachment_name is not None:
-                continue  # already resolved
-
-            path = _cache_path(node.source)
-            if not path.exists():
-                try:
-                    print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
-                    png = _kroki_png(node.source, kroki_url)
-                    if len(png) < _MIN_PNG_BYTES:
-                        raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
-                    path.write_bytes(png)
-                except urllib.error.HTTPError as exc:
-                    _warn(
-                        f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason}"
-                        " — falling back to code block"
-                    )
-                    continue
-                except urllib.error.URLError as exc:
-                    _warn(
-                        f"mermaid diagram: Kroki unreachable ({exc.reason})"
-                        " — falling back to code block"
-                    )
-                    continue
-                except (OSError, ValueError) as exc:
-                    _warn(f"mermaid diagram: {exc} — falling back to code block")
-                    continue
-            else:
-                print("        rendering  mermaid diagram (cached)")
-
+            path = source_to_path.get(node.source)
+            if path is None:
+                continue  # render failed — leave as code block
             if path not in seen_paths:
                 attachments.append(path)
                 seen_paths.add(path)
-
             replacements[id(node)] = dataclasses.replace(
                 node, attachment_name=path.name, local_path=path
             )

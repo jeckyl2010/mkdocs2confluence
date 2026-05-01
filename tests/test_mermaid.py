@@ -197,3 +197,75 @@ def test_render_mermaid_none_skips(tmp_path):
     mock_fetch.assert_not_called()
     assert len(attachments) == 0
     assert updated_nodes[0].attachment_name == "already_set.png"  # type: ignore[union-attr]
+
+
+# ── Parallel rendering ────────────────────────────────────────────────────────
+
+
+def test_render_multiple_diagrams_concurrently(tmp_path):
+    """Multiple distinct diagrams are all rendered (parallel path)."""
+    sources = [f"graph TD\n    A{i} --> B{i}\n" for i in range(4)]
+    nodes = tuple(MermaidDiagram(source=s) for s in sources)
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG):
+        updated, attachments = render_mermaid_diagrams(nodes)
+
+    assert len(attachments) == 4
+    for node in updated:
+        assert isinstance(node, MermaidDiagram)
+        assert node.attachment_name is not None
+
+
+def test_render_one_failure_does_not_block_others(tmp_path):
+    """If one diagram fails, the rest still render successfully."""
+    import urllib.error
+
+    good_source = "graph TD\n    A --> B\n"
+    bad_source = "graph TD\n    X --> Y\n"
+    nodes = (MermaidDiagram(source=good_source), MermaidDiagram(source=bad_source))
+
+    def fake_kroki(source: str, url: str) -> bytes:
+        if source == bad_source:
+            raise urllib.error.URLError("timeout")
+        return _FAKE_PNG
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", side_effect=fake_kroki):
+        updated, attachments = render_mermaid_diagrams(nodes)
+
+    # One attachment for the successful diagram
+    assert len(attachments) == 1
+    # Good diagram got attachment_name; bad one stayed as code-block fallback
+    assert updated[0].attachment_name is not None  # type: ignore[union-attr]
+    assert updated[1].attachment_name is None  # type: ignore[union-attr]
+
+
+def test_render_one_cached(tmp_path):
+    """_render_one returns the cache path immediately for cached diagrams."""
+    from mkdocs_to_confluence.transforms.mermaid import _render_one, _cache_path
+
+    path = tmp_path / "mermaid_cached.png"
+    path.write_bytes(_FAKE_PNG)
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid._cache_path", return_value=path), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png") as mock_fetch:
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
+
+    mock_fetch.assert_not_called()
+    assert result == path
+
+
+def test_render_one_network_failure_returns_none(tmp_path):
+    """_render_one returns None on network failure."""
+    import urllib.error
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+               side_effect=urllib.error.URLError("connection refused")):
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
+
+    assert result is None
+
