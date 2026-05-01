@@ -1455,3 +1455,433 @@ def test_execute_publish_non_stale_update_error_is_recorded(tmp_path: Path) -> N
     report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
     assert len(report.errors) == 1
     assert "409" in report.errors[0][1]
+
+
+# ── TestExecutePublishHelpers ─────────────────────────────────────────────────
+
+
+from mkdocs_to_confluence.publisher.pipeline import (  # noqa: E402
+    _execute_folder_action,
+    _execute_page_action,
+    _post_process_action,
+    _wire_children,
+)
+
+
+class TestExecutePublishHelpers:
+    """Unit tests for the 4 private helpers extracted from execute_publish."""
+
+    # ── _execute_folder_action ────────────────────────────────────────────────
+
+    def test_folder_page_id_already_set_increments_updated(self, tmp_path: Path) -> None:
+        """page_id already set → reuse, no client calls, report.updated += 1."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("Sec", [])
+        action = PageAction(node=node, title="Sec", action="create",
+                            parent_id="ROOT", is_folder=True, page_id="existing-1")
+        client = MagicMock()
+        report = PublishReport()
+
+        _execute_folder_action(action, client, "s1", "ROOT", report)
+
+        assert report.updated == 1
+        assert report.created == 0
+        client.find_folder_under.assert_not_called()
+        client.create_folder.assert_not_called()
+
+    def test_folder_parent_is_folder_existing_reused(self, tmp_path: Path) -> None:
+        """parent_is_folder=True + find_folder_under hits → reuse, report.updated += 1."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("Sec", [])
+        action = PageAction(node=node, title="Sec", action="create",
+                            parent_id="parent-1", is_folder=True,
+                            parent_is_folder=True)
+        client = MagicMock()
+        client.find_folder_under.return_value = {"id": "folder-55"}
+        report = PublishReport()
+
+        _execute_folder_action(action, client, "s1", None, report)
+
+        assert action.page_id == "folder-55"
+        assert report.updated == 1
+        assert report.created == 0
+        client.create_folder.assert_not_called()
+
+    def test_folder_parent_is_folder_not_found_creates(self, tmp_path: Path) -> None:
+        """parent_is_folder=True + find_folder_under miss → create_folder, report.created += 1."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("Sec", [])
+        action = PageAction(node=node, title="Sec", action="create",
+                            parent_id="parent-1", is_folder=True,
+                            parent_is_folder=True)
+        client = MagicMock()
+        client.find_folder_under.return_value = None
+        client.create_folder.return_value = {"id": "new-folder-99"}
+        report = PublishReport()
+
+        _execute_folder_action(action, client, "s1", None, report)
+
+        assert action.page_id == "new-folder-99"
+        assert report.created == 1
+        assert report.updated == 0
+        client.create_folder.assert_called_once_with("s1", "Sec", parent_id="parent-1")
+
+    def test_folder_find_folder_under_raises_falls_through_to_create(self) -> None:
+        """find_folder_under raising → warn, fall through to create_folder."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("Sec", [])
+        action = PageAction(node=node, title="Sec", action="create",
+                            parent_id="parent-1", is_folder=True,
+                            parent_is_folder=True)
+        client = MagicMock()
+        client.find_folder_under.side_effect = RuntimeError("network error")
+        client.create_folder.return_value = {"id": "fallback-77"}
+        report = PublishReport()
+
+        _execute_folder_action(action, client, "s1", None, report)
+
+        assert action.page_id == "fallback-77"
+        assert report.created == 1
+        client.create_folder.assert_called_once()
+
+    def test_folder_parent_is_page_existing_page_reused(self) -> None:
+        """Parent is a page (not folder, not root) → stub path: find_page hits → updated."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("Sec", [])
+        action = PageAction(node=node, title="Sec", action="create",
+                            parent_id="some-page-id", is_folder=True,
+                            parent_is_folder=False)
+        client = MagicMock()
+        client.find_page.return_value = {"id": "stub-88"}
+        report = PublishReport()
+
+        _execute_folder_action(action, client, "s1", "ROOT", report)
+
+        assert action.page_id == "stub-88"
+        assert action.is_folder is False
+        assert report.updated == 1
+        client.create_page.assert_not_called()
+
+    def test_folder_parent_is_page_no_existing_creates_stub(self) -> None:
+        """Parent is a page → stub path: find_page miss → create_page stub called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("Sec", [])
+        action = PageAction(node=node, title="Sec", action="create",
+                            parent_id="some-page-id", is_folder=True,
+                            parent_is_folder=False)
+        client = MagicMock()
+        client.find_page.return_value = None
+        client.create_page.return_value = {"id": "stub-created-12"}
+        report = PublishReport()
+
+        _execute_folder_action(action, client, "s1", "ROOT", report)
+
+        assert action.page_id == "stub-created-12"
+        assert action.is_folder is False
+        assert report.created == 1
+        client.create_page.assert_called_once_with(
+            "s1", "Sec", "", parent_id="some-page-id"
+        )
+
+    # ── _execute_page_action ──────────────────────────────────────────────────
+
+    def test_page_create_calls_create_page_and_stamp(self) -> None:
+        """create → create_page called, page_id set, report.created += 1, stamp_managed called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", xhtml="<p/>")
+        client = MagicMock()
+        client.create_page.return_value = {"id": "new-5"}
+        report = PublishReport()
+
+        _execute_page_action(action, client, "s1", report)
+
+        assert action.page_id == "new-5"
+        assert report.created == 1
+        assert report.updated == 0
+        client.create_page.assert_called_once_with(
+            "s1", "P", "<p/>", parent_id="ROOT"
+        )
+        client.stamp_managed.assert_called_once_with("new-5")
+
+    def test_page_create_stamp_managed_raises_non_fatal(self) -> None:
+        """create + stamp_managed raises → non-fatal, report.created still incremented."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", xhtml="<p/>")
+        client = MagicMock()
+        client.create_page.return_value = {"id": "new-6"}
+        client.stamp_managed.side_effect = RuntimeError("stamp failed")
+        report = PublishReport()
+
+        _execute_page_action(action, client, "s1", report)
+
+        assert action.page_id == "new-6"
+        assert report.created == 1
+
+    def test_page_update_calls_update_page(self) -> None:
+        """update → update_page called, report.updated += 1."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="update",
+                            parent_id="ROOT", xhtml="<p/>",
+                            page_id="existing-9", version=3)
+        client = MagicMock()
+        report = PublishReport()
+
+        _execute_page_action(action, client, "s1", report)
+
+        assert report.updated == 1
+        client.update_page.assert_called_once_with(
+            "existing-9", "P", "<p/>", 4, parent_id="ROOT"
+        )
+        client.create_page.assert_not_called()
+
+    def test_page_update_404_falls_back_to_create(self) -> None:
+        """update + HTTP 404 → fallback create_page, report.created += 1."""
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="update",
+                            parent_id="ROOT", xhtml="<p/>",
+                            page_id="stale-10", version=1)
+        client = MagicMock()
+        client.update_page.side_effect = ConfluenceError("HTTP 404 not found")
+        client.create_page.return_value = {"id": "fresh-20"}
+        report = PublishReport()
+
+        _execute_page_action(action, client, "s1", report)
+
+        assert action.page_id == "fresh-20"
+        assert report.created == 1
+        assert report.updated == 0
+        client.create_page.assert_called_once()
+
+    def test_page_update_400_another_space_falls_back_to_create(self) -> None:
+        """update + HTTP 400 'another space' → fallback create_page."""
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="update",
+                            parent_id="ROOT", xhtml="<p/>",
+                            page_id="stale-11", version=2)
+        client = MagicMock()
+        client.update_page.side_effect = ConfluenceError(
+            "HTTP 400 Can't add a parent from another space"
+        )
+        client.create_page.return_value = {"id": "fresh-21"}
+        report = PublishReport()
+
+        _execute_page_action(action, client, "s1", report)
+
+        assert action.page_id == "fresh-21"
+        assert report.created == 1
+
+    def test_page_update_non_stale_error_reraises(self) -> None:
+        """update + HTTP 500 → re-raises (not caught by helper)."""
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="update",
+                            parent_id="ROOT", xhtml="<p/>",
+                            page_id="page-12", version=1)
+        client = MagicMock()
+        client.update_page.side_effect = ConfluenceError("HTTP 500 server error")
+        report = PublishReport()
+
+        with pytest.raises(ConfluenceError, match="HTTP 500"):
+            _execute_page_action(action, client, "s1", report)
+
+    # ── _wire_children ────────────────────────────────────────────────────────
+
+    def test_wire_children_sets_parent_id_and_is_folder(self) -> None:
+        """Section with 2 children → both get parent_id and parent_is_folder updated."""
+        child1 = NavNode(title="C1", docs_path="c1.md", source_path=None, level=1)
+        child2 = NavNode(title="C2", docs_path="c2.md", source_path=None, level=1)
+        section = NavNode(title="Sec", docs_path=None, source_path=None, level=0,
+                          children=(child1, child2))
+
+        action = PageAction(node=section, title="Sec", action="create",
+                            parent_id="ROOT", is_folder=True, page_id="sec-id-1")
+        child1_action = PageAction(node=child1, title="C1", action="create",
+                                   parent_id=None)
+        child2_action = PageAction(node=child2, title="C2", action="create",
+                                   parent_id=None)
+
+        action_by_node = {
+            id(child1): child1_action,
+            id(child2): child2_action,
+        }
+
+        _wire_children(action, action_by_node)
+
+        assert child1_action.parent_id == "sec-id-1"
+        assert child1_action.parent_is_folder is True
+        assert child2_action.parent_id == "sec-id-1"
+        assert child2_action.parent_is_folder is True
+
+    def test_wire_children_noop_when_page_id_none(self) -> None:
+        """action.page_id is None → children not updated."""
+        child = NavNode(title="C", docs_path="c.md", source_path=None, level=1)
+        section = NavNode(title="Sec", docs_path=None, source_path=None, level=0,
+                          children=(child,))
+
+        action = PageAction(node=section, title="Sec", action="create",
+                            parent_id="ROOT", is_folder=True, page_id=None)
+        child_action = PageAction(node=child, title="C", action="create",
+                                  parent_id=None)
+        action_by_node = {id(child): child_action}
+
+        _wire_children(action, action_by_node)
+
+        assert child_action.parent_id is None
+
+    # ── _post_process_action ──────────────────────────────────────────────────
+
+    def test_post_full_width_called_when_true(self, tmp_path: Path) -> None:
+        """full_width=True + not folder → set_page_full_width called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-1")
+        client = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=True,
+                             docs_dir=tmp_path, report=report)
+
+        client.set_page_full_width.assert_called_once_with("pid-1")
+
+    def test_post_full_width_not_called_when_false(self, tmp_path: Path) -> None:
+        """full_width=False → set_page_full_width NOT called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-2")
+        client = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=False,
+                             docs_dir=tmp_path, report=report)
+
+        client.set_page_full_width.assert_not_called()
+
+    def test_post_full_width_not_called_for_folder(self, tmp_path: Path) -> None:
+        """is_folder=True → set_page_full_width + set_page_labels NOT called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("F", [])
+        action = PageAction(node=node, title="F", action="create",
+                            parent_id="ROOT", page_id="pid-3",
+                            is_folder=True, labels=("a", "b"))
+        client = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=True,
+                             docs_dir=tmp_path, report=report)
+
+        client.set_page_full_width.assert_not_called()
+        client.set_page_labels.assert_not_called()
+
+    def test_post_labels_called_when_set(self, tmp_path: Path) -> None:
+        """action.labels set + not folder → set_page_labels called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-4",
+                            labels=("foo", "bar"))
+        client = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=False,
+                             docs_dir=tmp_path, report=report)
+
+        client.set_page_labels.assert_called_once_with("pid-4", ("foo", "bar"))
+
+    def test_post_content_hash_stored_on_create(self, tmp_path: Path) -> None:
+        """content_hash + action='create' → set_content_hash called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-5",
+                            content_hash="abc123")
+        client = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=False,
+                             docs_dir=tmp_path, report=report)
+
+        client.set_content_hash.assert_called_once_with("pid-5", "abc123")
+
+    def test_post_content_hash_not_stored_on_skip(self, tmp_path: Path) -> None:
+        """content_hash + action='skip' → set_content_hash NOT called."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="skip",
+                            parent_id="ROOT", page_id="pid-6",
+                            content_hash="abc456")
+        client = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=False,
+                             docs_dir=tmp_path, report=report)
+
+        client.set_content_hash.assert_not_called()
+
+    def test_post_attachments_uploaded_and_counted(self, tmp_path: Path) -> None:
+        """action.attachments set → _upload_assets called, report.assets_uploaded incremented."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        img = docs_dir / "pic.png"
+        img.write_bytes(b"PNG")
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-7",
+                            attachments=[img])
+        client = MagicMock()
+        client.list_attachments.return_value = {}
+        client.upload_attachment.return_value = None
+        report = PublishReport()
+
+        _post_process_action(action, client, full_width=False,
+                             docs_dir=docs_dir, report=report)
+
+        client.upload_attachment.assert_called_once()
+        assert report.assets_uploaded == 1
+
+    def test_post_full_width_raises_non_fatal(self, tmp_path: Path) -> None:
+        """set_page_full_width raising → non-fatal, no exception propagated."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-8")
+        client = MagicMock()
+        client.set_page_full_width.side_effect = RuntimeError("layout error")
+        report = PublishReport()
+
+        # Must not raise
+        _post_process_action(action, client, full_width=True,
+                             docs_dir=tmp_path, report=report)
