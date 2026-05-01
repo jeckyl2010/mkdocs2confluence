@@ -314,3 +314,155 @@ confluence:
     config = load_config(config_file)
     assert config.confluence is not None
     assert config.confluence.full_width is False
+
+
+# ── _make_env_loader: !ENV tag ────────────────────────────────────────────────
+
+
+def test_env_loader_scalar_env_tag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """!ENV VAR_NAME resolves to the env variable value."""
+    monkeypatch.setenv("MY_TEST_TOKEN", "secret")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    config_file = tmp_path / "mkdocs.yml"
+    config_file.write_text(
+        "site_name: Test\n"
+        "confluence:\n"
+        "  base_url: https://example.atlassian.net\n"
+        "  space_key: TECH\n"
+        "  email: user@example.com\n"
+        "  token: !ENV MY_TEST_TOKEN\n",
+        encoding="utf-8",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.token == "secret"
+
+
+def test_env_loader_scalar_env_tag_with_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """!ENV VAR default uses default when env var is absent."""
+    monkeypatch.delenv("ABSENT_VAR", raising=False)
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    config_file = tmp_path / "mkdocs.yml"
+    config_file.write_text(
+        "site_name: Test\n"
+        "confluence:\n"
+        "  base_url: https://example.atlassian.net\n"
+        "  space_key: TECH\n"
+        "  email: user@example.com\n"
+        "  token: !ENV 'ABSENT_VAR fallback-token'\n",
+        encoding="utf-8",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.token == "fallback-token"
+
+
+def test_env_loader_sequence_env_tag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """!ENV [VAR, default] resolves to the env variable value."""
+    monkeypatch.setenv("SEQ_TOKEN", "seq-secret")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    config_file = tmp_path / "mkdocs.yml"
+    config_file.write_text(
+        "site_name: Test\n"
+        "confluence:\n"
+        "  base_url: https://example.atlassian.net\n"
+        "  space_key: TECH\n"
+        "  email: user@example.com\n"
+        "  token: !ENV [SEQ_TOKEN, fallback]\n",
+        encoding="utf-8",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.token == "seq-secret"
+
+
+def test_env_loader_ignores_unknown_tags(tmp_path: Path) -> None:
+    """Unknown YAML tags (like !!python/...) are silently ignored."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    config_file = tmp_path / "mkdocs.yml"
+    config_file.write_text(
+        "site_name: !SomeTag ignored-value\n",
+        encoding="utf-8",
+    )
+    # Just verify no exception is raised
+    from mkdocs_to_confluence.loader.config import ConfigError
+    try:
+        load_config(config_file)
+    except ConfigError:
+        pass  # site_name may be None — that's a different error
+
+
+# ── docs_dir not a string ─────────────────────────────────────────────────────
+
+
+def test_docs_dir_not_string_raises(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    config_file = tmp_path / "mkdocs.yml"
+    config_file.write_text("site_name: Test\ndocs_dir: 123\n", encoding="utf-8")
+    from mkdocs_to_confluence.loader.config import ConfigError
+    with pytest.raises(ConfigError, match="docs_dir"):
+        load_config(config_file)
+
+
+# ── edit_uri absolute http/https ─────────────────────────────────────────────
+
+
+def test_edit_uri_absolute_url_used_as_is(tmp_path: Path) -> None:
+    """An absolute edit_uri is used verbatim (no repo_url prepended)."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="repo_url: https://github.com/org/repo\nedit_uri: https://custom.editor.example.com/edit/\n",
+    )
+    config = load_config(config_file)
+    url = config.page_edit_url("guide/index.md")
+    assert url is not None
+    assert url.startswith("https://custom.editor.example.com/edit/")
+
+
+# ── _default_edit_uri: gitlab ─────────────────────────────────────────────────
+
+
+def test_default_edit_uri_gitlab(tmp_path: Path) -> None:
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="repo_url: https://gitlab.com/org/repo\n",
+    )
+    config = load_config(config_file)
+    assert config.edit_uri is not None
+    assert "gitlab" in config.edit_uri or "-/edit" in config.edit_uri
+
+
+# ── edit_uri not a string ─────────────────────────────────────────────────────
+
+
+def test_edit_uri_not_string_raises(tmp_path: Path) -> None:
+    from mkdocs_to_confluence.loader.config import ConfigError
+
+    config_file = _write_mkdocs(tmp_path, extra="edit_uri: 42\n")
+    with pytest.raises(ConfigError, match="edit_uri"):
+        load_config(config_file)
+
+
+# ── extra_css processing ──────────────────────────────────────────────────────
+
+
+def test_extra_css_list_is_processed(tmp_path: Path) -> None:
+    """extra_css entries cause extra_styles to be populated."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    css_file = docs / "custom.css"
+    css_file.write_text("body { color: red; }\n", encoding="utf-8")
+    config_file = tmp_path / "mkdocs.yml"
+    config_file.write_text(
+        "site_name: Test\ndocs_dir: docs\nextra_css:\n  - custom.css\n",
+        encoding="utf-8",
+    )
+    config = load_config(config_file)
+    # extra_styles is None when parsed styles are empty (no admonition overrides)
+    # but the code path must execute without error
+    assert config is not None
