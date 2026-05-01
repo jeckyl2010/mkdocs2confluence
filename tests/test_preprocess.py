@@ -212,7 +212,17 @@ class TestMissingInclude:
         with pytest.raises(IncludeError, match="page.md"):
             preprocess_includes(src.read_text(), src, tmp_path)
 
-    def test_missing_nested_include_raises(self, tmp_path: Path) -> None:
+    def test_path_traversal_is_rejected(self, tmp_path: Path) -> None:
+        """A --8<-- path that escapes docs_dir is treated as missing."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        secret = tmp_path / "secret.md"
+        secret.write_text("TOP SECRET")
+        src = make_file(docs, "page.md", '--8<-- "../secret.md"\n')
+        with pytest.raises(IncludeError):
+            preprocess_includes(src.read_text(), src, docs)
+
+
         make_file(tmp_path, "middle.md", '--8<-- "ghost.md"\n')
         src = make_file(tmp_path, "page.md", '--8<-- "middle.md"\n')
         with pytest.raises(IncludeError, match="ghost.md"):

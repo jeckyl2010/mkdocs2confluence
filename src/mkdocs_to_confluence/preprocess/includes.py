@@ -290,7 +290,7 @@ def _resolve_include_path(rel_path: str, source_path: Path, docs_dir: Path) -> P
     """
     for base in (docs_dir, source_path.parent):
         candidate = (base / rel_path).resolve()
-        if candidate.is_file():
+        if candidate.is_file() and candidate.is_relative_to(base.resolve()):
             return candidate
     return None
 
