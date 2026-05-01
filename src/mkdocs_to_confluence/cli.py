@@ -115,6 +115,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Write a JSON publish report to FILE after the run.",
     )
+    publish.add_argument(
+        "--prune",
+        action="store_true",
+        help=(
+            "Delete managed Confluence pages that are no longer in the MkDocs nav. "
+            "Only pages stamped by mk2conf are eligible — manually-created pages are never deleted. "
+            "Ignored when --page or --section is used."
+        ),
+    )
 
     return parser
 
@@ -308,10 +317,14 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                 )
                 sys.exit(1)
             plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
+            # --prune is silently disabled for partial publishes (--page / --section)
+            # because published_ids would only cover the subset, not the full nav.
+            partial = bool(getattr(args, "page", None) or getattr(args, "section", None))
             report = execute_publish(
                 plan, client, dry_run=False, space_id=space_id,
                 docs_dir=config.docs_dir, full_width=conf_config.full_width,
                 root_page_id=conf_config.parent_page_id,
+                prune=getattr(args, "prune", False) and not partial,
             )
     except ConfluenceError as exc:
         print(f"error: {exc}", file=sys.stderr)

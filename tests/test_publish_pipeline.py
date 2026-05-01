@@ -998,3 +998,139 @@ class TestExecutePublish:
         assert section_action.page_id is not None
         assert section_action.page_id != "old-space-stale-id"
         assert child_action.parent_id == section_action.page_id
+
+
+class TestPruneOrphans:
+    """Tests for orphaned page detection and pruning."""
+
+    def test_prune_deletes_managed_orphan(self, tmp_path: Path) -> None:
+        """A managed descendant not in published_ids must be deleted."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("My Page", tmp_path, docs_dir)
+        action = PageAction(node=page, title="My Page", action="create", parent_id="ROOT")
+
+        client = _make_execute_client()
+        client.get_descendant_ids.return_value = ["orphan-99"]
+        client.is_managed.return_value = True
+
+        report = execute_publish(
+            [action], client, space_id="~42", docs_dir=docs_dir,
+            root_page_id="ROOT", prune=True,
+        )
+
+        client.delete_page.assert_called_once_with("orphan-99")
+        assert report.pruned == 1
+
+    def test_prune_skips_unmanaged_orphan(self, tmp_path: Path) -> None:
+        """A manually-created page (no mk2conf-managed stamp) must not be deleted."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("My Page", tmp_path, docs_dir)
+        action = PageAction(node=page, title="My Page", action="create", parent_id="ROOT")
+
+        client = _make_execute_client()
+        client.get_descendant_ids.return_value = ["manual-page-55"]
+        client.is_managed.return_value = False
+
+        report = execute_publish(
+            [action], client, space_id="~42", docs_dir=docs_dir,
+            root_page_id="ROOT", prune=True,
+        )
+
+        client.delete_page.assert_not_called()
+        assert report.pruned == 0
+
+    def test_prune_skips_published_pages(self, tmp_path: Path) -> None:
+        """Published pages that are descendants must not be deleted."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("My Page", tmp_path, docs_dir)
+        action = PageAction(node=page, title="My Page", action="create", parent_id="ROOT")
+
+        client = _make_execute_client()
+        # The newly created page has an id set by create_page side_effect (101)
+        # We simulate get_descendant_ids returning that same id
+        client.get_descendant_ids.return_value = ["101"]
+
+        report = execute_publish(
+            [action], client, space_id="~42", docs_dir=docs_dir,
+            root_page_id="ROOT", prune=True,
+        )
+
+        client.is_managed.assert_not_called()
+        client.delete_page.assert_not_called()
+        assert report.pruned == 0
+
+    def test_prune_disabled_by_default(self, tmp_path: Path) -> None:
+        """Without prune=True, descendant IDs are never fetched."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("My Page", tmp_path, docs_dir)
+        action = PageAction(node=page, title="My Page", action="create", parent_id="ROOT")
+
+        client = _make_execute_client()
+
+        execute_publish(
+            [action], client, space_id="~42", docs_dir=docs_dir,
+            root_page_id="ROOT",
+        )
+
+        client.get_descendant_ids.assert_not_called()
+
+    def test_prune_disabled_when_no_root_page_id(self, tmp_path: Path) -> None:
+        """prune=True without root_page_id does nothing."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("My Page", tmp_path, docs_dir)
+        action = PageAction(node=page, title="My Page", action="create", parent_id=None)
+
+        client = _make_execute_client()
+
+        execute_publish(
+            [action], client, space_id="~42", docs_dir=docs_dir,
+            prune=True,  # no root_page_id
+        )
+
+        client.get_descendant_ids.assert_not_called()
+
+    def test_stamp_managed_called_on_create(self, tmp_path: Path) -> None:
+        """stamp_managed must be called for each newly created page."""
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("My Page", tmp_path, docs_dir)
+        action = PageAction(node=page, title="My Page", action="create", parent_id="ROOT")
+
+        client = _make_execute_client()
+
+        execute_publish(
+            [action], client, space_id="~42", docs_dir=docs_dir, root_page_id="ROOT",
+        )
+
+        client.stamp_managed.assert_called_once()
+
+    def test_report_str_shows_pruned_count(self) -> None:
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        r = PublishReport(created=2, updated=1, skipped=0, pruned=3)
+        out = str(r)
+        assert "3 orphaned page(s) deleted" in out
+
+    def test_report_str_omits_pruned_when_zero(self) -> None:
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        r = PublishReport(created=2, updated=1, skipped=0, pruned=0)
+        out = str(r)
+        assert "Pruned" not in out

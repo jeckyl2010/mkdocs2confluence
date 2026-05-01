@@ -8,11 +8,19 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from typing import Any, cast
 
 import httpx
 
 from mkdocs_to_confluence.loader.config import ConfluenceConfig
+
+
+def _extract_cursor(next_url: str) -> str:
+    """Extract the ``cursor`` query parameter from a pagination ``next`` URL."""
+    qs = parse_qs(urlparse(next_url).query)
+    cursors = qs.get("cursor", [])
+    return cursors[0] if cursors else ""
 
 
 class ConfluenceError(RuntimeError):
@@ -409,3 +417,59 @@ class ConfluenceClient:
             headers={"X-Atlassian-Token": "no-check"},
         )
         self._raise_for_status(resp, f"upload_attachment({filename!r})")
+
+    # ── Orphan detection ───────────────────────────────────────────────────────
+
+    def stamp_managed(self, page_id: str) -> None:
+        """Mark *page_id* as managed by mk2conf via a v2 content property.
+
+        The property ``mk2conf-managed`` is set to ``true`` on first publish and
+        never updated.  It is used by :meth:`is_managed` to distinguish pages
+        created by mk2conf from manually-created Confluence pages.
+
+        Errors are swallowed — this is a best-effort stamp and must never block
+        a publish.
+        """
+        url = self._v2(f"/pages/{page_id}/properties/mk2conf-managed")
+        get_resp = self._http.get(url)
+        if get_resp.status_code == 200:
+            return  # already stamped
+        self._http.post(
+            self._v2(f"/pages/{page_id}/properties"),
+            json={"key": "mk2conf-managed", "value": True},
+        )
+
+    def get_descendant_ids(self, page_id: str) -> list[str]:
+        """Return all descendant page IDs under *page_id* at all depths.
+
+        Uses ``GET /wiki/api/v2/pages/{id}/descendants?depth=all``.
+        Paginates automatically via cursor.  Returns page IDs only — callers
+        that need to filter by managed status use :meth:`is_managed`.
+        """
+        ids: list[str] = []
+        url = self._v2(f"/pages/{page_id}/descendants")
+        params: dict[str, str | int] = {"depth": "all", "limit": 250}
+        while True:
+            resp = self._http.get(url, params=params)
+            self._raise_for_status(resp, f"get_descendant_ids({page_id!r})")
+            data = resp.json()
+            for item in data.get("results", []):
+                if item.get("type") == "page":
+                    ids.append(str(item["id"]))
+            next_url = data.get("_links", {}).get("next")
+            if not next_url:
+                break
+            # next_url is an absolute path — extract cursor and re-request
+            url = self._v2(f"/pages/{page_id}/descendants")
+            params = {"depth": "all", "limit": 250, "cursor": _extract_cursor(next_url)}
+        return ids
+
+    def is_managed(self, page_id: str) -> bool:
+        """Return ``True`` if *page_id* has the ``mk2conf-managed`` property."""
+        resp = self._http.get(self._v2(f"/pages/{page_id}/properties/mk2conf-managed"))
+        return resp.status_code == 200
+
+    def delete_page(self, page_id: str) -> None:
+        """Permanently delete *page_id* from Confluence."""
+        resp = self._http.delete(self._v2(f"/pages/{page_id}"))
+        self._raise_for_status(resp, f"delete_page({page_id!r})")

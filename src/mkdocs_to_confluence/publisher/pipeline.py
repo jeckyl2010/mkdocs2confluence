@@ -88,6 +88,7 @@ class PublishReport:
     skipped: int = 0
     assets_uploaded: int = 0
     assets_skipped: int = 0
+    pruned: int = 0
     errors: list[tuple[str, str]] = field(default_factory=list)
 
     @property
@@ -99,6 +100,8 @@ class PublishReport:
             f"Published:  {self.created} created, {self.updated} updated, {self.skipped} skipped",
             f"Assets:     {self.assets_uploaded} uploaded, {self.assets_skipped} skipped",
         ]
+        if self.pruned:
+            lines.append(f"Pruned:     {self.pruned} orphaned page(s) deleted")
         if self.errors:
             lines.append(f"Errors:     {len(self.errors)}")
             for title, msg in self.errors:
@@ -463,6 +466,7 @@ def execute_publish(
     docs_dir: Path,
     full_width: bool = True,
     root_page_id: str | None = None,
+    prune: bool = False,
 ) -> PublishReport:
     """Execute the publish plan.
 
@@ -563,6 +567,10 @@ def execute_publish(
                 )
                 action.page_id = str(page["id"])
                 report.created += 1
+                try:
+                    client.stamp_managed(action.page_id)
+                except Exception:
+                    pass  # non-fatal
             elif action.action == "update":
                 assert action.page_id is not None
                 assert action.version is not None
@@ -598,6 +606,10 @@ def execute_publish(
                     )
                     action.page_id = str(page["id"])
                     report.created += 1
+                    try:
+                        client.stamp_managed(action.page_id)
+                    except Exception:
+                        pass  # non-fatal
         except Exception as exc:
             report.errors.append((action.title, str(exc)))
             # Do NOT `continue` — all post-execute blocks below are guarded by
@@ -645,4 +657,41 @@ def execute_publish(
             for name, msg in asset_errors:
                 report.errors.append((f"{action.title} / {name}", msg))
 
+    if prune and root_page_id:
+        published_ids = {a.page_id for a in plan if a.page_id}
+        _prune_orphans(client, root_page_id, published_ids, report)
+
     return report
+
+
+def _prune_orphans(
+    client: ConfluenceClient,
+    root_page_id: str,
+    published_ids: set[str],
+    report: PublishReport,
+) -> None:
+    """Delete managed descendant pages that are no longer in the publish plan.
+
+    Only pages that carry the ``mk2conf-managed`` property are eligible for
+    deletion — manually-created Confluence pages are left untouched.
+    """
+    try:
+        all_descendants = client.get_descendant_ids(root_page_id)
+    except Exception as exc:
+        print(f"  [warn] prune: could not fetch descendants — {exc}")
+        return
+
+    orphan_candidates = [pid for pid in all_descendants if pid not in published_ids]
+    if not orphan_candidates:
+        return
+
+    print(f"\nPruning: checking {len(orphan_candidates)} orphan candidate(s)...")
+    for page_id in orphan_candidates:
+        try:
+            if not client.is_managed(page_id):
+                continue
+            client.delete_page(page_id)
+            report.pruned += 1
+            print(f"  deleted orphan page {page_id}")
+        except Exception as exc:
+            print(f"  [warn] prune: failed to delete page {page_id} — {exc}")
