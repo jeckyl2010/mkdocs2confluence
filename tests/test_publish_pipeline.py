@@ -1134,3 +1134,324 @@ class TestPruneOrphans:
         r = PublishReport(created=2, updated=1, skipped=0, pruned=0)
         out = str(r)
         assert "Pruned" not in out
+
+
+# ── PublishReport.total_pages ─────────────────────────────────────────────────
+
+
+def test_publish_report_total_pages() -> None:
+    from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+    r = PublishReport(created=3, updated=2, skipped=1)
+    assert r.total_pages == 6
+
+
+# ── PublishReport.__str__ with errors ────────────────────────────────────────
+
+
+def test_publish_report_str_with_errors() -> None:
+    from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+    r = PublishReport(created=1, updated=0, skipped=0, errors=[("MyPage", "oops")])
+    out = str(r)
+    assert "Errors:" in out
+    assert "MyPage" in out
+    assert "oops" in out
+
+
+# ── _extract_ready_flag edge cases ────────────────────────────────────────────
+
+
+def test_extract_ready_flag_yaml_error_returns_none() -> None:
+    from mkdocs_to_confluence.publisher.pipeline import _extract_ready_flag
+
+    # Invalid YAML inside front matter
+    raw = "---\n: :\n---\n"
+    # Should not raise; returns None
+    result = _extract_ready_flag(raw)
+    assert result is None
+
+
+def test_extract_ready_flag_non_dict_returns_none() -> None:
+    from mkdocs_to_confluence.publisher.pipeline import _extract_ready_flag
+
+    # Front matter that parses to a scalar string, not a dict
+    raw = "---\njust a string\n---\n"
+    result = _extract_ready_flag(raw)
+    assert result is None
+
+
+def test_extract_ready_flag_missing_key_returns_none() -> None:
+    from mkdocs_to_confluence.publisher.pipeline import _extract_ready_flag
+
+    # Valid dict front matter, but no 'ready' key
+    raw = "---\ntitle: Hello\n---\n"
+    result = _extract_ready_flag(raw)
+    assert result is None
+
+
+# ── execute_publish dry_run=True ──────────────────────────────────────────────
+
+
+def test_execute_publish_dry_run_counts_actions(tmp_path: Path) -> None:
+    """dry_run=True returns counts without calling the client."""
+    from unittest.mock import MagicMock
+
+    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    a = _make_page_node("A", tmp_path, docs_dir)
+    b = _make_page_node("B", tmp_path, docs_dir)
+    c = _make_page_node("C", tmp_path, docs_dir)
+
+    plan = [
+        PageAction(node=a, title="A", action="create", parent_id="ROOT", xhtml="<p/>"),
+        PageAction(node=b, title="B", action="update", parent_id="ROOT", xhtml="<p/>", page_id="10", version=1),
+        PageAction(node=c, title="C", action="skip", parent_id="ROOT"),
+    ]
+    client = MagicMock()
+    report = execute_publish(plan, client, dry_run=True, space_id="~42", docs_dir=docs_dir)
+
+    assert report.created == 1
+    assert report.updated == 1
+    assert report.skipped == 1
+    client.create_page.assert_not_called()
+    client.update_page.assert_not_called()
+
+
+# ── _prune_orphans error paths ────────────────────────────────────────────────
+
+
+def test_prune_orphans_get_descendants_raises_prints_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """When get_descendant_ids raises, prune prints a warning and returns."""
+    from unittest.mock import MagicMock
+
+    from mkdocs_to_confluence.publisher.pipeline import PublishReport, _prune_orphans
+
+    client = MagicMock()
+    client.get_descendant_ids.side_effect = RuntimeError("network error")
+    report = PublishReport()
+    _prune_orphans(client, "ROOT", set(), report)
+
+    captured = capsys.readouterr()
+    assert "warn" in captured.out.lower() or "prune" in captured.out.lower()
+    assert report.pruned == 0
+
+
+def test_prune_orphans_delete_raises_continues(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """When delete_page raises, the warning is printed and other orphans are processed."""
+    from unittest.mock import MagicMock
+
+    from mkdocs_to_confluence.publisher.pipeline import PublishReport, _prune_orphans
+
+    client = MagicMock()
+    client.get_descendant_ids.return_value = ["orphan1", "orphan2"]
+    client.is_managed.return_value = True
+    client.delete_page.side_effect = RuntimeError("delete failed")
+    report = PublishReport()
+    _prune_orphans(client, "ROOT", set(), report)
+
+    captured = capsys.readouterr()
+    assert "warn" in captured.out.lower() or "failed" in captured.out.lower()
+    assert report.pruned == 0
+
+
+# ── execute_publish non-fatal error paths ─────────────────────────────────────
+
+
+class TestExecutePublishNonFatal:
+    """Non-fatal try/except blocks inside execute_publish must not abort the run."""
+
+    def _make_client(self) -> MagicMock:
+        client = MagicMock()
+        counter = {"n": 200}
+
+        def create_page(sid, title, xhtml, *, parent_id=None):
+            counter["n"] += 1
+            return {"id": counter["n"], "version": {"number": 1}}
+
+        client.create_page.side_effect = create_page
+        client.find_folder_under.return_value = None
+        client.find_page.return_value = None
+        client.update_page.return_value = {"id": 99, "version": {"number": 2}}
+        client.list_attachments.return_value = {}
+        return client
+
+    def test_stamp_managed_failure_is_non_fatal(self, tmp_path: Path) -> None:
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("P", tmp_path, docs_dir)
+        plan = [PageAction(node=page, title="P", action="create", parent_id="ROOT", xhtml="<p/>")]
+        client = self._make_client()
+        client.stamp_managed.side_effect = Exception("stamp failed")
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        assert report.created == 1
+        assert report.errors == []
+
+    def test_set_content_hash_failure_is_non_fatal(self, tmp_path: Path) -> None:
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("P", tmp_path, docs_dir)
+        plan = [PageAction(node=page, title="P", action="create", parent_id="ROOT",
+                           xhtml="<p/>", content_hash="abc123")]
+        client = self._make_client()
+        client.set_content_hash.side_effect = Exception("hash failed")
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        assert report.created == 1
+        assert report.errors == []
+
+    def test_set_page_full_width_failure_is_non_fatal(self, tmp_path: Path) -> None:
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("P", tmp_path, docs_dir)
+        plan = [PageAction(node=page, title="P", action="create", parent_id="ROOT", xhtml="<p/>")]
+        client = self._make_client()
+        client.set_page_full_width.side_effect = Exception("layout failed")
+        report = execute_publish(
+            plan, client, space_id="~42", docs_dir=docs_dir, full_width=True
+        )
+        assert report.created == 1
+        assert report.errors == []
+
+    def test_set_page_labels_failure_is_non_fatal(self, tmp_path: Path) -> None:
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("P", tmp_path, docs_dir)
+        plan = [PageAction(node=page, title="P", action="create", parent_id="ROOT",
+                           xhtml="<p/>", labels=("tag1",))]
+        client = self._make_client()
+        client.set_page_labels.side_effect = Exception("labels failed")
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        assert report.created == 1
+        assert report.errors == []
+
+    def test_stamp_managed_after_fallback_create_is_non_fatal(self, tmp_path: Path) -> None:
+        """stamp_managed after the update-fallback-to-create path is also non-fatal."""
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.client import ConfluenceError
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("P", tmp_path, docs_dir)
+        plan = [PageAction(node=page, title="P", action="update", parent_id="ROOT",
+                           xhtml="<p/>", page_id="50", version=1)]
+        client = self._make_client()
+        # update_page raises 404 → triggers fallback create
+        client.update_page.side_effect = ConfluenceError("HTTP 404 — not found")
+        client.stamp_managed.side_effect = Exception("stamp failed")
+        report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+        assert report.created == 1
+        assert report.errors == []
+
+
+# ── execute_publish: asset upload error appended to report ────────────────────
+
+
+def test_execute_publish_asset_upload_error_in_report(tmp_path: Path) -> None:
+    """Asset upload errors must be recorded in the report, not raise."""
+    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    pdf = docs_dir / "doc.pdf"
+    pdf.write_bytes(b"PDF")
+    page = _make_page_node("P", tmp_path, docs_dir)
+    plan = [PageAction(node=page, title="P", action="create", parent_id="ROOT",
+                       xhtml="<p/>", attachments=[pdf])]
+    client = _make_execute_client()
+    client.upload_attachment.side_effect = Exception("upload failed")
+    report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+    assert report.created == 1
+    assert len(report.errors) == 1
+    assert "doc.pdf" in report.errors[0][0]
+
+
+# ── execute_publish: find_folder_under failure is non-fatal ──────────────────
+
+
+def test_execute_publish_find_folder_under_failure_continues(tmp_path: Path) -> None:
+    """find_folder_under raising must not abort the run — a new folder is created."""
+    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    child = _make_page_node("Child", tmp_path, docs_dir)
+    section = _make_section_node("Section", [child])
+    plan = [
+        PageAction(node=section, title="Section", action="create", parent_id="ROOT",
+                   xhtml=None, is_folder=True),
+        PageAction(node=child, title="Child", action="create", parent_id=None,
+                   xhtml="<p/>"),
+    ]
+    client = _make_execute_client()
+    client.find_folder_under.side_effect = Exception("network error")
+    # Should not raise
+    report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir,
+                             root_page_id="ROOT")
+    assert report.created >= 1
+
+
+# ── execute_publish: stub page reuse (existing folder found under page parent) ─
+
+
+def test_execute_publish_stub_page_reuse(tmp_path: Path) -> None:
+    """When a stub page already exists for a section under a page parent, it is reused."""
+    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    child = _make_page_node("Child", tmp_path, docs_dir)
+    section = _make_section_node("Section", [child])
+
+    # Simulate an orphaned page that was formerly a section — reuse it
+    existing_page = {"id": "77", "title": "Section", "version": {"number": 1}}
+    client = _make_execute_client()
+    # find_folder_under returns None → falls through to stub page path
+    client.find_folder_under.return_value = None
+    # find_page returns existing stub
+    client.find_page.return_value = existing_page
+
+    plan = [
+        PageAction(node=section, title="Section", action="create", parent_id="DYNAMIC_PARENT",
+                   xhtml=None, is_folder=True, parent_is_folder=False),
+        PageAction(node=child, title="Child", action="create", parent_id=None,
+                   xhtml="<p/>"),
+    ]
+    report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir,
+                             root_page_id="ROOT")
+    # The existing stub is reused (updated count)
+    assert report.updated >= 1
+
+
+# ── execute_publish: non-stale ConfluenceError re-raises ─────────────────────
+
+
+def test_execute_publish_non_stale_update_error_is_recorded(tmp_path: Path) -> None:
+    """A non-stale ConfluenceError from update_page is recorded in report errors."""
+    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+    from mkdocs_to_confluence.publisher.client import ConfluenceError
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    page = _make_page_node("P", tmp_path, docs_dir)
+    plan = [PageAction(node=page, title="P", action="update", parent_id="ROOT",
+                       xhtml="<p/>", page_id="50", version=1)]
+    client = _make_execute_client()
+    client.update_page.side_effect = ConfluenceError("HTTP 409 — conflict")
+    # Non-stale error is re-raised and caught by the outer except, stored in errors
+    report = execute_publish(plan, client, space_id="~42", docs_dir=docs_dir)
+    assert len(report.errors) == 1
+    assert "409" in report.errors[0][1]

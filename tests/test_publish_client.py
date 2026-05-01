@@ -588,3 +588,142 @@ def test_delete_page_raises_on_error() -> None:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         with pytest.raises(ConfluenceError):
             client.delete_page("42")
+
+
+# ── _http raises when not used as context manager ─────────────────────────────
+
+
+def test_http_raises_when_not_context_manager() -> None:
+    """Accessing _http outside a context manager must raise RuntimeError."""
+    from mkdocs_to_confluence.publisher.client import ConfluenceClient
+    config = _make_config()
+    client = ConfluenceClient(config)
+    with pytest.raises(RuntimeError, match="context manager"):
+        _ = client._http
+
+
+# ── get_space_id_from_page: 404 ───────────────────────────────────────────────
+
+
+def test_get_space_id_from_page_raises_on_404() -> None:
+    """HTTP 404 must raise ConfluenceError with a helpful message."""
+    transport = _MockTransport(_json_response({"message": "Not Found"}, status_code=404))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        with pytest.raises(ConfluenceError, match="404"):
+            client.get_space_id_from_page("999")
+
+
+# ── update_page with parent_id ────────────────────────────────────────────────
+
+
+def test_update_page_includes_parent_id_when_provided() -> None:
+    """When parent_id is supplied it must appear in the request body."""
+    returned_page = {"id": "99", "title": "Updated", "version": {"number": 2}}
+    transport = _MockTransport(_json_response(returned_page))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.update_page("99", "Updated", "<p>new</p>", version=2, parent_id="77")
+    body = json.loads(transport.requests[0].content)
+    assert body["parentId"] == "77"
+
+
+# ── find_folder_under ─────────────────────────────────────────────────────────
+
+
+def test_find_folder_under_page_parent() -> None:
+    """Uses /pages/{id}/direct-children when parent is a page."""
+    payload = {"results": [{"type": "folder", "title": "Section", "id": "77"}]}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.find_folder_under("ROOT", "Section", parent_is_folder=False)
+    assert result is not None
+    assert result["id"] == "77"
+    assert "/pages/ROOT/direct-children" in str(transport.requests[0].url)
+
+
+def test_find_folder_under_folder_parent() -> None:
+    """Uses /folders/{id}/direct-children when parent_is_folder=True."""
+    payload = {"results": [{"type": "folder", "title": "Sub", "id": "88"}]}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.find_folder_under("FOLDERID", "Sub", parent_is_folder=True)
+    assert result is not None
+    assert result["id"] == "88"
+    assert "/folders/FOLDERID/direct-children" in str(transport.requests[0].url)
+
+
+def test_find_folder_under_returns_none_when_not_found() -> None:
+    payload = {"results": [{"type": "page", "title": "Other", "id": "99"}]}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.find_folder_under("ROOT", "Missing", parent_is_folder=False)
+    assert result is None
+
+
+# ── find_folder_in_space ──────────────────────────────────────────────────────
+
+
+def test_find_folder_in_space_returns_match() -> None:
+    payload = {"results": [{"title": "Section", "id": "55"}]}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.find_folder_in_space("42", "Section")
+    assert result is not None
+    assert result["id"] == "55"
+
+
+def test_find_folder_in_space_returns_none_when_no_space_key() -> None:
+    """Returns None immediately when space_key is not configured."""
+    from mkdocs_to_confluence.loader.config import ConfluenceConfig
+    config = ConfluenceConfig(
+        base_url="https://example.atlassian.net",
+        space_key=None,
+        email="user@example.com",
+        token="tok",
+        parent_page_id="999",
+    )
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client()  # type: ignore[assignment]
+        result = client.find_folder_in_space("42", "Section")
+    assert result is None
+
+
+def test_find_folder_in_space_returns_none_when_no_match() -> None:
+    payload = {"results": [{"title": "OtherFolder", "id": "55"}]}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.find_folder_in_space("42", "TargetFolder")
+    assert result is None
+
+
+# ── create_folder: 400 fallback ───────────────────────────────────────────────
+
+
+def test_create_folder_returns_existing_on_400_duplicate() -> None:
+    """When Confluence returns 400 'same title', falls back to find_folder_in_space."""
+    bad_response = httpx.Response(
+        400,
+        content=b"folder exists with the same title",
+        headers={"Content-Type": "text/plain"},
+    )
+    existing_folder_payload = {"results": [{"title": "MySection", "id": "77"}]}
+    good_response = _json_response(existing_folder_payload)
+    transport = _MockTransport(bad_response, good_response)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.create_folder("42", "MySection")
+    assert result["id"] == "77"
