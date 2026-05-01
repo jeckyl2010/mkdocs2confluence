@@ -35,7 +35,9 @@ jobs:
         run: uv run vulture src --min-confidence 80
 
       - name: Complexity report (radon)
-        run: uv run radon cc src -a -n C
+        run: |
+          echo "## Cyclomatic Complexity (C and above)" >> $GITHUB_STEP_SUMMARY
+          uv run radon cc src -a -n C --md >> $GITHUB_STEP_SUMMARY
 
       - name: Dependency audit (pip-audit)
         run: uv run pip-audit
