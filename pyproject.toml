@@ -1,5 +1,5 @@
 [project]
-name = "mkdocs-to-confluence"
+name = "mkdocs2confluence"
 version = "0.5.24"
 description = "Compile MkDocs markdown to Confluence storage format"
 license = { text = "GPL-3.0-or-later" }
