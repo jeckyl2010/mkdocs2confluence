@@ -18,6 +18,7 @@ import dataclasses
 import hashlib
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,6 +34,9 @@ _TIMEOUT = 30  # seconds — fail fast when Kroki is down
 _MIN_PNG_BYTES = 67  # smallest valid PNG (1×1 px) is 67 bytes
 _CACHE_LOCK = threading.Lock()
 _MAX_WORKERS = 8
+_RETRY_ATTEMPTS = 3
+_RETRY_BACKOFF = 1.0  # seconds; doubles each attempt
+_RETRYABLE_HTTP = {429, 500, 502, 503, 504}
 
 
 def _kroki_png(source: str, kroki_url: str) -> bytes:
@@ -63,25 +67,45 @@ def _warn(msg: str) -> None:
 
 
 def _render_one(source: str, kroki_url: str) -> Path | None:
-    """Render a single diagram to cache. Returns cache path on success, None on failure."""
+    """Render a single diagram to cache. Returns cache path on success, None on failure.
+
+    Transient HTTP errors (429, 5xx) and network blips are retried up to
+    ``_RETRY_ATTEMPTS`` times with exponential backoff.
+    """
     path = _cache_path(source)
     if path.exists():
         print("        rendering  mermaid diagram (cached)")
         return path
-    try:
-        print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
-        png = _kroki_png(source, kroki_url)
-        if len(png) < _MIN_PNG_BYTES:
-            raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
-        with _CACHE_LOCK:
-            path.write_bytes(png)
-        return path
-    except urllib.error.HTTPError as exc:
-        _warn(f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason} — falling back to code block")
-    except urllib.error.URLError as exc:
-        _warn(f"mermaid diagram: Kroki unreachable ({exc.reason}) — falling back to code block")
-    except (OSError, ValueError) as exc:
-        _warn(f"mermaid diagram: {exc} — falling back to code block")
+
+    last_exc: Exception | None = None
+    for attempt in range(_RETRY_ATTEMPTS):
+        if attempt > 0:
+            delay = _RETRY_BACKOFF * (2 ** (attempt - 1))
+            _warn(f"mermaid diagram: retrying in {delay:.0f}s (attempt {attempt + 1}/{_RETRY_ATTEMPTS})")
+            time.sleep(delay)
+        try:
+            print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
+            png = _kroki_png(source, kroki_url)
+            if len(png) < _MIN_PNG_BYTES:
+                raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
+            with _CACHE_LOCK:
+                path.write_bytes(png)
+            return path
+        except urllib.error.HTTPError as exc:
+            if exc.code in _RETRYABLE_HTTP:
+                last_exc = exc
+                continue  # retry
+            _warn(f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason} — falling back to code block")
+            return None
+        except urllib.error.URLError as exc:
+            last_exc = exc
+            continue  # retry — network blip
+        except (OSError, ValueError) as exc:
+            _warn(f"mermaid diagram: {exc} — falling back to code block")
+            return None
+
+    # All retries exhausted
+    _warn(f"mermaid diagram: failed after {_RETRY_ATTEMPTS} attempts ({last_exc}) — falling back to code block")
     return None
 
 

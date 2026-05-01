@@ -109,6 +109,7 @@ def test_render_fallback_on_network_error(tmp_path, capsys):
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
+        patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"),
         patch(
             "mkdocs_to_confluence.transforms.mermaid._kroki_png",
             side_effect=urllib.error.URLError("timed out"),
@@ -119,7 +120,6 @@ def test_render_fallback_on_network_error(tmp_path, capsys):
     assert len(attachments) == 0
     assert updated_nodes[0].attachment_name is None  # type: ignore[union-attr]
     err = capsys.readouterr().err
-    assert "Kroki unreachable" in err
     assert "falling back to code block" in err
 
 
@@ -131,6 +131,7 @@ def test_render_fallback_on_http_error(tmp_path, capsys):
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
+        patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"),
         patch(
             "mkdocs_to_confluence.transforms.mermaid._kroki_png",
             side_effect=urllib.error.HTTPError(
@@ -143,7 +144,6 @@ def test_render_fallback_on_http_error(tmp_path, capsys):
     assert len(attachments) == 0
     assert updated_nodes[0].attachment_name is None  # type: ignore[union-attr]
     err = capsys.readouterr().err
-    assert "HTTP 503" in err
     assert "falling back to code block" in err
 
 
@@ -258,14 +258,71 @@ def test_render_one_cached(tmp_path):
 
 
 def test_render_one_network_failure_returns_none(tmp_path):
-    """_render_one returns None on network failure."""
+    """_render_one returns None after all retries on persistent network failure."""
     import urllib.error
     from mkdocs_to_confluence.transforms.mermaid import _render_one
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
          patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
                side_effect=urllib.error.URLError("connection refused")):
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
     assert result is None
+
+
+# ── Retry behaviour ───────────────────────────────────────────────────────────
+
+
+def test_render_one_retries_on_503_then_succeeds(tmp_path):
+    """_render_one retries on HTTP 503 and succeeds on the second attempt."""
+    import urllib.error
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
+
+    calls = [urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None), _FAKE_PNG]
+
+    def fake_kroki(source: str, url: str) -> bytes:
+        result = calls.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep") as mock_sleep, \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", side_effect=fake_kroki):
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
+
+    assert result is not None
+    assert result.exists()
+    mock_sleep.assert_called_once_with(1.0)  # backed off once
+
+
+def test_render_one_non_retryable_http_error_returns_none(tmp_path):
+    """_render_one does not retry on HTTP 400 (bad input) — returns None immediately."""
+    import urllib.error
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep") as mock_sleep, \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+               side_effect=urllib.error.HTTPError("url", 400, "Bad Request", {}, None)):
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
+
+    assert result is None
+    mock_sleep.assert_not_called()  # no retry for 400
+
+
+def test_render_one_exhausts_retries_on_persistent_503(tmp_path):
+    """_render_one returns None after all attempts on persistent 503."""
+    import urllib.error
+    from mkdocs_to_confluence.transforms.mermaid import _render_one, _RETRY_ATTEMPTS
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+               side_effect=urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None)) as mock_fetch:
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
+
+    assert result is None
+    assert mock_fetch.call_count == _RETRY_ATTEMPTS
 
