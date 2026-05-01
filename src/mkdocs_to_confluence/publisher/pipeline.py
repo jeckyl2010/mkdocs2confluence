@@ -458,6 +458,184 @@ def _upload_assets(
     return uploaded, skipped, errors
 
 
+def _execute_folder_action(
+    action: PageAction,
+    client: ConfluenceClient,
+    space_id: str,
+    root_page_id: str | None,
+    report: PublishReport,
+) -> None:
+    """Handle folder create/find for a single folder action."""
+    if action.page_id is not None:
+        # Already found at plan time — reuse.
+        report.updated += 1
+    elif action.parent_is_folder or action.parent_id == root_page_id:
+        # Parent is a Confluence folder, or this is a top-level section
+        # directly under the configured root page — use native folder API.
+        existing_folder = None
+        if action.parent_id is not None:
+            try:
+                existing_folder = client.find_folder_under(
+                    action.parent_id,
+                    action.title,
+                    parent_is_folder=action.parent_is_folder,
+                )
+            except Exception as find_exc:
+                print(
+                    f"         [warn] find_folder_under failed "
+                    f"(parent_id={action.parent_id}): {find_exc}"
+                )
+        if existing_folder is not None:
+            action.page_id = str(existing_folder["id"])
+            report.updated += 1
+        else:
+            folder_parent = (
+                action.parent_id if action.parent_is_folder else None
+            )
+            folder = client.create_folder(
+                space_id, action.title, parent_id=folder_parent
+            )
+            action.page_id = str(folder["id"])
+            report.created += 1
+            print(
+                f"         folder id={action.page_id}"
+                f"  parent_id={action.parent_id}"
+                f"  parent_is_folder={action.parent_is_folder}"
+            )
+    else:
+        # Parent is a dynamically-created page (e.g. a section-index page).
+        # Confluence folders cannot be nested under pages — use a stub page.
+        action.is_folder = False
+        existing = client.find_page(space_id, action.title)
+        if existing is not None:
+            action.page_id = str(existing["id"])
+            report.updated += 1
+        else:
+            stub = client.create_page(
+                space_id, action.title, "", parent_id=action.parent_id,
+            )
+            action.page_id = str(stub["id"])
+            report.created += 1
+
+
+def _execute_page_action(
+    action: PageAction,
+    client: ConfluenceClient,
+    space_id: str,
+    report: PublishReport,
+) -> None:
+    """Handle create/update (with stale fallback) for a single page action."""
+    if action.action == "create":
+        page = client.create_page(
+            space_id,
+            action.title,
+            action.xhtml or "",
+            parent_id=action.parent_id,
+        )
+        action.page_id = str(page["id"])
+        report.created += 1
+        try:
+            client.stamp_managed(action.page_id)
+        except Exception:
+            pass  # non-fatal
+    elif action.action == "update":
+        if action.page_id is None or action.version is None:
+            raise RuntimeError(
+                f"Update action for '{action.title}' is missing page_id or version"
+            )
+        try:
+            client.update_page(
+                action.page_id,
+                action.title,
+                action.xhtml or "",
+                action.version + 1,
+                parent_id=action.parent_id,
+            )
+            report.updated += 1
+        except ConfluenceError as upd_exc:
+            err = str(upd_exc)
+            # 404 = page deleted; 400 "another space" = stale page_id
+            # from a different Confluence space.  Both mean the existing
+            # page can't be updated — fall back to create a fresh one.
+            is_stale = "HTTP 404" in err or (
+                "HTTP 400" in err and "another space" in err.lower()
+            )
+            if not is_stale:
+                raise
+            print(
+                f"         [warn] update failed ({err[:80].strip()}) —"
+                " stale page_id; falling back to create"
+            )
+            action.page_id = None
+            page = client.create_page(
+                space_id,
+                action.title,
+                action.xhtml or "",
+                parent_id=action.parent_id,
+            )
+            action.page_id = str(page["id"])
+            report.created += 1
+            try:
+                client.stamp_managed(action.page_id)
+            except Exception:
+                pass  # non-fatal
+
+
+def _wire_children(
+    action: PageAction,
+    action_by_node: dict[int, PageAction],
+) -> None:
+    """Propagate a section's resolved page_id to all its direct children."""
+    if action.page_id is None:
+        return
+    for child_node in action.node.children:
+        child_action = action_by_node.get(id(child_node))
+        if child_action is not None:
+            child_action.parent_id = action.page_id
+            child_action.parent_is_folder = action.is_folder
+
+
+def _post_process_action(
+    action: PageAction,
+    client: ConfluenceClient,
+    *,
+    full_width: bool,
+    docs_dir: Path,
+    report: PublishReport,
+) -> None:
+    """Run all non-fatal post-create/update work for a single action."""
+    # Store content hash after create/update so the next run can skip unchanged pages.
+    if action.page_id and action.content_hash and action.action in ("create", "update"):
+        try:
+            client.set_content_hash(action.page_id, action.content_hash)
+        except Exception:
+            pass  # non-fatal
+
+    # Set full-width layout on newly created or updated pages (not folders).
+    if full_width and action.page_id and not action.is_folder:
+        try:
+            client.set_page_full_width(action.page_id)
+        except Exception:
+            pass  # non-fatal — page is published, layout is cosmetic
+
+    # Apply labels (tags) from front matter — non-fatal on failure.
+    if action.page_id and action.labels and not action.is_folder:
+        try:
+            client.set_page_labels(action.page_id, action.labels)
+        except Exception:
+            pass
+
+    # Upload assets — skip files whose mtime is not newer than Confluence.
+    if action.page_id and action.attachments:
+        uploaded, asset_skipped, asset_errors = _upload_assets(
+            action.page_id, action.attachments, docs_dir, client
+        )
+        report.assets_uploaded += uploaded
+        report.assets_skipped += asset_skipped
+        for name, msg in asset_errors:
+            report.errors.append((f"{action.title} / {name}", msg))
+
+
 def execute_publish(
     plan: list[PageAction],
     client: ConfluenceClient,
@@ -509,110 +687,9 @@ def execute_publish(
 
         try:
             if action.is_folder:
-                if action.page_id is not None:
-                    # Already found at plan time — reuse.
-                    report.updated += 1
-                elif action.parent_is_folder or action.parent_id == root_page_id:
-                    # Parent is a Confluence folder, or this is a top-level section
-                    # directly under the configured root page — use native folder API.
-                    existing_folder = None
-                    if action.parent_id is not None:
-                        try:
-                            existing_folder = client.find_folder_under(
-                                action.parent_id,
-                                action.title,
-                                parent_is_folder=action.parent_is_folder,
-                            )
-                        except Exception as find_exc:
-                            print(
-                                f"         [warn] find_folder_under failed "
-                                f"(parent_id={action.parent_id}): {find_exc}"
-                            )
-                    if existing_folder is not None:
-                        action.page_id = str(existing_folder["id"])
-                        report.updated += 1
-                    else:
-                        folder_parent = (
-                            action.parent_id if action.parent_is_folder else None
-                        )
-                        folder = client.create_folder(
-                            space_id, action.title, parent_id=folder_parent
-                        )
-                        action.page_id = str(folder["id"])
-                        report.created += 1
-                        print(
-                            f"         folder id={action.page_id}"
-                            f"  parent_id={action.parent_id}"
-                            f"  parent_is_folder={action.parent_is_folder}"
-                        )
-                else:
-                    # Parent is a dynamically-created page (e.g. a section-index page).
-                    # Confluence folders cannot be nested under pages — use a stub page.
-                    action.is_folder = False
-                    existing = client.find_page(space_id, action.title)
-                    if existing is not None:
-                        action.page_id = str(existing["id"])
-                        report.updated += 1
-                    else:
-                        stub = client.create_page(
-                            space_id, action.title, "", parent_id=action.parent_id,
-                        )
-                        action.page_id = str(stub["id"])
-                        report.created += 1
-            elif action.action == "create":
-                page = client.create_page(
-                    space_id,
-                    action.title,
-                    action.xhtml or "",
-                    parent_id=action.parent_id,
-                )
-                action.page_id = str(page["id"])
-                report.created += 1
-                try:
-                    client.stamp_managed(action.page_id)
-                except Exception:
-                    pass  # non-fatal
-            elif action.action == "update":
-                if action.page_id is None or action.version is None:
-                    raise RuntimeError(
-                        f"Update action for '{action.title}' is missing page_id or version"
-                    )
-                try:
-                    client.update_page(
-                        action.page_id,
-                        action.title,
-                        action.xhtml or "",
-                        action.version + 1,
-                        parent_id=action.parent_id,
-                    )
-                    report.updated += 1
-                except ConfluenceError as upd_exc:
-                    err = str(upd_exc)
-                    # 404 = page deleted; 400 "another space" = stale page_id
-                    # from a different Confluence space.  Both mean the existing
-                    # page can't be updated — fall back to create a fresh one.
-                    is_stale = "HTTP 404" in err or (
-                        "HTTP 400" in err and "another space" in err.lower()
-                    )
-                    if not is_stale:
-                        raise
-                    print(
-                        f"         [warn] update failed ({err[:80].strip()}) —"
-                        " stale page_id; falling back to create"
-                    )
-                    action.page_id = None
-                    page = client.create_page(
-                        space_id,
-                        action.title,
-                        action.xhtml or "",
-                        parent_id=action.parent_id,
-                    )
-                    action.page_id = str(page["id"])
-                    report.created += 1
-                    try:
-                        client.stamp_managed(action.page_id)
-                    except Exception:
-                        pass  # non-fatal
+                _execute_folder_action(action, client, space_id, root_page_id, report)
+            else:
+                _execute_page_action(action, client, space_id, report)
         except Exception as exc:
             report.errors.append((action.title, str(exc)))
             # Do NOT `continue` — all post-execute blocks below are guarded by
@@ -620,45 +697,10 @@ def execute_publish(
             # Critically, child parent_id wiring must still run for section
             # pages whose children were planned with parent_id=None.
 
-        # Once a folder/section's page_id is known, wire it into all direct
-        # children so that children created later use the correct parent_id.
         if action.node.is_section and action.page_id:
-            for child_node in action.node.children:
-                child_action = action_by_node.get(id(child_node))
-                if child_action is not None:
-                    child_action.parent_id = action.page_id
-                    child_action.parent_is_folder = action.is_folder
+            _wire_children(action, action_by_node)
 
-        # Store content hash after create/update so the next run can skip unchanged pages.
-        if action.page_id and action.content_hash and action.action in ("create", "update"):
-            try:
-                client.set_content_hash(action.page_id, action.content_hash)
-            except Exception:
-                pass  # non-fatal
-
-        # Set full-width layout on newly created or updated pages (not folders).
-        if full_width and action.page_id and not action.is_folder:
-            try:
-                client.set_page_full_width(action.page_id)
-            except Exception:
-                pass  # non-fatal — page is published, layout is cosmetic
-
-        # Apply labels (tags) from front matter — non-fatal on failure.
-        if action.page_id and action.labels and not action.is_folder:
-            try:
-                client.set_page_labels(action.page_id, action.labels)
-            except Exception:
-                pass
-
-        # Upload assets — skip files whose mtime is not newer than Confluence.
-        if action.page_id and action.attachments:
-            uploaded, asset_skipped, asset_errors = _upload_assets(
-                action.page_id, action.attachments, docs_dir, client
-            )
-            report.assets_uploaded += uploaded
-            report.assets_skipped += asset_skipped
-            for name, msg in asset_errors:
-                report.errors.append((f"{action.title} / {name}", msg))
+        _post_process_action(action, client, full_width=full_width, docs_dir=docs_dir, report=report)
 
     if prune and root_page_id:
         published_ids = {a.page_id for a in plan if a.page_id}
