@@ -2,6 +2,7 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/mkdocs2confluence)](https://pypi.org/project/mkdocs2confluence/)
 [![Latest Release](https://img.shields.io/github/v/release/jeckyl2010/mkdocs2confluence)](https://github.com/jeckyl2010/mkdocs2confluence/releases/latest)
 [![CI](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/ci.yml/badge.svg)](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/ci.yml)
 [![Release](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/release.yml/badge.svg)](https://github.com/jeckyl2010/mkdocs2confluence/actions/workflows/release.yml)
@@ -131,6 +132,7 @@ The API token is read from (in priority order):
 - Pages with `ready: false` in their YAML front matter are **skipped**, even if listed in the nav.
 - Section nodes (nav groups without a page) become empty parent pages in Confluence, mirroring the nav hierarchy.
 - All locally linked assets are uploaded as Confluence page attachments automatically.
+- **Smart update detection** — before calling the Confluence update API, mk2conf compares a `sha256` hash of the compiled output against the hash stored from the previous run (kept as a hidden Confluence page property `mk2conf-content-hash`). Pages whose content has not changed are skipped entirely — no version bump, no watcher notification.
 
 #### Mermaid rendering
 
