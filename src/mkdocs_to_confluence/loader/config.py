@@ -107,7 +107,7 @@ def _make_env_loader() -> type[yaml.SafeLoader]:
 
     # Catch-all: any other unknown tag (e.g. !!python/name:... used by
     # MkDocs Material) is silently ignored — we only care about nav/site_name.
-    def _ignore(loader: yaml.SafeLoader, tag_suffix: str, node: yaml.Node) -> None:
+    def _ignore(loader: yaml.SafeLoader, _tag_suffix: str, node: yaml.Node) -> None:
         return None
 
     _Loader.add_multi_constructor("", _ignore)  # type: ignore[no-untyped-call]
