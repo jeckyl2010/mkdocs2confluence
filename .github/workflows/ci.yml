@@ -31,6 +31,9 @@ jobs:
       - name: Security scan (bandit)
         run: uv run bandit -r src -ll -q
 
+      - name: Dependency audit (pip-audit)
+        run: uv run pip-audit
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
