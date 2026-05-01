@@ -490,3 +490,101 @@ def test_upload_attachment_error_raises(tmp_path: Path) -> None:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         with pytest.raises(ConfluenceError, match="403"):
             client.upload_attachment("99", img, "img.png")
+
+
+# ── Orphan detection ───────────────────────────────────────────────────────────
+
+
+def test_stamp_managed_posts_when_absent() -> None:
+    transport = _MockTransport(
+        httpx.Response(404, text="not found"),  # GET — absent
+        httpx.Response(200, json={}),           # POST — create
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.stamp_managed("42")
+    assert transport.requests[0].method == "GET"
+    assert "/properties/mk2conf-managed" in str(transport.requests[0].url)
+    assert transport.requests[1].method == "POST"
+    body = json.loads(transport.requests[1].content)
+    assert body["key"] == "mk2conf-managed"
+    assert body["value"] is True
+
+
+def test_stamp_managed_skips_when_already_stamped() -> None:
+    transport = _MockTransport(httpx.Response(200, json={"key": "mk2conf-managed", "value": True}))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.stamp_managed("42")
+    assert len(transport.requests) == 1  # only the GET, no POST
+
+
+def test_get_descendant_ids_returns_page_ids() -> None:
+    payload = {
+        "results": [
+            {"id": "10", "type": "page"},
+            {"id": "11", "type": "page"},
+        ],
+        "_links": {},
+    }
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        ids = client.get_descendant_ids("99")
+    assert ids == ["10", "11"]
+
+
+def test_get_descendant_ids_paginates() -> None:
+    page1 = {
+        "results": [{"id": "10", "type": "page"}],
+        "_links": {"next": "/wiki/api/v2/pages/99/descendants?cursor=abc&depth=all"},
+    }
+    page2 = {
+        "results": [{"id": "11", "type": "page"}],
+        "_links": {},
+    }
+    transport = _MockTransport(_json_response(page1), _json_response(page2))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        ids = client.get_descendant_ids("99")
+    assert ids == ["10", "11"]
+    assert len(transport.requests) == 2
+
+
+def test_is_managed_returns_true_when_present() -> None:
+    transport = _MockTransport(httpx.Response(200, json={"key": "mk2conf-managed", "value": True}))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        assert client.is_managed("42") is True
+
+
+def test_is_managed_returns_false_when_absent() -> None:
+    transport = _MockTransport(httpx.Response(404, text="not found"))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        assert client.is_managed("42") is False
+
+
+def test_delete_page_sends_delete_request() -> None:
+    transport = _MockTransport(httpx.Response(204, text=""))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.delete_page("42")
+    assert transport.requests[0].method == "DELETE"
+    assert "/pages/42" in str(transport.requests[0].url)
+
+
+def test_delete_page_raises_on_error() -> None:
+    transport = _MockTransport(httpx.Response(403, text="forbidden"))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        with pytest.raises(ConfluenceError):
+            client.delete_page("42")
