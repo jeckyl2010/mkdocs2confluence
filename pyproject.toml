@@ -93,4 +93,6 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "pip-audit>=2.10.0",
+    "radon>=6.0.1",
+    "vulture>=2.16",
 ]

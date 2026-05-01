@@ -39,7 +39,7 @@ class NavNode:
         return self.docs_path is not None
 
 
-def resolve_nav(config: MkDocsConfig, mkdocs_root: Path | None = None) -> list[NavNode]:
+def resolve_nav(config: MkDocsConfig) -> list[NavNode]:
     """Resolve *config.nav* into a list of top-level :class:`NavNode` objects.
 
     When ``config.nav`` is ``None`` (e.g. projects using ``awesome-pages`` or
@@ -48,8 +48,6 @@ def resolve_nav(config: MkDocsConfig, mkdocs_root: Path | None = None) -> list[N
 
     Args:
         config: Parsed :class:`~mkdocs_to_confluence.loader.config.MkDocsConfig`.
-        mkdocs_root: Directory containing ``mkdocs.yml``.  Used only to compute
-            ``docs_dir`` when it is not already absolute; defaults to CWD.
 
     Returns:
         List of top-level :class:`NavNode` instances.

@@ -31,6 +31,12 @@ jobs:
       - name: Security scan (bandit)
         run: uv run bandit -r src -ll -q
 
+      - name: Dead code (vulture)
+        run: uv run vulture src --min-confidence 80
+
+      - name: Complexity report (radon)
+        run: uv run radon cc src -a -n C
+
       - name: Dependency audit (pip-audit)
         run: uv run pip-audit
 
