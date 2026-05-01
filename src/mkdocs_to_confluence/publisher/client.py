@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 from typing import Any, cast
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
