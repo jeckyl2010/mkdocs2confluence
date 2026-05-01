@@ -155,12 +155,63 @@ def test_plan_publish_update_when_page_exists(tmp_path: Path) -> None:
     existing_page = {"id": "77", "version": {"number": 2}}
     client = MagicMock()
     client.find_page.return_value = existing_page
+    client.get_content_hash.return_value = None  # no stored hash → must update
 
     plan = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert plan[0].action == "update"
     assert plan[0].page_id == "77"
     assert plan[0].version == 2
+
+
+def test_plan_publish_skips_when_content_unchanged(tmp_path: Path) -> None:
+    """When stored hash matches new XHTML hash the action must be 'skip'."""
+    from mkdocs_to_confluence.publisher.pipeline import _xhtml_hash
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("# Page\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("Page", md)
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+
+    # Compile once to get the real hash
+    from mkdocs_to_confluence.publisher.pipeline import compile_page
+    xhtml, _, _ = compile_page(node, config)
+    stored_hash = _xhtml_hash(xhtml)
+
+    existing_page = {"id": "77", "version": {"number": 2}}
+    client = MagicMock()
+    client.find_page.return_value = existing_page
+    client.get_content_hash.return_value = stored_hash
+
+    plan = plan_publish([node], client, config, conf_config, space_id="42")
+
+    assert plan[0].action == "skip"
+    assert plan[0].page_id == "77"
+
+
+def test_plan_publish_updates_when_content_changed(tmp_path: Path) -> None:
+    """When stored hash differs from new XHTML hash the action must be 'update'."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("# Page\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("Page", md)
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+
+    existing_page = {"id": "77", "version": {"number": 2}}
+    client = MagicMock()
+    client.find_page.return_value = existing_page
+    client.get_content_hash.return_value = "stale-hash-from-previous-run"
+
+    plan = plan_publish([node], client, config, conf_config, space_id="42")
+
+    assert plan[0].action == "update"
 
 
 # ── plan_publish: section index ───────────────────────────────────────────────
@@ -875,8 +926,8 @@ class TestExecutePublish:
         must create the page instead, capture the new page_id, and wire that id
         into the children — not leave them with parent_id=None at the space root.
         """
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
         from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -918,8 +969,8 @@ class TestExecutePublish:
         'Can't add a parent from another space'.  The pipeline must catch this and
         fall back to create, just like the 404 case.
         """
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
         from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()

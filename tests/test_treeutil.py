@@ -1,12 +1,12 @@
 """Tests for ir.treeutil.replace_nodes."""
 
 from mkdocs_to_confluence.ir.nodes import (
+    BoldNode,
     DefinitionItem,
     LinkNode,
     Paragraph,
     Section,
     TextNode,
-    BoldNode,
 )
 from mkdocs_to_confluence.ir.treeutil import replace_nodes
 
