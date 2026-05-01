@@ -14,6 +14,7 @@ The pipeline has two phases:
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,7 +58,7 @@ if TYPE_CHECKING:
 
 _Action = Literal["create", "update", "skip", "section"]
 
-_FRONT_MATTER_RE = __import__("re").compile(r"\A---\s*\n(.*?\n?)---\s*\n?", __import__("re").DOTALL)
+_FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?\n?)---\s*\n?", re.DOTALL)
 
 
 @dataclass
@@ -572,8 +573,10 @@ def execute_publish(
                 except Exception:
                     pass  # non-fatal
             elif action.action == "update":
-                assert action.page_id is not None
-                assert action.version is not None
+                if action.page_id is None or action.version is None:
+                    raise RuntimeError(
+                        f"Update action for '{action.title}' is missing page_id or version"
+                    )
                 try:
                     client.update_page(
                         action.page_id,
