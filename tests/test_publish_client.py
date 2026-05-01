@@ -200,6 +200,73 @@ def test_set_page_full_width_updates_property_when_present() -> None:
     assert body["version"]["number"] == 4
 
 
+# ── get/set_content_hash ──────────────────────────────────────────────────────
+
+
+def test_get_content_hash_returns_stored_value() -> None:
+    prop = {"key": "mk2conf-content-hash", "value": "abc123", "version": {"number": 1}}
+    transport = _MockTransport(_json_response(prop))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.get_content_hash("42")
+    assert result == "abc123"
+    assert "/content/42/property/mk2conf-content-hash" in transport.requests[0].url.path
+
+
+def test_get_content_hash_returns_none_on_404() -> None:
+    transport = _MockTransport(httpx.Response(404, text="not found"))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.get_content_hash("42")
+    assert result is None
+
+
+def test_get_content_hash_returns_none_on_error() -> None:
+    transport = _MockTransport(httpx.Response(500, text="oops"))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.get_content_hash("42")
+    assert result is None
+
+
+def test_set_content_hash_creates_property_when_absent() -> None:
+    responses = [
+        httpx.Response(404, text="not found"),  # GET — absent
+        httpx.Response(200, json={}),           # POST — create
+    ]
+    transport = _MockTransport(*responses)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_content_hash("42", "deadbeef")
+    assert transport.requests[0].method == "GET"
+    assert transport.requests[1].method == "POST"
+    body = json.loads(transport.requests[1].content)
+    assert body["key"] == "mk2conf-content-hash"
+    assert body["value"] == "deadbeef"
+    assert body["version"]["number"] == 1
+
+
+def test_set_content_hash_updates_property_when_present() -> None:
+    existing = {"key": "mk2conf-content-hash", "value": "old", "version": {"number": 2}}
+    responses = [
+        httpx.Response(200, json=existing),  # GET — present
+        httpx.Response(200, json={}),        # PUT — update
+    ]
+    transport = _MockTransport(*responses)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_content_hash("42", "newdeadbeef")
+    assert transport.requests[1].method == "PUT"
+    body = json.loads(transport.requests[1].content)
+    assert body["value"] == "newdeadbeef"
+    assert body["version"]["number"] == 3
+
+
 def test_find_page_returns_page_dict() -> None:
     page = {"id": "99", "spaceId": "42", "title": "My Page", "version": {"number": 3}}
     payload = {"results": [page]}

@@ -13,6 +13,7 @@ The pipeline has two phases:
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -75,6 +76,7 @@ class PageAction:
     # Set after execution:
     page_id: str | None = None
     version: int | None = None  # current remote version (for update)
+    content_hash: str | None = None  # sha256 of emitted xhtml (for smart-skip)
 
 
 @dataclass
@@ -191,6 +193,11 @@ def compile_page(
     return xhtml, attachments, labels
 
 
+def _xhtml_hash(xhtml: str) -> str:
+    """Return a stable sha256 hex digest of the emitted XHTML string."""
+    return hashlib.sha256(xhtml.encode()).hexdigest()
+
+
 # ── Planning ──────────────────────────────────────────────────────────────────
 
 
@@ -254,6 +261,22 @@ def _plan_nodes(
                     try:
                         xhtml, attachments, labels = compile_page(index_child, config, link_map)
                         existing = client.find_page(space_id, clean_title)
+                        xhtml_h = _xhtml_hash(xhtml)
+                        if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
+                            print(f"  unchanged  '{clean_title}'  (content unchanged)")
+                            actions.append(PageAction(
+                                node=node,
+                                title=clean_title,
+                                action="skip",
+                                parent_id=parent_id,
+                                parent_is_folder=parent_is_folder,
+                                page_id=str(existing["id"]),
+                            ))
+                            non_index = [c for c in node.children if c is not index_child]
+                            _plan_nodes(
+                                non_index, client, config, space_id, str(existing["id"]), False, actions, link_map
+                            )
+                            continue
                         page_action = PageAction(
                             node=node,
                             title=clean_title,
@@ -268,6 +291,7 @@ def _plan_nodes(
                                 existing["version"]["number"] if existing is not None else None
                             ),
                             is_folder=False,
+                            content_hash=xhtml_h,
                         )
                         actions.append(page_action)
                         # Recurse remaining children — index.md is already consumed.
@@ -339,6 +363,20 @@ def _plan_nodes(
                 continue
 
             existing = client.find_page(space_id, clean_title)
+            xhtml_h = _xhtml_hash(xhtml)
+            if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
+                print(f"  unchanged  '{clean_title}'  (content unchanged)")
+                actions.append(
+                    PageAction(
+                        node=node,
+                        title=clean_title,
+                        action="skip",
+                        parent_id=parent_id,
+                        page_id=str(existing["id"]),
+                    )
+                )
+                continue
+
             page_action = PageAction(
                 node=node,
                 title=clean_title,
@@ -351,6 +389,7 @@ def _plan_nodes(
                 version=(
                     existing["version"]["number"] if existing is not None else None
                 ),
+                content_hash=xhtml_h,
             )
             actions.append(page_action)
 
@@ -574,6 +613,13 @@ def execute_publish(
                 if child_action is not None:
                     child_action.parent_id = action.page_id
                     child_action.parent_is_folder = action.is_folder
+
+        # Store content hash after create/update so the next run can skip unchanged pages.
+        if action.page_id and action.content_hash and action.action in ("create", "update"):
+            try:
+                client.set_content_hash(action.page_id, action.content_hash)
+            except Exception:
+                pass  # non-fatal
 
         # Set full-width layout on newly created or updated pages (not folders).
         if full_width and action.page_id and not action.is_folder:

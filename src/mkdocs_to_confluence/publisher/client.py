@@ -296,6 +296,41 @@ class ConfluenceClient:
                 json={"key": key, "value": "full-width", "version": {"number": 1}},
             )
 
+    def get_content_hash(self, page_id: str) -> str | None:
+        """Return the stored mk2conf content hash for *page_id*, or ``None``.
+
+        Returns ``None`` on any error (property absent, API failure) so callers
+        can safely treat a missing hash as "unknown — must update".
+        """
+        url = self._v1(f"/content/{page_id}/property/mk2conf-content-hash")
+        resp = self._http.get(url)
+        if resp.is_error:
+            return None
+        value = resp.json().get("value", "")
+        return str(value) if value else None
+
+    def set_content_hash(self, page_id: str, hash_str: str) -> None:
+        """Store *hash_str* as the mk2conf content hash property on *page_id*.
+
+        Creates the property on first publish; updates it (with version bump)
+        on subsequent runs.  Errors are swallowed — this is a best-effort
+        optimisation and must never block a publish.
+        """
+        key = "mk2conf-content-hash"
+        prop_url = self._v1(f"/content/{page_id}/property/{key}")
+        get_resp = self._http.get(prop_url)
+        if get_resp.status_code == 200:
+            current_version = get_resp.json().get("version", {}).get("number", 1)
+            self._http.put(
+                prop_url,
+                json={"key": key, "value": hash_str, "version": {"number": current_version + 1}},
+            )
+        else:
+            self._http.post(
+                self._v1(f"/content/{page_id}/property"),
+                json={"key": key, "value": hash_str, "version": {"number": 1}},
+            )
+
     def set_page_labels(self, page_id: str, labels: tuple[str, ...]) -> None:
         """Replace all labels on *page_id* with *labels*.
 
