@@ -95,7 +95,7 @@ The `--html` flag renders Confluence macros as visual HTML panels so you can rev
 Compile all pages listed in `nav:` and publish them to Confluence Cloud.
 
 ```
-mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--report FILE]
+mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--report FILE] [--prune]
 ```
 
 | Flag | Default | Description |
@@ -105,6 +105,7 @@ mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--re
 | `--section PATH` | *(whole nav)* | Publish only a nav subtree (e.g. `Guide` or `Guide/Setup`) |
 | `--dry-run` | off | Print the publish plan without making any API calls |
 | `--report FILE` | *(none)* | Write a JSON publish report to `FILE` |
+| `--prune` | off | Delete managed Confluence pages no longer in `nav:` (see [Orphan pruning](#orphan-pruning)) |
 
 #### Configuration
 
@@ -133,6 +134,19 @@ The API token is read from (in priority order):
 - Section nodes (nav groups without a page) become empty parent pages in Confluence, mirroring the nav hierarchy.
 - All locally linked assets are uploaded as Confluence page attachments automatically.
 - **Smart update detection** — before calling the Confluence update API, mk2conf compares a `sha256` hash of the compiled output against the hash stored from the previous run (kept as a hidden Confluence page property `mk2conf-content-hash`). Pages whose content has not changed are skipped entirely — no version bump, no watcher notification.
+- **Orphan pruning** — every page created by mk2conf is stamped with a hidden `mk2conf-managed` property. Pass `--prune` to automatically delete managed pages that have been removed from `nav:`. Manually-created Confluence pages are never deleted.
+
+#### Orphan pruning
+
+```bash
+mk2conf publish --prune
+```
+
+After each publish run, `--prune` fetches all descendants of the configured `parent_page_id`, diffs them against the pages just published, and deletes any managed orphans — i.e. pages that carry the `mk2conf-managed` stamp but are no longer in the MkDocs nav.
+
+> **Safety:** Only pages stamped by mk2conf are eligible for deletion. Any page created directly in Confluence will never be touched, even if it sits inside the managed hierarchy.
+>
+> **Partial runs:** `--prune` is silently ignored when `--page` or `--section` is used, because a partial publish would only cover a subset of the nav and would incorrectly identify out-of-scope pages as orphans.
 
 #### Mermaid rendering
 
@@ -283,7 +297,7 @@ Any unrecognised block is preserved as a visible `warning` macro — no content 
 
 ## Roadmap
 
-- [ ] **Delete orphaned pages** — detect and remove Confluence pages that were previously published but have since been removed from `nav:`.
+- [x] **Delete orphaned pages** — `--prune` detects and removes managed Confluence pages that have been removed from `nav:`. Manually-created pages are never deleted.
 
 ---
 
