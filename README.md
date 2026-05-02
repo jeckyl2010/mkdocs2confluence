@@ -310,7 +310,7 @@ See [Setup.md](Setup.md) for environment setup.
 
 ```bash
 pytest              # run tests
-ruff check src      # lint
+ruff check src tests  # lint
 mypy src            # type-check
 bandit -r src -ll   # security scan
 ```
