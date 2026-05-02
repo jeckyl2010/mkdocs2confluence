@@ -408,6 +408,28 @@ class TestAwesomePagesNavFile:
         assert appendix.children[0].title == "CCTV & AI"
         assert appendix.children[0].is_section
 
+    def test_malformed_yaml_in_pages_file_raises(self, tmp_path: Path) -> None:
+        """A .pages file with invalid YAML should raise ValueError, not silently fall back."""
+        yml = _make_pages_config(tmp_path)
+        docs = tmp_path / "docs"
+        docs.mkdir(exist_ok=True)
+        (docs / "index.md").write_text("# Home", encoding="utf-8")
+        (docs / ".pages").write_text(": bad: yaml: [unclosed", encoding="utf-8")
+        config = load_config(yml)
+        with pytest.raises(ValueError, match="Could not parse nav file"):
+            resolve_nav(config)
+
+    def test_unexpected_structure_in_pages_file_raises(self, tmp_path: Path) -> None:
+        """A .pages file with valid YAML but unexpected structure should raise ValueError."""
+        yml = _make_pages_config(tmp_path)
+        docs = tmp_path / "docs"
+        docs.mkdir(exist_ok=True)
+        (docs / "index.md").write_text("# Home", encoding="utf-8")
+        (docs / ".pages").write_text("some_key: not_a_nav_list\n", encoding="utf-8")
+        config = load_config(yml)
+        with pytest.raises(ValueError, match="unexpected format"):
+            resolve_nav(config)
+
 
 # ---------------------------------------------------------------------------
 # flat_pages helper

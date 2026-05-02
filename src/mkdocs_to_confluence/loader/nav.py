@@ -82,22 +82,26 @@ def _discover(docs_dir: Path, nav_file: str) -> list[NavNode]:
 
 
 def _read_nav_file(directory: Path, nav_file: str) -> list[Any] | None:
-    """Return the nav list from *directory*/<nav_file>, or None if absent/unreadable."""
+    """Return the nav list from *directory*/<nav_file>, or None if absent.
+
+    Raises ValueError if the file exists but cannot be parsed or has an
+    unexpected format — a present-but-broken nav file is a configuration
+    error, not a reason to silently fall back to full discovery.
+    """
     path = directory / nav_file
     if not path.exists():
         return None
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if isinstance(data, dict) and isinstance(data.get("nav"), list):
-            return cast(list[Any], data["nav"])
-        if isinstance(data, list):
-            return data
     except Exception as exc:
-        warnings.warn(
-            f"Could not parse nav file {path}: {exc} — falling back to directory discovery",
-            stacklevel=2,
-        )
-    return None
+        raise ValueError(f"Could not parse nav file {path}: {exc}") from exc
+    if isinstance(data, dict) and isinstance(data.get("nav"), list):
+        return cast(list[Any], data["nav"])
+    if isinstance(data, list):
+        return data
+    raise ValueError(
+        f"Nav file {path} has unexpected format (expected a list or a dict with a 'nav' key, got {type(data).__name__})"
+    )
 
 
 def _traverse_nav_dir(
