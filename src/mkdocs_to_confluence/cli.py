@@ -138,10 +138,14 @@ def main(argv: list[str] | None = None) -> None:
 
     print(f"mk2conf {__version__}")
 
-    if args.command == "preview":
-        _cmd_preview(args)
-    elif args.command == "publish":
-        _cmd_publish(args)
+    try:
+        if args.command == "preview":
+            _cmd_preview(args)
+        elif args.command == "publish":
+            _cmd_publish(args)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _parse_out_path(out_arg: str | None) -> tuple[Path, str]:
