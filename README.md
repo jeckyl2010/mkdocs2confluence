@@ -50,6 +50,8 @@ cd mkdocs2confluence
 pip install -e ".[dev]"
 ```
 
+> **Package name vs. command name** — This follows the same convention used by many popular CLI tools (e.g. `pip install httpie` → `http` command). The PyPI package is `mkdocs2confluence` (descriptive, easy to find), and the CLI command is `mk2conf` (short, fast to type). Install once, run everywhere as `mk2conf`.
+
 ---
 
 ## Quick start
