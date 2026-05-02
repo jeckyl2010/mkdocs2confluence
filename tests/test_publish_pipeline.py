@@ -1237,7 +1237,7 @@ def test_prune_orphans_get_descendants_raises_prints_warning(
     _prune_orphans(client, "ROOT", set(), report)
 
     captured = capsys.readouterr()
-    assert "warn" in captured.out.lower() or "prune" in captured.out.lower()
+    assert "warn" in captured.err.lower() or "prune" in captured.err.lower()
     assert report.pruned == 0
 
 
@@ -1257,7 +1257,7 @@ def test_prune_orphans_delete_raises_continues(
     _prune_orphans(client, "ROOT", set(), report)
 
     captured = capsys.readouterr()
-    assert "warn" in captured.out.lower() or "failed" in captured.out.lower()
+    assert "warn" in captured.err.lower() or "failed" in captured.err.lower()
     assert report.pruned == 0
 
 
@@ -1885,3 +1885,63 @@ class TestExecutePublishHelpers:
         # Must not raise
         _post_process_action(action, client, full_width=True,
                              docs_dir=tmp_path, report=report)
+
+
+# ── Quiet flag: stdout suppression ───────────────────────────────────────────
+
+
+def test_plan_publish_quiet_suppresses_stdout(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """plan_publish(quiet=True) must produce no stdout output."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("# Hello\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("Hello", md)
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+
+    client = MagicMock()
+    client.find_page.return_value = None
+
+    plan_publish([node], client, config, conf_config, space_id="42", quiet=True)
+
+    out, _ = capsys.readouterr()
+    assert out == ""
+
+
+def test_plan_publish_without_quiet_produces_stdout(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """plan_publish(quiet=False) (default) does produce stdout progress output."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("# Hello\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("Hello", md)
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+
+    client = MagicMock()
+    client.find_page.return_value = None
+
+    plan_publish([node], client, config, conf_config, space_id="42")
+
+    out, _ = capsys.readouterr()
+    assert out != ""
+
+
+def test_execute_publish_quiet_suppresses_stdout(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """execute_publish(quiet=True) must produce no stdout output."""
+    from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+    node = _make_section_node("P", [])
+    action = PageAction(node=node, title="P", action="create", parent_id=None, xhtml="<p/>")
+    client = MagicMock()
+    client.create_page.return_value = {"id": "99"}
+
+    execute_publish(
+        [action], client, space_id="42", docs_dir=tmp_path, quiet=True
+    )
+
+    out, _ = capsys.readouterr()
+    assert out == ""

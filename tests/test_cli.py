@@ -67,3 +67,45 @@ class TestMainErrorHandling:
         with pytest.raises(SystemExit) as exc_info:
             main([])
         assert exc_info.value.code == 0
+
+
+class TestQuietFlag:
+    def test_preview_quiet_flag_accepted(self, tmp_path: Path) -> None:
+        """mk2conf preview --quiet should be accepted by the argument parser."""
+        from mkdocs_to_confluence.cli import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["preview", "--quiet", "--config", "mkdocs.yml", "--page", "index.md"])
+        assert args.quiet is True
+
+    def test_preview_quiet_short_flag_accepted(self, tmp_path: Path) -> None:
+        """mk2conf preview -q should be accepted by the argument parser."""
+        from mkdocs_to_confluence.cli import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["preview", "-q", "--config", "mkdocs.yml", "--page", "index.md"])
+        assert args.quiet is True
+
+    def test_publish_quiet_flag_accepted(self, tmp_path: Path) -> None:
+        """mk2conf publish --quiet should be accepted by the argument parser."""
+        from mkdocs_to_confluence.cli import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["publish", "--quiet", "--config", "mkdocs.yml"])
+        assert args.quiet is True
+
+    def test_publish_quiet_short_flag_accepted(self, tmp_path: Path) -> None:
+        """mk2conf publish -q should be accepted by the argument parser."""
+        from mkdocs_to_confluence.cli import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["publish", "-q", "--config", "mkdocs.yml"])
+        assert args.quiet is True
+
+    def test_preview_quiet_default_is_false(self) -> None:
+        """quiet defaults to False when not provided."""
+        from mkdocs_to_confluence.cli import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["preview", "--config", "mkdocs.yml", "--page", "index.md"])
+        assert args.quiet is False

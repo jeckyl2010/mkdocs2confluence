@@ -66,7 +66,7 @@ def _warn(msg: str) -> None:
     print(f"  warning    {msg}", file=sys.stderr)
 
 
-def _render_one(source: str, kroki_url: str) -> Path | None:
+def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | None:
     """Render a single diagram to cache. Returns cache path on success, None on failure.
 
     Transient HTTP errors (429, 5xx) and network blips are retried up to
@@ -74,7 +74,8 @@ def _render_one(source: str, kroki_url: str) -> Path | None:
     """
     path = _cache_path(source)
     if path.exists():
-        print("        rendering  mermaid diagram (cached)")
+        if not quiet:
+            print("        rendering  mermaid diagram (cached)")
         return path
 
     last_exc: Exception | None = None
@@ -84,7 +85,8 @@ def _render_one(source: str, kroki_url: str) -> Path | None:
             _warn(f"mermaid diagram: retrying in {delay:.0f}s (attempt {attempt + 1}/{_RETRY_ATTEMPTS})")
             time.sleep(delay)
         try:
-            print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
+            if not quiet:
+                print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
             png = _kroki_png(source, kroki_url)
             if len(png) < _MIN_PNG_BYTES:
                 raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
@@ -112,6 +114,8 @@ def _render_one(source: str, kroki_url: str) -> Path | None:
 def render_mermaid_diagrams(
     nodes: tuple[IRNode, ...],
     kroki_url: str = DEFAULT_KROKI_URL,
+    *,
+    quiet: bool = False,
 ) -> tuple[tuple[IRNode, ...], list[Path]]:
     """Render all :class:`MermaidDiagram` nodes to PNG via Kroki.
 
@@ -145,7 +149,7 @@ def render_mermaid_diagrams(
     source_to_path: dict[str, Path | None] = {}
     with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(diagrams))) as pool:
         future_to_source = {
-            pool.submit(_render_one, d.source, kroki_url): d.source for d in diagrams
+            pool.submit(_render_one, d.source, kroki_url, quiet=quiet): d.source for d in diagrams
         }
         for future in as_completed(future_to_source):
             source = future_to_source[future]
