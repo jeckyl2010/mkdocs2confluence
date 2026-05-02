@@ -33,7 +33,17 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- preview ---
     preview = sub.add_parser(
         "preview",
-        help="Compile a single page and print Confluence XHTML to stdout (no network).",
+        help="Compile a page (or whole section) and inspect the output — no Confluence API calls.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  mk2conf preview --page index.md\n"
+            "  mk2conf preview --page guide/setup.md --html --out /tmp/setup.html\n"
+            "  mk2conf preview --section Guide\n"
+            "\n"
+            "  Either --page or --section is required.\n"
+            "  Mermaid diagrams are rendered via Kroki unless 'mermaid_render: none' is set.\n"
+        ),
     )
     preview.add_argument(
         "--config",
@@ -47,7 +57,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Relative path to the markdown file to compile. "
-            "Omit when --section is given to preview the whole section."
+            "Required unless --section is given."
         ),
     )
     preview.add_argument(
@@ -65,7 +75,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "--section",
         metavar="NAME",
         default=None,
-        help="Restrict link map to a nav section (slash-separated path, e.g. 'Guide/Setup').",
+        help=(
+            "Nav section to preview (slash-separated path, e.g. 'Guide' or 'Guide/Setup'). "
+            "Without --page, renders all pages in the section as a browseable HTML index."
+        ),
+    )
+
+    preview.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress per-item progress output; only the final summary and warnings are shown.",
     )
 
     # --- publish ---
@@ -125,6 +145,13 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    publish.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress per-item progress output; only the final summary and warnings are shown.",
+    )
+
     return parser
 
 
@@ -136,7 +163,8 @@ def main(argv: list[str] | None = None) -> None:
         parser.print_help()
         sys.exit(0)
 
-    print(f"mk2conf {__version__}")
+    if sys.stdout.isatty():
+        print(f"mk2conf {__version__}")
 
     try:
         if args.command == "preview":
@@ -206,7 +234,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         for node in pages:
             html_name = page_link_map.get(node.title, f"{Path(node.docs_path or node.title).stem}.html")
             try:
-                xhtml, _attachments, _labels = compile_page(node, config, link_map)
+                xhtml, _attachments, _labels = compile_page(node, config, link_map, quiet=args.quiet)
             except PageLoadError as exc:
                 print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
                 continue
@@ -231,7 +259,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
     try:
         link_map = build_link_map(nodes)
-        xhtml, _attachments, _labels = compile_page(page_node, config, link_map)
+        xhtml, _attachments, _labels = compile_page(page_node, config, link_map, quiet=args.quiet)
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -320,7 +348,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id)
+            plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id, quiet=args.quiet)
             # --prune is silently disabled for partial publishes (--page / --section)
             # because published_ids would only cover the subset, not the full nav.
             partial = bool(getattr(args, "page", None) or getattr(args, "section", None))
@@ -329,6 +357,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                 docs_dir=config.docs_dir, full_width=conf_config.full_width,
                 root_page_id=conf_config.parent_page_id,
                 prune=getattr(args, "prune", False) and not partial,
+                quiet=args.quiet,
             )
     except ConfluenceError as exc:
         print(f"error: {exc}", file=sys.stderr)

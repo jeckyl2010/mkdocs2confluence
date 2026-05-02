@@ -330,3 +330,38 @@ def test_render_one_exhausts_retries_on_persistent_503(tmp_path):
     assert result is None
     assert mock_fetch.call_count == _RETRY_ATTEMPTS
 
+
+
+# ── Quiet flag ────────────────────────────────────────────────────────────────
+
+
+def test_render_mermaid_quiet_suppresses_stdout(tmp_path, capsys):
+    """render_mermaid_diagrams(quiet=True) must produce no stdout output."""
+    node = MermaidDiagram(source=_SAMPLE_SOURCE)
+
+    with (
+        patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
+        patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG),
+    ):
+        render_mermaid_diagrams((node,), quiet=True)
+
+    out, _ = capsys.readouterr()
+    assert out == ""
+
+
+def test_render_mermaid_cached_quiet_suppresses_stdout(tmp_path, capsys):
+    """_render_one with cached diagram and quiet=True must not print anything."""
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path):
+        # Pre-populate cache
+        from mkdocs_to_confluence.transforms.mermaid import _cache_path
+        cache_file = _cache_path(_SAMPLE_SOURCE)
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(_FAKE_PNG)
+
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io", quiet=True)
+
+    assert result is not None
+    out, _ = capsys.readouterr()
+    assert out == ""

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -134,6 +135,8 @@ def compile_page(
     node: NavNode,
     config: MkDocsConfig,
     link_map: dict[str, str] | None = None,
+    *,
+    quiet: bool = False,
 ) -> tuple[str, list[Path], tuple[str, ...]]:
     """Run the full compile pipeline for one page.
 
@@ -174,7 +177,7 @@ def compile_page(
             mermaid_render[len("kroki:"):] if mermaid_render.startswith("kroki:")
             else DEFAULT_KROKI_URL
         )
-        ir_nodes, mermaid_attachments = render_mermaid_diagrams(ir_nodes, kroki_url)
+        ir_nodes, mermaid_attachments = render_mermaid_diagrams(ir_nodes, kroki_url, quiet=quiet)
         attachments = attachments + mermaid_attachments
     effective_link_map = link_map if link_map is not None else {}
     if node.docs_path:
@@ -220,6 +223,7 @@ def plan_publish(
     conf_config: ConfluenceConfig,
     *,
     space_id: str,
+    quiet: bool = False,
 ) -> list[PageAction]:
     """Build a publish plan for the entire nav tree.
 
@@ -229,8 +233,9 @@ def plan_publish(
     """
     actions: list[PageAction] = []
     link_map = build_link_map(nav_nodes)
-    print("Planning...")
-    _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, False, actions, link_map)
+    if not quiet:
+        print("Planning...")
+    _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, False, actions, link_map, quiet=quiet)
     return actions
 
 
@@ -243,6 +248,8 @@ def _plan_nodes(
     parent_is_folder: bool,
     actions: list[PageAction],
     link_map: dict[str, str] | None = None,
+    *,
+    quiet: bool = False,
 ) -> None:
     for node in nodes:
         # Strip icon shortcodes from titles — nav titles bypass the body
@@ -261,13 +268,15 @@ def _plan_nodes(
                     except OSError:
                         pass
                 if ready is not False and index_child.source_path is not None:
-                    print(f"  compiling  '{clean_title}'  (section index)")
+                    if not quiet:
+                        print(f"  compiling  '{clean_title}'  (section index)")
                     try:
-                        xhtml, attachments, labels = compile_page(index_child, config, link_map)
+                        xhtml, attachments, labels = compile_page(index_child, config, link_map, quiet=quiet)
                         existing = client.find_page(space_id, clean_title)
                         xhtml_h = _xhtml_hash(xhtml)
                         if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
-                            print(f"  unchanged  '{clean_title}'  (content unchanged)")
+                            if not quiet:
+                                print(f"  unchanged  '{clean_title}'  (content unchanged)")
                             actions.append(PageAction(
                                 node=node,
                                 title=clean_title,
@@ -278,7 +287,8 @@ def _plan_nodes(
                             ))
                             non_index = [c for c in node.children if c is not index_child]
                             _plan_nodes(
-                                non_index, client, config, space_id, str(existing["id"]), False, actions, link_map
+                                non_index, client, config, space_id,
+                                str(existing["id"]), False, actions, link_map, quiet=quiet
                             )
                             continue
                         page_action = PageAction(
@@ -301,16 +311,18 @@ def _plan_nodes(
                         # Recurse remaining children — index.md is already consumed.
                         non_index = [c for c in node.children if c is not index_child]
                         _plan_nodes(
-                            non_index, client, config, space_id, None, False, actions, link_map
+                            non_index, client, config, space_id, None, False, actions, link_map, quiet=quiet
                         )
                         continue
                     except (PageLoadError, OSError) as exc:
                         print(
-                            f"  warning    '{clean_title}'  index.md error ({exc}),"
-                            " falling back to folder"
+                            f"  [warn] '{clean_title}'  index.md load error ({exc}),"
+                            " falling back to folder",
+                            file=sys.stderr,
                         )
 
-            print(f"  compiling  '{clean_title}'  (folder)")
+            if not quiet:
+                print(f"  compiling  '{clean_title}'  (folder)")
             # Folder find-or-create is deferred to execute_publish once the
             # parent folder ID is known (nested folders don't have a parent ID
             # yet at plan time).
@@ -327,7 +339,7 @@ def _plan_nodes(
             actions.append(page_action)
             # Children will be placed under this folder's ID (resolved at execute)
             _plan_nodes(
-                list(node.children), client, config, space_id, None, True, actions, link_map
+                list(node.children), client, config, space_id, None, True, actions, link_map, quiet=quiet
             )
         else:
             # Page node — read raw to check ready flag
@@ -340,7 +352,8 @@ def _plan_nodes(
                     pass
 
             if ready is False:
-                print(f"  skipping   '{clean_title}'  (ready: false)")
+                if not quiet:
+                    print(f"  skipping   '{clean_title}'  (ready: false)")
                 actions.append(
                     PageAction(
                         node=node,
@@ -351,11 +364,13 @@ def _plan_nodes(
                 )
                 continue
 
-            print(f"  compiling  '{clean_title}'")
+            if not quiet:
+                print(f"  compiling  '{clean_title}'")
             try:
-                xhtml, attachments, labels = compile_page(node, config, link_map)
+                xhtml, attachments, labels = compile_page(node, config, link_map, quiet=quiet)
             except (PageLoadError, OSError) as exc:
-                print(f"  skipping   '{clean_title}'  (error: {exc})")
+                if not quiet:
+                    print(f"  skipping   '{clean_title}'  (error: {exc})")
                 actions.append(
                     PageAction(
                         node=node,
@@ -369,7 +384,8 @@ def _plan_nodes(
             existing = client.find_page(space_id, clean_title)
             xhtml_h = _xhtml_hash(xhtml)
             if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
-                print(f"  unchanged  '{clean_title}'  (content unchanged)")
+                if not quiet:
+                    print(f"  unchanged  '{clean_title}'  (content unchanged)")
                 actions.append(
                     PageAction(
                         node=node,
@@ -406,6 +422,8 @@ def _upload_assets(
     attachments: list[Path],
     docs_dir: Path,
     client: ConfluenceClient,
+    *,
+    quiet: bool = False,
 ) -> tuple[int, int, list[tuple[str, str]]]:
     """Upload attachments for one page **sequentially**.
 
@@ -442,13 +460,15 @@ def _upload_assets(
                     path.stat().st_mtime, tz=timezone.utc
                 )
                 if local_mtime <= confluence_ts:
-                    print(f"        skipping   {name} (unchanged)")
+                    if not quiet:
+                        print(f"        skipping   {name} (unchanged)")
                     skipped += 1
                     continue
             except (KeyError, ValueError, OSError):
                 pass  # can't compare — fall through to upload
 
-        print(f"        uploading  {name}")
+        if not quiet:
+            print(f"        uploading  {name}")
         try:
             client.upload_attachment(page_id, path, name, existing)
             uploaded += 1
@@ -464,6 +484,8 @@ def _execute_folder_action(
     space_id: str,
     root_page_id: str | None,
     report: PublishReport,
+    *,
+    quiet: bool = False,
 ) -> None:
     """Handle folder create/find for a single folder action."""
     if action.page_id is not None:
@@ -482,8 +504,9 @@ def _execute_folder_action(
                 )
             except Exception as find_exc:
                 print(
-                    f"         [warn] find_folder_under failed "
-                    f"(parent_id={action.parent_id}): {find_exc}"
+                    f"  [warn] find_folder_under failed "
+                    f"(parent_id={action.parent_id}): {find_exc}",
+                    file=sys.stderr,
                 )
         if existing_folder is not None:
             action.page_id = str(existing_folder["id"])
@@ -497,11 +520,12 @@ def _execute_folder_action(
             )
             action.page_id = str(folder["id"])
             report.created += 1
-            print(
-                f"         folder id={action.page_id}"
-                f"  parent_id={action.parent_id}"
-                f"  parent_is_folder={action.parent_is_folder}"
-            )
+            if not quiet:
+                print(
+                    f"         folder id={action.page_id}"
+                    f"  parent_id={action.parent_id}"
+                    f"  parent_is_folder={action.parent_is_folder}"
+                )
     else:
         # Parent is a dynamically-created page (e.g. a section-index page).
         # Confluence folders cannot be nested under pages — use a stub page.
@@ -563,8 +587,9 @@ def _execute_page_action(
             if not is_stale:
                 raise
             print(
-                f"         [warn] update failed ({err[:80].strip()}) —"
-                " stale page_id; falling back to create"
+                f"  [warn] update failed ({err[:80].strip()}) —"
+                " stale page_id; falling back to create",
+                file=sys.stderr,
             )
             action.page_id = None
             page = client.create_page(
@@ -602,6 +627,7 @@ def _post_process_action(
     full_width: bool,
     docs_dir: Path,
     report: PublishReport,
+    quiet: bool = False,
 ) -> None:
     """Run all non-fatal post-create/update work for a single action."""
     # Store content hash after create/update so the next run can skip unchanged pages.
@@ -628,7 +654,7 @@ def _post_process_action(
     # Upload assets — skip files whose mtime is not newer than Confluence.
     if action.page_id and action.attachments:
         uploaded, asset_skipped, asset_errors = _upload_assets(
-            action.page_id, action.attachments, docs_dir, client
+            action.page_id, action.attachments, docs_dir, client, quiet=quiet
         )
         report.assets_uploaded += uploaded
         report.assets_skipped += asset_skipped
@@ -646,6 +672,7 @@ def execute_publish(
     full_width: bool = True,
     root_page_id: str | None = None,
     prune: bool = False,
+    quiet: bool = False,
 ) -> PublishReport:
     """Execute the publish plan.
 
@@ -674,7 +701,8 @@ def execute_publish(
 
     active = [a for a in plan if a.action != "skip"]
     total = len(active)
-    print(f"\nPublishing {total} page(s)...")
+    if not quiet:
+        print(f"\nPublishing {total} page(s)...")
     counter = 0
 
     for action in plan:
@@ -683,11 +711,12 @@ def execute_publish(
             continue
 
         counter += 1
-        print(f"  [{counter}/{total}] {action.action:<6}  '{action.title}'")
+        if not quiet:
+            print(f"  [{counter}/{total}] {action.action:<6}  '{action.title}'")
 
         try:
             if action.is_folder:
-                _execute_folder_action(action, client, space_id, root_page_id, report)
+                _execute_folder_action(action, client, space_id, root_page_id, report, quiet=quiet)
             else:
                 _execute_page_action(action, client, space_id, report)
         except Exception as exc:
@@ -700,11 +729,11 @@ def execute_publish(
         if action.node.is_section and action.page_id:
             _wire_children(action, action_by_node)
 
-        _post_process_action(action, client, full_width=full_width, docs_dir=docs_dir, report=report)
+        _post_process_action(action, client, full_width=full_width, docs_dir=docs_dir, report=report, quiet=quiet)
 
     if prune and root_page_id:
         published_ids = {a.page_id for a in plan if a.page_id}
-        _prune_orphans(client, root_page_id, published_ids, report)
+        _prune_orphans(client, root_page_id, published_ids, report, quiet=quiet)
 
     return report
 
@@ -714,6 +743,8 @@ def _prune_orphans(
     root_page_id: str,
     published_ids: set[str],
     report: PublishReport,
+    *,
+    quiet: bool = False,
 ) -> None:
     """Delete managed descendant pages that are no longer in the publish plan.
 
@@ -723,20 +754,22 @@ def _prune_orphans(
     try:
         all_descendants = client.get_descendant_ids(root_page_id)
     except Exception as exc:
-        print(f"  [warn] prune: could not fetch descendants — {exc}")
+        print(f"  [warn] prune: could not fetch descendants — {exc}", file=sys.stderr)
         return
 
     orphan_candidates = [pid for pid in all_descendants if pid not in published_ids]
     if not orphan_candidates:
         return
 
-    print(f"\nPruning: checking {len(orphan_candidates)} orphan candidate(s)...")
+    if not quiet:
+        print(f"\nPruning: checking {len(orphan_candidates)} orphan candidate(s)...")
     for page_id in orphan_candidates:
         try:
             if not client.is_managed(page_id):
                 continue
             client.delete_page(page_id)
             report.pruned += 1
-            print(f"  deleted orphan page {page_id}")
+            if not quiet:
+                print(f"  deleted orphan page {page_id}")
         except Exception as exc:
-            print(f"  [warn] prune: failed to delete page {page_id} — {exc}")
+            print(f"  [warn] prune: failed to delete page {page_id} — {exc}", file=sys.stderr)
