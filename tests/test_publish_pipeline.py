@@ -1340,8 +1340,8 @@ class TestExecutePublishNonFatal:
 
     def test_stamp_managed_after_fallback_create_is_non_fatal(self, tmp_path: Path) -> None:
         """stamp_managed after the update-fallback-to-create path is also non-fatal."""
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
         from mkdocs_to_confluence.publisher.client import ConfluenceError
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1441,8 +1441,8 @@ def test_execute_publish_stub_page_reuse(tmp_path: Path) -> None:
 
 def test_execute_publish_non_stale_update_error_is_recorded(tmp_path: Path) -> None:
     """A non-stale ConfluenceError from update_page is recorded in report errors."""
-    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
     from mkdocs_to_confluence.publisher.client import ConfluenceError
+    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()

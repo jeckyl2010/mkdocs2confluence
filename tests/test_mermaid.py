@@ -243,7 +243,7 @@ def test_render_one_failure_does_not_block_others(tmp_path):
 
 def test_render_one_cached(tmp_path):
     """_render_one returns the cache path immediately for cached diagrams."""
-    from mkdocs_to_confluence.transforms.mermaid import _render_one, _cache_path
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
 
     path = tmp_path / "mermaid_cached.png"
     path.write_bytes(_FAKE_PNG)
@@ -260,6 +260,7 @@ def test_render_one_cached(tmp_path):
 def test_render_one_network_failure_returns_none(tmp_path):
     """_render_one returns None after all retries on persistent network failure."""
     import urllib.error
+
     from mkdocs_to_confluence.transforms.mermaid import _render_one
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
@@ -277,6 +278,7 @@ def test_render_one_network_failure_returns_none(tmp_path):
 def test_render_one_retries_on_503_then_succeeds(tmp_path):
     """_render_one retries on HTTP 503 and succeeds on the second attempt."""
     import urllib.error
+
     from mkdocs_to_confluence.transforms.mermaid import _render_one
 
     calls = [urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None), _FAKE_PNG]
@@ -300,6 +302,7 @@ def test_render_one_retries_on_503_then_succeeds(tmp_path):
 def test_render_one_non_retryable_http_error_returns_none(tmp_path):
     """_render_one does not retry on HTTP 400 (bad input) — returns None immediately."""
     import urllib.error
+
     from mkdocs_to_confluence.transforms.mermaid import _render_one
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
@@ -315,7 +318,8 @@ def test_render_one_non_retryable_http_error_returns_none(tmp_path):
 def test_render_one_exhausts_retries_on_persistent_503(tmp_path):
     """_render_one returns None after all attempts on persistent 503."""
     import urllib.error
-    from mkdocs_to_confluence.transforms.mermaid import _render_one, _RETRY_ATTEMPTS
+
+    from mkdocs_to_confluence.transforms.mermaid import _RETRY_ATTEMPTS, _render_one
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \

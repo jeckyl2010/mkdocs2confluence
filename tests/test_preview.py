@@ -5,8 +5,6 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-import pytest
-
 from mkdocs_to_confluence.preview.render import (
     _load_image_data,
     render_html,

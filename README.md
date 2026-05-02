@@ -76,7 +76,7 @@ CONFLUENCE_API_TOKEN=your_token mk2conf publish --config mkdocs.yml
 
 ### `mk2conf preview`
 
-Compile a single page and inspect the output — no network connection required.
+Compile a single page and inspect the output — no Confluence API calls required. Mermaid diagrams are rendered via Kroki unless `mermaid_render: none` is set.
 
 ```
 mk2conf preview [--config PATH] --page PATH [--out FILE] [--html]
@@ -106,7 +106,7 @@ mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--re
 | `--config PATH` | `./mkdocs.yml` | Path to your `mkdocs.yml` |
 | `--page PATH` | *(all nav pages)* | Publish a single page only |
 | `--section PATH` | *(whole nav)* | Publish only a nav subtree (e.g. `Guide` or `Guide/Setup`) |
-| `--dry-run` | off | Print the publish plan without making any API calls |
+| `--dry-run` | off | Print the publish plan without making any Confluence API calls (Mermaid diagrams are still rendered via Kroki unless `mermaid_render: none` is set) |
 | `--report FILE` | *(none)* | Write a JSON publish report to `FILE` |
 | `--prune` | off | Delete managed Confluence pages no longer in `nav:` (see [Orphan pruning](#orphan-pruning)) |
 

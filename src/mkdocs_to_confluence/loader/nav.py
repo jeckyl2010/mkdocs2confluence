@@ -92,8 +92,11 @@ def _read_nav_file(directory: Path, nav_file: str) -> list[Any] | None:
             return cast(list[Any], data["nav"])
         if isinstance(data, list):
             return data
-    except Exception:
-        pass
+    except Exception as exc:
+        warnings.warn(
+            f"Could not parse nav file {path}: {exc} — falling back to directory discovery",
+            stacklevel=2,
+        )
     return None
 
 
