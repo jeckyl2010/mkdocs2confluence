@@ -81,17 +81,32 @@ CONFLUENCE_API_TOKEN=your_token mk2conf publish --config mkdocs.yml
 Compile a single page and inspect the output — no Confluence API calls required. Mermaid diagrams are rendered via Kroki unless `mermaid_render: none` is set.
 
 ```
-mk2conf preview [--config PATH] --page PATH [--out FILE] [--html]
+mk2conf preview [--config PATH] --page PATH [--out FILE] [--html] [--watch]
+mk2conf preview [--config PATH] --section NAME [--out FILE] [--watch]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--config PATH` | `./mkdocs.yml` | Path to your `mkdocs.yml` |
-| `--page PATH` | *(required)* | Relative path to the Markdown file |
-| `--out FILE` | stdout | Write output to a file |
+| `--page PATH` | *(required unless --section)* | Relative path to the Markdown file |
+| `--section NAME` | *(none)* | Render all pages in a nav section as a browseable HTML index |
+| `--out FILE` | stdout | Write output to a file (or directory for `--section`) |
 | `--html` | off | Render macros as styled HTML for local browser review |
+| `--watch` | off | Start a local server on `http://localhost:8765`, open the browser, and **automatically rebuild on every `.md` file change** — no manual refresh needed. Implies `--html`. |
 
 The `--html` flag renders Confluence macros as visual HTML panels so you can review a page locally without a Confluence instance. It is for review only — the actual storage XHTML is always the `--html`-free output.
+
+#### Live preview while authoring
+
+```bash
+# Watch a single page
+mk2conf preview --page index.md --watch
+
+# Watch a whole section
+mk2conf preview --section Guide --watch
+```
+
+The browser reloads automatically within ~1 second of saving any Markdown file. Press `Ctrl+C` to stop the server.
 
 ---
 
