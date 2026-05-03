@@ -295,18 +295,11 @@ Any unrecognised block is preserved as a visible `warning` macro — no content 
 
 | Feature | Behaviour |
 |---|---|
-| **Admonition styling** | Native macros (`tip`, `info`, `warning`, `note`) use Confluence's fixed theme styling — no custom header/body colours. |
+| **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro styling — no custom colours. `danger`, `error`, and `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
 | **Abbreviation tooltips** | No native tooltip support. First occurrence expanded inline; remainder left as-is. |
 | **Grid cards** | Wrapper stripped; inner admonitions rendered individually. |
-| **Page width** | Confluence defaults to a narrow fixed-width column. mk2conf publishes with `fullWidth: true` by default (configurable). |
 | **Page ordering** | Confluence sorts child pages alphabetically. The v2 REST API has no write endpoint for child ordering; nav order cannot be enforced. |
 | **Code language aliases** | Pygments short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
-
----
-
-## Roadmap
-
-- [x] **Delete orphaned pages** — `--prune` detects and removes managed Confluence pages that have been removed from `nav:`. Manually-created pages are never deleted.
 
 ---
 
