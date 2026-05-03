@@ -1,24 +1,36 @@
-"""Minimal markdown-to-IR parser.
+"""Markdown-to-IR parser.
 
-Supported in this milestone
+Supported inline constructs
+----------------------------
+* ``**bold**`` / ``__bold__`` → :class:`~ir.BoldNode`
+* ``*italic*`` → :class:`~ir.ItalicNode`
+* ``~~strikethrough~~`` → :class:`~ir.StrikethroughNode`
+* ``~subscript~`` → :class:`~ir.SubscriptNode`
+* ``^superscript^`` → :class:`~ir.SuperscriptNode`
+* ``^^insert^^`` (underline) → :class:`~ir.InsertNode`
+* `` `code` `` → :class:`~ir.CodeInlineNode`
+* ``[text](url)`` → :class:`~ir.LinkNode`
+* Bare ``https://`` / ``http://`` URLs → :class:`~ir.LinkNode`
+* ``![alt](src)`` → :class:`~ir.ImageNode`
+* ``<br>`` / ``<br/>`` / trailing ``\\`` → :class:`~ir.LineBreakNode`
+* ``<mark>``, ``<kbd>``, ``<sub>``, ``<sup>``, ``<u>``, ``<s>``, ``<small>`` → :class:`~ir.InlineHtmlNode`
+* ``++key+key++`` → :class:`~ir.InlineHtmlNode` ``kbd`` (pymdownx.keys)
+* ``[^label]`` footnote references → :class:`~ir.FootnoteRef`
+
+Supported block constructs
 ---------------------------
 * ATX headings (``# H1`` … ``###### H6``) → :class:`~ir.Section`
 * Fenced code blocks (`` ``` `` or ``~~~``) → :class:`~ir.CodeBlock`
   with full Material attribute parsing (language, title, linenums, hl_lines)
 * Paragraphs (consecutive non-blank lines) → :class:`~ir.Paragraph`
 * Admonitions (``!!!``/``???``/``???+``) → :class:`~ir.Admonition`
-  Body is recursively tokenized, so nested code blocks and paragraphs work.
-
-Not yet supported (later milestones)
---------------------------------------
-* Inline formatting (bold, italic, links, images)
-* Content tabs, mermaid diagrams
-* Setext headings (underline style)
-* Block quotes, lists, tables, horizontal rules
-
-Inline content of headings and paragraphs is represented as a single
-:class:`~ir.TextNode` carrying the raw text; once the inline parser is
-implemented that node will be replaced by structured inline nodes.
+* Content tabs (``=== "Label"``) → :class:`~ir.ContentTabs`
+* Ordered and unordered lists, incl. task lists (``- [x]``) → :class:`~ir.BulletList` / :class:`~ir.OrderedList`
+* Tables → :class:`~ir.Table`
+* Definition lists → :class:`~ir.DefinitionList`
+* Block quotes → :class:`~ir.BlockQuote`
+* Horizontal rules → :class:`~ir.HorizontalRule`
+* Mermaid fenced blocks → :class:`~ir.MermaidDiagram`
 
 Architecture notes
 ------------------
