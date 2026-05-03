@@ -12,35 +12,19 @@
 [![mypy](https://img.shields.io/badge/type--checked-mypy-blue.svg)](https://mypy-lang.org/)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
-A Python CLI tool that compiles MkDocs-flavoured Markdown into native Confluence storage XHTML and publishes it to Confluence.
+A Python CLI tool that compiles MkDocs-flavoured Markdown into native Confluence storage XHTML and publishes it directly to Confluence Cloud. It is a **compiler/transpiler**, not an HTML converter — every construct maps to its native Confluence equivalent, so pages look and behave like hand-authored Confluence content.
 
-It is a **compiler/transpiler**, not an HTML converter — every Markdown construct is mapped to the equivalent native Confluence macro or element, so pages look and behave like hand-authored Confluence content.
-
-> **Zensical compatible** — [Zensical](https://zensical.org/) is the modern successor to MkDocs + Material for MkDocs, built by the same team. Since Zensical uses the same `mkdocs.yml` format and Python Markdown extensions, your Zensical project works with this tool today — no changes required.
-
----
-
-## Architecture
-
-![Architecture](https://raw.githubusercontent.com/jeckyl2010/mkdocs2confluence/main/docs/architecture.png)
-
-Each stage is a separate Python module under `src/mkdocs_to_confluence/`. The **plan** phase makes all API read calls (find existing pages); the **execute** phase makes all write calls, ensuring parents always exist before children.
+> **Zensical compatible** — [Zensical](https://zensical.org/) is the modern successor to MkDocs + Material for MkDocs. Since it uses the same `mkdocs.yml` format and Python Markdown extensions, your Zensical project works with mk2conf today with no changes required.
 
 ---
 
 ## Installation
 
-Requires Python 3.12+.
-
-**From PyPI:**
+Requires Python 3.12+. The PyPI package is `mkdocs2confluence`; the CLI command is `mk2conf`.
 
 ```bash
 pip install mkdocs2confluence
-```
-
-Or with `pipx` for an isolated install:
-
-```bash
+# or, for an isolated install:
 pipx install mkdocs2confluence
 ```
 
@@ -48,79 +32,31 @@ pipx install mkdocs2confluence
 
 ```bash
 git clone https://github.com/jeckyl2010/mkdocs2confluence.git
-cd mkdocs2confluence
-pip install -e ".[dev]"
+cd mkdocs2confluence && pip install -e ".[dev]"
 ```
-
-> **Package name vs. command name** — This follows the same convention used by many popular CLI tools (e.g. `pip install httpie` → `http` command). The PyPI package is `mkdocs2confluence` (descriptive, easy to find), and the CLI command is `mk2conf` (short, fast to type). Install once, run everywhere as `mk2conf`.
 
 ---
 
 ## Quick start
 
 ```bash
-# Print Confluence storage XHTML to stdout
-mk2conf preview --config mkdocs.yml --page index.md
+# Inspect the Confluence storage XHTML for a page
+mk2conf preview --page index.md
 
-# Open a browser-friendly HTML preview
-mk2conf preview --config mkdocs.yml --page index.md --html --out /tmp/preview.html
-
-# Live preview — auto-rebuilds on every file save
-mk2conf preview --config mkdocs.yml --page index.md --watch
-mk2conf preview --config mkdocs.yml --section Guide --watch
+# Open a live browser preview — rebuilds on every file save
+mk2conf preview --page index.md --watch
+mk2conf preview --section Guide --watch
 
 # Dry-run: see what would be published without touching Confluence
-mk2conf publish --config mkdocs.yml --dry-run
+mk2conf publish --dry-run
 
 # Publish all nav pages to Confluence
-# (set CONFLUENCE_API_TOKEN in your shell profile or CI secrets, not inline)
-mk2conf publish --config mkdocs.yml
+mk2conf publish
 ```
 
 ---
 
-## Commands
-
-### `mk2conf preview`
-
-Compile a single page and inspect the output — no Confluence API calls required. Mermaid diagrams are rendered via Kroki unless `mermaid_render: none` is set.
-
-```
-mk2conf preview [--config PATH] --page PATH [--out FILE] [--html] [--watch]
-mk2conf preview [--config PATH] --section NAME [--out FILE] [--watch]
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--config PATH` | `./mkdocs.yml` | Path to your `mkdocs.yml` |
-| `--page PATH` | *(required unless --section)* | Relative path to the Markdown file |
-| `--section NAME` | *(none)* | Render all pages in a nav section as a browseable HTML index |
-| `--out FILE` | stdout | Write output to a file (or directory for `--section`) |
-| `--html` | off | Render macros as styled HTML for local browser review |
-| `--watch` | off | Start a local server on `http://localhost:8765`, open the browser, and automatically rebuild on every `.md` file change. Implies `--html`. Press `Ctrl+C` to stop. |
-
-The `--html` flag renders Confluence macros as visual HTML panels so you can review a page locally without a Confluence instance. It is for review only — the actual storage XHTML is always the `--html`-free output.
-
----
-
-### `mk2conf publish`
-
-Compile all pages listed in `nav:` and publish them to Confluence Cloud.
-
-```
-mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--report FILE] [--prune]
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--config PATH` | `./mkdocs.yml` | Path to your `mkdocs.yml` |
-| `--page PATH` | *(all nav pages)* | Publish a single page only |
-| `--section PATH` | *(whole nav)* | Publish only a nav subtree (e.g. `Guide` or `Guide/Setup`) |
-| `--dry-run` | off | Print the publish plan without making any Confluence API calls (Mermaid diagrams are still rendered via Kroki unless `mermaid_render: none` is set) |
-| `--report FILE` | *(none)* | Write a JSON publish report to `FILE` |
-| `--prune` | off | Delete managed Confluence pages no longer in `nav:` (see [Orphan pruning](#orphan-pruning)) |
-
-#### Configuration
+## Configuration
 
 Add a `confluence:` block to your `mkdocs.yml`:
 
@@ -131,49 +67,80 @@ confluence:
   email: user@example.com
   token: !ENV CONFLUENCE_API_TOKEN   # never hardcode the token
   parent_page_id: "123456"           # optional root page
-  mermaid_render: kroki              # optional: "kroki" (default), "kroki:https://your-kroki" or "none"
-  full_width: true                   # optional: publish pages in full-width layout (default: true)
+  mermaid_render: kroki              # "kroki" (default) | "kroki:https://your-kroki" | "none"
+  full_width: true                   # default: true
 ```
 
 The API token is read from (in priority order):
-1. The `token:` field in `mkdocs.yml` (typically via `!ENV CONFLUENCE_API_TOKEN`)
+
+1. `token:` in `mkdocs.yml` — typically via `!ENV CONFLUENCE_API_TOKEN`
 2. `CONFLUENCE_API_TOKEN` environment variable
 3. `MK2CONF_TOKEN` environment variable
 
-#### Publish rules
+---
 
-- **Only pages in `nav:` are published** — the nav is the publish gate. Pages not listed in the nav are never touched, keeping drafts and WIP content private.
-- Pages with `ready: false` in their YAML front matter are **skipped**, even if listed in the nav.
-- Section nodes (nav groups without a page) become empty parent pages in Confluence, mirroring the nav hierarchy.
-- All locally linked assets are uploaded as Confluence page attachments automatically.
-- **Smart update detection** — before calling the Confluence update API, mk2conf compares a `sha256` hash of the compiled output against the hash stored from the previous run (kept as a hidden Confluence page property `mk2conf-content-hash`). Pages whose content has not changed are skipped entirely — no version bump, no watcher notification. As a side effect, Confluence's built-in version history becomes a meaningful audit trail: every version represents a real content change, each stamped *"Updated by mk2conf"* so automated publishes are clearly distinguishable from manual edits. You can diff any two versions directly inside Confluence, with inline highlighting showing exactly which paragraphs, headings, or code blocks changed.
-- **Orphan pruning** — every page created by mk2conf is stamped with a hidden `mk2conf-managed` property. Pass `--prune` to automatically delete managed pages that have been removed from `nav:`. Manually-created Confluence pages are never deleted.
+## Commands
 
-#### Orphan pruning
+### `mk2conf preview`
 
-```bash
-mk2conf publish --prune
+Compile and inspect output locally — no Confluence API calls. Mermaid diagrams are rendered via Kroki unless `mermaid_render: none` is set.
+
+```
+mk2conf preview [--config PATH] --page PATH [--out FILE] [--html] [--watch]
+mk2conf preview [--config PATH] --section NAME [--out FILE] [--watch]
 ```
 
-After each publish run, `--prune` fetches all descendants of the configured `parent_page_id`, diffs them against the pages just published, and deletes any managed orphans — i.e. pages that carry the `mk2conf-managed` stamp but are no longer in the MkDocs nav.
+| Flag | Default | Description |
+|---|---|---|
+| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
+| `--page PATH` | *(required unless --section)* | Relative path to the Markdown file |
+| `--section NAME` | *(none)* | Render all pages in a nav section as a browseable HTML index |
+| `--out FILE` | stdout | Write output to a file or directory |
+| `--html` | off | Render macros as styled browser-viewable HTML |
+| `--watch` | off | Serve on `http://localhost:8765` and auto-rebuild on file changes. Implies `--html`. `Ctrl+C` to stop. |
 
-> **Safety:** Only pages stamped by mk2conf are eligible for deletion. Any page created directly in Confluence will never be touched, even if it sits inside the managed hierarchy.
->
-> **Partial runs:** `--prune` is silently ignored when `--page` or `--section` is used, because a partial publish would only cover a subset of the nav and would incorrectly identify out-of-scope pages as orphans.
+`--html` is for local review only — the actual Confluence storage XHTML is the `--html`-free output.
+
+---
+
+### `mk2conf publish`
+
+Compile all pages in `nav:` and publish to Confluence Cloud.
+
+```
+mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--report FILE] [--prune]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
+| `--page PATH` | *(all nav pages)* | Publish a single page only |
+| `--section PATH` | *(whole nav)* | Publish only a nav subtree (e.g. `Guide/Setup`) |
+| `--dry-run` | off | Print the publish plan; no Confluence API writes |
+| `--report FILE` | *(none)* | Write a JSON publish report |
+| `--prune` | off | Delete managed pages no longer in `nav:`. Only pages stamped by mk2conf are eligible — manually-created Confluence pages are never touched. Ignored on partial (`--page` / `--section`) runs. |
+
+#### Publish behaviour
+
+- **Only `nav:` pages are published** — pages absent from the nav are never touched (natural draft gate).
+- Pages with `ready: false` in front matter are skipped, even if listed in `nav:`.
+- Section nodes (nav groups without a page) become empty parent pages, mirroring the nav hierarchy.
+- Local assets are uploaded as Confluence page attachments automatically.
+- **Unchanged pages are skipped** — a `sha256` hash of the compiled output is stored as a hidden page property; pages with identical content since the last run produce no version bump and no notification.
 
 #### Mermaid rendering
 
-| `mermaid_render` value | Behaviour |
+| `mermaid_render` | Behaviour |
 |---|---|
-| `kroki` *(default)* | Render via `https://kroki.io`. PNGs are cached in `~/.cache/mk2conf/mermaid/`. |
+| `kroki` *(default)* | Render via `https://kroki.io`. PNGs cached in `~/.cache/mk2conf/mermaid/`. |
 | `kroki:https://your-kroki` | Render via a self-hosted Kroki instance. |
-| `none` | Skip rendering — fall back to a `code` macro labelled `mermaid`. |
+| `none` | Fall back to a `code` macro labelled `mermaid`. |
 
 If Kroki is unreachable the run continues, falling back to the `code` macro for affected diagrams.
 
 #### Styling from extra.css
 
-If your `mkdocs.yml` has an `extra_css:` list, mk2conf reads those files and applies a whitelisted set of CSS properties as inline `style="..."` attributes in the Confluence output.
+If `mkdocs.yml` lists `extra_css:` files, mk2conf reads them and applies a whitelisted set of CSS properties as inline `style="..."` attributes on Confluence output.
 
 | Selector | Applied to |
 |---|---|
@@ -182,11 +149,9 @@ If your `mkdocs.yml` has an `extra_css:` list, mk2conf reads those files and app
 | `h1` – `h6` | Headings |
 | `code` (not `pre code`) | Inline code spans |
 
-Supported properties: `background-color`, `color`, `font-weight`, `font-style`, `font-size`, `text-align`, `border`.
+Supported properties: `background-color`, `color`, `font-weight`, `font-style`, `font-size`, `text-align`, `border`. CSS custom properties (`var(--name)`) are resolved automatically, including chained variables and `var(--name, fallback)` syntax.
 
-CSS custom properties (`var(--name)`) are resolved automatically, including chained variables and `var(--name, fallback)` syntax.
-
-**Works best with simple, flat CSS.** Complex Material for MkDocs theme overrides — compound selectors (`.md-typeset table:not([class]) thead th`), `color-mix()`, `@media` blocks, `:has()` etc. — are silently skipped. For these, maintain a small separate file:
+Complex Material theme overrides (compound selectors, `color-mix()`, `@media`, `:has()`) are silently skipped. For best results, maintain a small dedicated overrides file:
 
 ```css
 /* confluence-overrides.css */
@@ -198,8 +163,8 @@ code { background-color: #f5f5f5; }
 
 ```yaml
 extra_css:
-  - stylesheets/extra.css             # full Material theme
-  - stylesheets/confluence-overrides.css  # simple Confluence-targeted styles
+  - stylesheets/extra.css                   # full Material theme
+  - stylesheets/confluence-overrides.css    # simple Confluence-targeted styles
 ```
 
 ---
@@ -258,7 +223,7 @@ extra_css:
 | Internal links `[text](page.md)` | Native Confluence page link; `#fragment` anchors preserved |
 | `awesome-pages` nav (`.pages` files) | Fully supported |
 | Edit link banner | `info` macro linking back to source in GitHub/GitLab |
-| Grid cards `<div class="grid cards" markdown>` | Native `ac:layout` multi-column sections (auto-detects 1/2/3 columns from card count); admonitions, paragraphs, and mixed content fully supported inside cards |
+| Grid cards `<div class="grid cards" markdown>` | Native `ac:layout` multi-column sections (auto-detects 1/2/3 columns from card count) |
 
 ### YAML front matter → Page Properties
 
@@ -283,7 +248,6 @@ ready: true
 | `subtitle` | Rendered as italic lead paragraph above the properties table |
 | `tags` | Also applied as Confluence page labels |
 | `ready` | `true` → ✅ Ready · `false` → 📝 Draft (skips publish) |
-| `source` | Stripped (internal tooling field) |
 | *other fields* | Title-cased key, value stringified |
 
 If `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row links to the source file. If `site_url` is set, a **Published Page** row links to the rendered MkDocs site.
@@ -292,20 +256,25 @@ If `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row links
 
 MkDocs abbreviation definitions (`*[ABBR]: Full term`) are expanded inline — Confluence has no native `<abbr>` tooltip. The **first occurrence** in body text is expanded as `IAM (Identity and Access Management)`; subsequent occurrences are left as-is. Abbreviations that only appear in headings or code are collected into an auto-appended **Glossary** section.
 
-### Graceful degradation
-
-Any unrecognised block is preserved as a visible `warning` macro — no content is silently lost.
-
 ---
 
 ## Known limitations
 
 | Feature | Behaviour |
 |---|---|
-| **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro styling — no custom colours. `danger`, `error`, and `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
+| **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro colours. `danger`, `error`, `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
 | **Abbreviation tooltips** | No native tooltip support. First occurrence expanded inline; remainder left as-is. |
-| **Page ordering** | Confluence sorts child pages alphabetically. The v2 REST API has no write endpoint for child ordering; nav order cannot be enforced. |
-| **Code language aliases** | Pygments short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
+| **Page ordering** | Confluence sorts child pages alphabetically; the v2 REST API has no write endpoint for ordering. |
+| **Code language aliases** | Short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
+| **Unrecognised blocks** | Preserved as a visible `warning` macro — no content is silently lost. |
+
+---
+
+## Architecture
+
+![Architecture](https://raw.githubusercontent.com/jeckyl2010/mkdocs2confluence/main/docs/architecture.png)
+
+Each stage is a separate Python module under `src/mkdocs_to_confluence/`. The **plan** phase makes all API read calls (find existing pages); the **execute** phase makes all write calls, ensuring parent pages always exist before their children.
 
 ---
 
@@ -314,8 +283,9 @@ Any unrecognised block is preserved as a visible `warning` macro — no content 
 See [Setup.md](Setup.md) for environment setup.
 
 ```bash
-pytest              # run tests
-ruff check src tests  # lint
-mypy src            # type-check
-bandit -r src -ll   # security scan
+uv run pytest -q                        # run tests
+uv run ruff check src tests             # lint
+uv run vulture src --min-confidence 80  # dead code check
+uv run mypy src                         # type-check
+uv run bandit -r src -ll                # security scan
 ```
