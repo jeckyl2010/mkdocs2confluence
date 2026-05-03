@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -118,9 +119,13 @@ def _default_edit_uri(repo_url: str | None) -> str | None:
     """Return a sensible default ``edit_uri`` based on the hosting platform."""
     if not repo_url:
         return None
-    if "github.com" in repo_url:
+    try:
+        hostname = urlparse(repo_url).hostname or ""
+    except ValueError:
+        return None
+    if hostname == "github.com" or hostname.endswith(".github.com"):
         return "edit/main/docs/"
-    if "gitlab.com" in repo_url or "gitlab." in repo_url:
+    if hostname == "gitlab.com" or hostname.endswith(".gitlab.com") or "gitlab" in hostname:
         return "-/edit/master/docs/"
     return None
 
