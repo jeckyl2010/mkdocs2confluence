@@ -48,6 +48,7 @@ from mkdocs_to_confluence.ir.nodes import (
     OrderedList,
     Paragraph,
     RawHTML,
+    RawInlineHtml,
     Section,
     StrikethroughNode,
     SubscriptNode,
@@ -613,6 +614,8 @@ def _emit_inline(node: IRNode) -> str:
     if isinstance(node, InlineHtmlNode):
         open_tag, close_tag = _INLINE_HTML_MAP.get(node.tag, ("<span>", "</span>"))
         return f"{open_tag}{_emit_inlines(node.children)}{close_tag}"
+    if isinstance(node, RawInlineHtml):
+        return node.html_str
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
 

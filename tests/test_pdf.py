@@ -166,6 +166,11 @@ class TestWritePdf:
 class TestPdfCli:
     """Tests for the `pdf` subcommand in cli.py."""
 
+    @pytest.fixture(autouse=True)
+    def _skip_macos_reexec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Suppress the macOS DYLD re-exec so tests don't try to exec pytest."""
+        monkeypatch.setenv("_MK2CONF_DYLD_SET", "1")
+
     def _run(self, argv: list[str], config_path: Path) -> None:
         from mkdocs_to_confluence.cli import main
         main(["--"] + argv if argv[0].startswith("-") else argv)

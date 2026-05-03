@@ -79,6 +79,7 @@ from mkdocs_to_confluence.ir.nodes import (
     MermaidDiagram,
     OrderedList,
     Paragraph,
+    RawInlineHtml,
     Section,
     StrikethroughNode,
     SubscriptNode,
@@ -961,6 +962,16 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                     nodes.append(InlineHtmlNode(tag=tag, children=tuple(inner)))
                     i = close_idx + len(close)
                     continue
+
+            # Generic inline HTML with attributes (e.g. <span class="...">) — pass through verbatim
+            generic_m = re.match(
+                r"<([a-z][a-z0-9]*)\b[^>]*>.*?</\1>", text[i:], re.DOTALL | re.IGNORECASE
+            )
+            if generic_m:
+                flush()
+                nodes.append(RawInlineHtml(html_str=generic_m.group(0)))
+                i += len(generic_m.group(0))
+                continue
 
         # Bare URL autolink: https:// or http://
         if text[i : i + 4] in ("http", "ftp:"):

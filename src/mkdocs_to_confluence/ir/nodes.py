@@ -126,6 +126,18 @@ class InlineHtmlNode(IRNode):
 
 
 @dataclass(frozen=True)
+class RawInlineHtml(IRNode):
+    """A raw inline HTML element passed through verbatim.
+
+    Used for ``<span class="...">``, ``<abbr>``, and other inline HTML that has
+    no semantic IR equivalent.  The emitter outputs ``html_str`` unchanged; PDF
+    and browser-preview renderers handle it natively.
+    """
+
+    html_str: str
+
+
+@dataclass(frozen=True)
 class ImageNode(IRNode):
     """An image reference.
 

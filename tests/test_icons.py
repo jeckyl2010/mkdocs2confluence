@@ -157,3 +157,49 @@ class TestInlineReplacement:
     def test_no_icons_unchanged(self) -> None:
         text = "No icons here, just plain text."
         assert strip_icon_shortcodes(text) == text
+
+
+class TestStandardEmoji:
+    """Tests for bare emoji shortcodes like :rotating_light:."""
+
+    def test_rotating_light_maps_to_warning(self) -> None:
+        assert strip_icon_shortcodes(":rotating_light:") == "⚠"
+
+    def test_octagonal_sign_maps_to_no_entry(self) -> None:
+        assert strip_icon_shortcodes(":octagonal_sign:") == "⛔"
+
+    def test_wrench_maps_to_gear(self) -> None:
+        assert strip_icon_shortcodes(":wrench:") == "⚙"
+
+    def test_information_source_maps_to_info(self) -> None:
+        assert strip_icon_shortcodes(":information_source:") == "ℹ"
+
+    def test_white_check_mark_maps_to_check(self) -> None:
+        assert strip_icon_shortcodes(":white_check_mark:") == "✓"
+
+    def test_x_maps_to_cross(self) -> None:
+        assert strip_icon_shortcodes(":x:") == "✗"
+
+    def test_briefcase_stripped(self) -> None:
+        assert strip_icon_shortcodes(":briefcase:") == ""
+
+    def test_unknown_shortcode_unchanged(self) -> None:
+        assert strip_icon_shortcodes(":unknown_emoji_xyz:") == ":unknown_emoji_xyz:"
+
+    def test_emoji_in_sentence(self) -> None:
+        result = strip_icon_shortcodes("Status: :white_check_mark: Done")
+        assert result == "Status: ✓ Done"
+
+    def test_material_icon_not_double_processed(self) -> None:
+        # :material-check-circle: should still go through the prefixed path
+        result = strip_icon_shortcodes(":material-check-circle:")
+        assert result == "✓"
+
+    def test_all_standard_emoji_values_are_bmp(self) -> None:
+        from mkdocs_to_confluence.preprocess.icons import _STANDARD_EMOJI_MAP
+        for name, symbol in _STANDARD_EMOJI_MAP.items():
+            for ch in symbol:
+                assert ord(ch) <= 0xFFFF, (
+                    f"_STANDARD_EMOJI_MAP[{name!r}] contains supplementary-plane "
+                    f"character U+{ord(ch):04X} — use BMP or empty string"
+                )
