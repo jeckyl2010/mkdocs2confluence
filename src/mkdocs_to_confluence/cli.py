@@ -162,6 +162,64 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Suppress per-item progress output; only the final summary and warnings are shown.",
     )
 
+    # --- pdf ---
+    pdf = sub.add_parser(
+        "pdf",
+        help="Export a nav section (or single page) to a PDF document.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Requires WeasyPrint:  pip install mkdocs-to-confluence[pdf]\n"
+            "System packages (macOS): brew install pango\n"
+            "\n"
+            "Examples:\n"
+            "  mk2conf pdf --config mkdocs.yml --section Guide\n"
+            "  mk2conf pdf --config mkdocs.yml --section Guide --out release.pdf\n"
+            "  mk2conf pdf --config mkdocs.yml --page index.md --out index.pdf\n"
+        ),
+    )
+    pdf.add_argument(
+        "--config",
+        metavar="PATH",
+        default="mkdocs.yml",
+        help="Path to mkdocs.yml (default: ./mkdocs.yml).",
+    )
+    pdf.add_argument(
+        "--section",
+        metavar="SECTION",
+        default=None,
+        help="Nav section to export (slash-separated path, e.g. 'Guide' or 'Guide/Setup').",
+    )
+    pdf.add_argument(
+        "--page",
+        metavar="PATH",
+        default=None,
+        help="Relative path to a single markdown file to export.",
+    )
+    pdf.add_argument(
+        "--out",
+        metavar="FILE",
+        default=None,
+        help="Output PDF path (default: <section-or-page>.pdf in the current directory).",
+    )
+    pdf.add_argument(
+        "--author",
+        metavar="NAME",
+        default="",
+        help="Author name shown on the cover page.",
+    )
+    pdf.add_argument(
+        "--doc-version",
+        metavar="VERSION",
+        default="",
+        help="Version string shown on the cover page (e.g. 'v1.2').",
+    )
+    pdf.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress per-item progress output.",
+    )
+
     return parser
 
 
@@ -181,6 +239,8 @@ def main(argv: list[str] | None = None) -> None:
             _cmd_preview(args)
         elif args.command == "publish":
             _cmd_publish(args)
+        elif args.command == "pdf":
+            _cmd_pdf(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -456,3 +516,81 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
     if report.errors:
         sys.exit(1)
+
+
+def _cmd_pdf(args: argparse.Namespace) -> None:
+    from mkdocs_to_confluence.pdf.generator import write_pdf
+    from mkdocs_to_confluence.pdf.render import build_pdf_html
+
+    config_path = Path(args.config).resolve()
+    config = load_config(config_path)
+    configure_styles(config.extra_styles)
+
+    nodes = resolve_nav(config)
+
+    section_given = bool(getattr(args, "section", None))
+    page_given = bool(getattr(args, "page", None))
+
+    if not section_given and not page_given:
+        print("error: --section or --page is required.", file=sys.stderr)
+        sys.exit(1)
+
+    if section_given and page_given:
+        print("error: --section and --page cannot be combined.", file=sys.stderr)
+        sys.exit(1)
+
+    if section_given:
+        section_node = find_section(nodes, args.section) or find_section_by_folder(nodes, args.section)
+        if section_node is None:
+            print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
+            sys.exit(1)
+        nodes = [section_node]
+        pages = flat_pages(nodes)
+        title = args.section
+        default_out = f"{args.section.replace('/', '-')}.pdf"
+    else:
+        page_node = find_page(nodes, args.page)
+        if page_node is None:
+            print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)
+            sys.exit(1)
+        pages = [page_node]
+        title = page_node.title
+        default_out = f"{Path(args.page).stem}.pdf"
+
+    if not pages:
+        print("error: no pages found.", file=sys.stderr)
+        sys.exit(1)
+
+    link_map = build_link_map(nodes)
+    chapters: list[tuple[str, str]] = []
+    for node in pages:
+        try:
+            xhtml, _a, _l = compile_page(node, config, link_map, quiet=args.quiet)
+        except PageLoadError as exc:
+            print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
+            continue
+        chapters.append((node.title, xhtml))
+
+    if not chapters:
+        print("error: no pages compiled successfully.", file=sys.stderr)
+        sys.exit(1)
+
+    if not args.quiet:
+        print(f"  building PDF  {len(chapters)} page(s)…")
+
+    combined_html = build_pdf_html(
+        title,
+        chapters,
+        author=getattr(args, "author", ""),
+        version=getattr(args, "doc_version", ""),
+    )
+
+    out_path = Path(args.out).resolve() if args.out else Path(default_out).resolve()
+
+    try:
+        write_pdf(combined_html, out_path)
+    except ImportError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"PDF written to {out_path}")
