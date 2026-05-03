@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 from pathlib import Path
 from typing import Sequence
+from urllib.parse import urlparse
 
 from mkdocs_to_confluence.ir.nodes import (
     Admonition,
@@ -214,12 +215,15 @@ def _source_link_label(url: str) -> str:
     Only the proven-safe ↗ arrow is used — no emoji that may render as ??? on
     Confluence Cloud.
     """
-    lurl = url.lower()
-    if "github.com" in lurl:
+    try:
+        hostname = urlparse(url).hostname or ""
+    except ValueError:
+        hostname = ""
+    if hostname == "github.com" or hostname.endswith(".github.com"):
         platform = "GitHub"
-    elif "gitlab.com" in lurl or "gitlab." in lurl:
+    elif hostname == "gitlab.com" or hostname.endswith(".gitlab.com") or "gitlab" in hostname:
         platform = "GitLab"
-    elif "bitbucket.org" in lurl:
+    elif hostname == "bitbucket.org" or hostname.endswith(".bitbucket.org"):
         platform = "Bitbucket"
     else:
         return "Edit source \u2197"
