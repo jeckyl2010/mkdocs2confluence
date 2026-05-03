@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mkdocs_to_confluence.preview.render import (
     _load_image_data,
+    inject_livereload,
     render_html,
     render_index,
     render_page,
@@ -322,3 +323,87 @@ class TestRenderIndex:
         out = render_index("A & B", [])
         assert "A &amp; B" in out
 
+
+
+class TestRenderLayout:
+    def test_single_card_renders_ac_layout(self) -> None:
+        xhtml = (
+            "<ac:layout>\n"
+            '  <ac:layout-section ac:type="single">\n'
+            "    <ac:layout-cell><p>Hello</p></ac:layout-cell>\n"
+            "  </ac:layout-section>\n"
+            "</ac:layout>\n"
+        )
+        out = render_html(xhtml)
+        assert '<div class="ac-layout">' in out
+        assert '<div class="ac-layout-section ac-single">' in out
+        assert '<div class="ac-layout-cell">' in out
+        assert "<p>Hello</p>" in out
+        assert "<ac:layout" not in out
+
+    def test_two_equal_columns(self) -> None:
+        xhtml = (
+            "<ac:layout>"
+            '<ac:layout-section ac:type="two_equal">'
+            "<ac:layout-cell><p>A</p></ac:layout-cell>"
+            "<ac:layout-cell><p>B</p></ac:layout-cell>"
+            "</ac:layout-section>"
+            "</ac:layout>"
+        )
+        out = render_html(xhtml)
+        assert 'class="ac-layout-section ac-two-equal"' in out
+        assert out.count('<div class="ac-layout-cell">') == 2
+
+    def test_three_equal_columns(self) -> None:
+        xhtml = (
+            "<ac:layout>"
+            '<ac:layout-section ac:type="three_equal">'
+            "<ac:layout-cell><p>1</p></ac:layout-cell>"
+            "<ac:layout-cell><p>2</p></ac:layout-cell>"
+            "<ac:layout-cell><p>3</p></ac:layout-cell>"
+            "</ac:layout-section>"
+            "</ac:layout>"
+        )
+        out = render_html(xhtml)
+        assert 'class="ac-layout-section ac-three-equal"' in out
+        assert out.count('<div class="ac-layout-cell">') == 3
+
+    def test_macro_inside_layout_cell_renders(self) -> None:
+        xhtml = (
+            "<ac:layout>"
+            '<ac:layout-section ac:type="two_equal">'
+            "<ac:layout-cell>"
+            '<ac:structured-macro ac:name="info">'
+            '<ac:rich-text-body><p>tip</p></ac:rich-text-body>'
+            "</ac:structured-macro>"
+            "</ac:layout-cell>"
+            "<ac:layout-cell><p>B</p></ac:layout-cell>"
+            "</ac:layout-section>"
+            "</ac:layout>"
+        )
+        out = render_html(xhtml)
+        assert "ac:layout" not in out
+        assert "ac:structured-macro" not in out
+        assert "tip" in out
+
+    def test_layout_css_in_render_page(self) -> None:
+        out = render_page("<p>hi</p>")
+        assert ".ac-layout-section" in out
+
+
+class TestInjectLivereload:
+    def test_script_injected_before_body_close(self) -> None:
+        html = "<html><body><p>hi</p></body></html>"
+        out = inject_livereload(html)
+        assert "<script>" in out
+        assert out.index("<script>") < out.index("</body>")
+
+    def test_livereload_polls_endpoint(self) -> None:
+        html = "<html><body></body></html>"
+        out = inject_livereload(html)
+        assert "/__livereload" in out
+
+    def test_noop_when_no_body_close(self) -> None:
+        html = "<p>no body tag</p>"
+        out = inject_livereload(html)
+        assert out == html

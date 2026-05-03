@@ -25,6 +25,14 @@ from pathlib import Path
 
 # ── Regex patterns ────────────────────────────────────────────────────────────
 
+# ac:layout tag patterns — converted to flex-box HTML divs.
+_AC_LAYOUT_CELL_OPEN_RE = re.compile(r"<ac:layout-cell>")
+_AC_LAYOUT_CELL_CLOSE_RE = re.compile(r"</ac:layout-cell>")
+_AC_LAYOUT_SECTION_OPEN_RE = re.compile(r'<ac:layout-section\s+ac:type="([^"]+)">')
+_AC_LAYOUT_SECTION_CLOSE_RE = re.compile(r"</ac:layout-section>")
+_AC_LAYOUT_OPEN_RE = re.compile(r"<ac:layout>")
+_AC_LAYOUT_CLOSE_RE = re.compile(r"</ac:layout>")
+
 # Matches the innermost macro only (body contains no nested <ac:structured-macro).
 # The negative lookahead (?!<ac:structured-macro) prevents consuming into a
 # nested macro, so inner macros are always replaced before outer ones.
@@ -177,6 +185,20 @@ def _render_macro(m: re.Match[str]) -> str:
     )
 
 
+def _render_layout(html: str) -> str:
+    """Convert ``ac:layout`` / ``ac:layout-section`` / ``ac:layout-cell`` to flex HTML."""
+    html = _AC_LAYOUT_CELL_OPEN_RE.sub('<div class="ac-layout-cell">', html)
+    html = _AC_LAYOUT_CELL_CLOSE_RE.sub("</div>", html)
+    html = _AC_LAYOUT_SECTION_OPEN_RE.sub(
+        lambda m: f'<div class="ac-layout-section ac-{m.group(1).replace("_", "-")}">',
+        html,
+    )
+    html = _AC_LAYOUT_SECTION_CLOSE_RE.sub("</div>", html)
+    html = _AC_LAYOUT_OPEN_RE.sub('<div class="ac-layout">', html)
+    html = _AC_LAYOUT_CLOSE_RE.sub("</div>", html)
+    return html
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 _CSS = """
@@ -222,6 +244,12 @@ hr { border: none; border-top: 1px solid #dfe1e6; margin: 1.5em 0; }
 dl { margin: 1em 0; }
 dt { font-weight: 600; margin-top: 0.5em; }
 dd { margin-left: 2em; margin-top: 2px; }
+.ac-layout { margin: 1em 0; }
+.ac-layout-section { display: flex; gap: 16px; flex-wrap: wrap; }
+.ac-layout-cell {
+  flex: 1; min-width: 180px; padding: 12px;
+  background: #fafbfc; border: 1px solid #dfe1e6; border-radius: 4px;
+}
 """
 
 
@@ -300,6 +328,7 @@ def render_html(xhtml: str, page_link_map: dict[str, str] | None = None) -> str:
     while result != prev:
         prev = result
         result = _MACRO_RE.sub(_render_macro, result)
+    result = _render_layout(result)
     result = _IMAGE_RE.sub(_render_image, result)
     if page_link_map:
         result = _rewrite_page_links(result, page_link_map)
@@ -336,6 +365,28 @@ def _rewrite_page_links(html: str, page_link_map: dict[str, str]) -> str:
         return str(m.group(0))
 
     return _AC_LINK_RE.sub(_replace, html)
+
+
+_LIVERELOAD_SCRIPT = (
+    "<script>"
+    "(function(){"
+    "var v=null;"
+    "function poll(){"
+    "fetch('/__livereload')"
+    ".then(function(r){return r.text();})"
+    ".then(function(n){"
+    "if(v===null){v=n;}else if(n!==v){location.reload();}else{setTimeout(poll,800);}"
+    "}).catch(function(){setTimeout(poll,2000);})"
+    "}"
+    "setTimeout(poll,800);"
+    "})();"
+    "</script>"
+)
+
+
+def inject_livereload(html: str) -> str:
+    """Inject a polling livereload script before ``</body>``."""
+    return html.replace("</body>", _LIVERELOAD_SCRIPT + "\n</body>", 1)
 
 
 def render_page(xhtml: str, page: str = "", page_link_map: dict[str, str] | None = None) -> str:

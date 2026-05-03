@@ -194,3 +194,26 @@ class TestQuietOutputBehavior:
         mock_compile = self._run_preview_with_quiet(tmp_path, quiet=False)
         _args, kwargs = mock_compile.call_args
         assert kwargs.get("quiet") is False
+
+
+class TestWatchFlag:
+    """Parser-level tests for --watch; no live server or filesystem watching."""
+
+    def test_watch_flag_accepted(self) -> None:
+        from mkdocs_to_confluence.cli import _build_parser
+        p = _build_parser()
+        args = p.parse_args(["preview", "--page", "x.md", "--watch"])
+        assert args.watch is True
+
+    def test_watch_flag_defaults_false(self) -> None:
+        from mkdocs_to_confluence.cli import _build_parser
+        p = _build_parser()
+        args = p.parse_args(["preview", "--page", "x.md"])
+        assert args.watch is False
+
+    def test_watch_with_section_accepted(self) -> None:
+        from mkdocs_to_confluence.cli import _build_parser
+        p = _build_parser()
+        args = p.parse_args(["preview", "--section", "Guide", "--watch"])
+        assert args.watch is True
+        assert args.section == "Guide"

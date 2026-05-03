@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tempfile
 import webbrowser
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from mkdocs_to_confluence.emitter.xhtml import configure_styles
 from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
-from mkdocs_to_confluence.preview.render import render_index, render_page
+from mkdocs_to_confluence.preview.render import inject_livereload, render_index, render_page
 from mkdocs_to_confluence.publisher.pipeline import compile_page
 from mkdocs_to_confluence.transforms.internallinks import build_link_map
 
@@ -86,6 +87,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "-q",
         action="store_true",
         help="Suppress per-item progress output; only the final summary and warnings are shown.",
+    )
+
+    preview.add_argument(
+        "--watch",
+        action="store_true",
+        help=(
+            "Start a local server on http://localhost:8765, open the browser, "
+            "and automatically rebuild when any .md file changes. Implies --html."
+        ),
     )
 
     # --- publish ---
@@ -199,6 +209,10 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
     section_given = bool(getattr(args, "section", None))
     page_given = bool(args.page)
+    watch = getattr(args, "watch", False)
+
+    if watch:
+        args.html = True  # --watch always implies --html
 
     if not section_given and not page_given:
         print("error: --page is required when --section is not given.", file=sys.stderr)
@@ -219,32 +233,60 @@ def _cmd_preview(args: argparse.Namespace) -> None:
             print("error: section contains no pages.", file=sys.stderr)
             sys.exit(1)
 
-        out_dir, index_name = _parse_out_path(args.out)
+        if watch and args.out is None:
+            out_dir = Path(tempfile.mkdtemp(prefix="mk2conf-preview-"))
+            index_name = "index.html"
+        else:
+            out_dir, index_name = _parse_out_path(args.out)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         link_map = build_link_map(nodes)
-        # Map page title → html filename for cross-page link rewriting
         page_link_map = {
             node.title: f"{Path(node.docs_path).stem}.html"
             for node in pages
             if node.docs_path is not None
         }
 
-        rendered: list[tuple[str, str]] = []  # (title, html_filename)
-        for node in pages:
-            html_name = page_link_map.get(node.title, f"{Path(node.docs_path or node.title).stem}.html")
-            try:
-                xhtml, _attachments, _labels = compile_page(node, config, link_map, quiet=args.quiet)
-            except PageLoadError as exc:
-                print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
-                continue
-            html = render_page(xhtml, page=node.title, page_link_map=page_link_map)
-            (out_dir / html_name).write_text(html, encoding="utf-8")
-            rendered.append((node.title, html_name))
+        def _build_section_pages(*, livereload: bool = False) -> list[tuple[str, str]]:
+            result: list[tuple[str, str]] = []
+            for node in pages:
+                html_name = page_link_map.get(node.title, f"{Path(node.docs_path or node.title).stem}.html")
+                try:
+                    xhtml, _a, _l = compile_page(node, config, link_map, quiet=args.quiet)
+                except PageLoadError as exc:
+                    print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
+                    continue
+                html = render_page(xhtml, page=node.title, page_link_map=page_link_map)
+                if livereload:
+                    html = inject_livereload(html)
+                (out_dir / html_name).write_text(html, encoding="utf-8")
+                result.append((node.title, html_name))
+            return result
 
+        rendered = _build_section_pages(livereload=watch)
         index_html = render_index(args.section, rendered)
         index_path = out_dir / index_name
         index_path.write_text(index_html, encoding="utf-8")
+
+        if watch:
+            from mkdocs_to_confluence.preview.server import bump_version, start_server, watch_and_rebuild
+
+            start_server(out_dir, port=8765)
+            url = "http://localhost:8765"
+            print(f"Watching for changes. Press Ctrl+C to stop.\n{url}")
+            webbrowser.open(url)
+
+            def _rebuild() -> None:
+                new_rendered = _build_section_pages(livereload=True)
+                new_index = render_index(args.section, new_rendered)
+                index_path.write_text(new_index, encoding="utf-8")
+                bump_version()
+
+            try:
+                watch_and_rebuild(config.docs_dir, _rebuild)
+            except KeyboardInterrupt:
+                print("\nStopped.")
+            return
 
         url = f"file://{index_path}"
         print(f"Section preview ({len(rendered)} pages): {url}")
@@ -257,8 +299,41 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         print(f"error: page '{args.page}' not found in nav.", file=sys.stderr)
         sys.exit(1)
 
+    link_map = build_link_map(nodes)
+
+    if watch:
+        from mkdocs_to_confluence.preview.server import bump_version, start_server, watch_and_rebuild
+
+        out_dir = Path(args.out).resolve() if args.out else Path(tempfile.mkdtemp(prefix="mk2conf-preview-"))
+        html_name = "preview.html"
+        out_path = out_dir / html_name
+
+        def _build_page() -> None:
+            try:
+                xhtml, _a, _l = compile_page(page_node, config, link_map, quiet=True)
+            except PageLoadError as exc:
+                print(f"  warning: {exc}", file=sys.stderr)
+                return
+            html = inject_livereload(render_page(xhtml, page=args.page))
+            out_path.write_text(html, encoding="utf-8")
+
+        _build_page()
+        start_server(out_dir, port=8765)
+        url = "http://localhost:8765"
+        print(f"Watching for changes. Press Ctrl+C to stop.\n{url}")
+        webbrowser.open(url)
+
+        def _rebuild_page() -> None:
+            _build_page()
+            bump_version()
+
+        try:
+            watch_and_rebuild(config.docs_dir, _rebuild_page)
+        except KeyboardInterrupt:
+            print("\nStopped.")
+        return
+
     try:
-        link_map = build_link_map(nodes)
         xhtml, _attachments, _labels = compile_page(page_node, config, link_map, quiet=args.quiet)
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
