@@ -49,6 +49,7 @@ a proper library (e.g. ``markdown-it-py``) later without touching the IR.
 from __future__ import annotations
 
 import contextlib
+import html
 import re
 from dataclasses import dataclass, field
 from typing import Union
@@ -785,7 +786,7 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
     def flush() -> None:
         nonlocal buf
         if buf:
-            nodes.append(TextNode(text=buf))
+            nodes.append(TextNode(text=html.unescape(buf)))
             buf = ""
 
     while i < n:

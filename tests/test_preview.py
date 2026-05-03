@@ -87,6 +87,17 @@ class TestRenderHtml:
         assert "Show more" in out
         assert "hidden content" in out
 
+    def test_expand_title_with_ampersand_not_double_escaped(self) -> None:
+        xhtml = (
+            '<ac:structured-macro ac:name="expand">'
+            '<ac:parameter ac:name="title">Architecture &amp; Resilience</ac:parameter>'
+            "<ac:rich-text-body><p>content</p></ac:rich-text-body>"
+            "</ac:structured-macro>"
+        )
+        out = render_html(xhtml)
+        assert "Architecture &amp; Resilience" in out
+        assert "&amp;amp;" not in out
+
     def test_nested_code_inside_warning(self) -> None:
         xhtml = (
             '<ac:structured-macro ac:name="warning">'
