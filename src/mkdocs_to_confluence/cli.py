@@ -519,6 +519,21 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
 
 def _cmd_pdf(args: argparse.Namespace) -> None:
+    # On macOS with uv/non-system Python, Homebrew libs are not on the dyld search
+    # path.  Re-exec once with DYLD_LIBRARY_PATH set — the sentinel prevents loops.
+    import os
+    if sys.platform == "darwin" and not os.environ.get("_MK2CONF_DYLD_SET"):
+        brew_lib = "/opt/homebrew/lib"
+        if os.path.isdir(brew_lib):
+            current = os.environ.get("DYLD_LIBRARY_PATH", "")
+            if brew_lib not in current:
+                new_path = f"{brew_lib}:{current}" if current else brew_lib
+                os.execve(
+                    sys.argv[0],
+                    sys.argv,
+                    {**os.environ, "DYLD_LIBRARY_PATH": new_path, "_MK2CONF_DYLD_SET": "1"},
+                )
+
     from mkdocs_to_confluence.pdf.generator import write_pdf
     from mkdocs_to_confluence.pdf.render import build_pdf_html
 
@@ -589,7 +604,7 @@ def _cmd_pdf(args: argparse.Namespace) -> None:
 
     try:
         write_pdf(combined_html, out_path)
-    except ImportError as exc:
+    except (ImportError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
 
