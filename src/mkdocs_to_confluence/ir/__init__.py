@@ -32,6 +32,7 @@ from mkdocs_to_confluence.ir.nodes import (
     ImageNode,
     # Inline HTML nodes
     InlineHtmlNode,
+    InsertNode,
     # Traversal utility
     IRNode,
     ItalicNode,
@@ -79,6 +80,7 @@ __all__ = [
     "ImageNode",
     "LineBreakNode",
     "InlineHtmlNode",
+    "InsertNode",
     # Block
     "Section",
     "Paragraph",

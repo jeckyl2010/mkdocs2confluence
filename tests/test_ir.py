@@ -19,6 +19,7 @@ from mkdocs_to_confluence.ir import (
     Expandable,
     HorizontalRule,
     ImageNode,
+    InsertNode,
     IRNode,
     ItalicNode,
     LinkNode,
@@ -190,6 +191,10 @@ class TestInlineNodes:
 
     def test_superscript_node(self) -> None:
         node = SuperscriptNode(children=(TextNode(text="2"),))
+        assert len(node.children) == 1
+
+    def test_insert_node(self) -> None:
+        node = InsertNode(children=(TextNode(text="new"),))
         assert len(node.children) == 1
 
     def test_code_inline_node(self) -> None:

@@ -735,6 +735,7 @@ from mkdocs_to_confluence.ir import (  # noqa: E402
     DefinitionList,
     HorizontalRule,
     ImageNode,
+    InsertNode,
     ItalicNode,
     LinkNode,
     OrderedList,
@@ -782,6 +783,37 @@ class TestInlineParsing:
         assert isinstance(para, Paragraph)
         sup = next(n for n in para.children if isinstance(n, SuperscriptNode))
         assert sup.children[0].text == "2"  # type: ignore[union-attr]
+
+    def test_insert_underline(self) -> None:
+        para = first(parse("^^inserted^^\n"), Paragraph)
+        assert isinstance(para, Paragraph)
+        ins = next(n for n in para.children if isinstance(n, InsertNode))
+        assert ins.children[0].text == "inserted"  # type: ignore[union-attr]
+
+    def test_insert_does_not_consume_superscript(self) -> None:
+        """^^text^^ should produce InsertNode, not two SuperscriptNodes."""
+        para = first(parse("^^hello^^\n"), Paragraph)
+        nodes = [n for n in para.children if isinstance(n, InsertNode)]
+        sup_nodes = [n for n in para.children if isinstance(n, SuperscriptNode)]
+        assert len(nodes) == 1
+        assert len(sup_nodes) == 0
+
+    def test_bare_url_autolink(self) -> None:
+        para = first(parse("See https://example.com for details.\n"), Paragraph)
+        link = next(n for n in para.children if isinstance(n, LinkNode))
+        assert link.href == "https://example.com"
+        assert link.children[0].text == "https://example.com"  # type: ignore[union-attr]
+
+    def test_bare_url_http(self) -> None:
+        para = first(parse("Visit http://example.com today.\n"), Paragraph)
+        link = next(n for n in para.children if isinstance(n, LinkNode))
+        assert link.href == "http://example.com"
+
+    def test_trailing_backslash_hard_break(self) -> None:
+        from mkdocs_to_confluence.ir import LineBreakNode
+        nodes = parse("Line one\\\nLine two\n")
+        para = first(nodes, Paragraph)
+        assert any(isinstance(n, LineBreakNode) for n in para.children)
 
     def test_inline_code(self) -> None:
         para = first(parse("Use `foo()` here.\n"), Paragraph)

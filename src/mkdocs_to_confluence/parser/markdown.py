@@ -57,6 +57,7 @@ from mkdocs_to_confluence.ir.nodes import (
     HorizontalRule,
     ImageNode,
     InlineHtmlNode,
+    InsertNode,
     IRNode,
     ItalicNode,
     LineBreakNode,
@@ -833,6 +834,16 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                 i = close_idx + 1
                 continue
 
+        # Insert (underline): ^^text^^  — checked before single ^
+        if text[i : i + 2] == "^^":
+            close_idx = text.find("^^", i + 2)
+            if close_idx != -1:
+                flush()
+                inner = _scan_inline(text[i + 2 : close_idx], _fn)
+                nodes.append(InsertNode(children=tuple(inner)))
+                i = close_idx + 2
+                continue
+
         # Superscript: ^text^
         if text[i] == "^":
             close_idx = text.find("^", i + 1)
@@ -877,6 +888,16 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                     nodes.append(InlineHtmlNode(tag=tag, children=tuple(inner)))
                     i = close_idx + len(close)
                     continue
+
+        # Bare URL autolink: https:// or http://
+        if text[i : i + 4] in ("http", "ftp:"):
+            url_m = re.match(r"(https?://|ftp://)[^\s<>\[\]\"']+", text[i:])
+            if url_m:
+                flush()
+                url = url_m.group(0)
+                nodes.append(LinkNode(href=url, children=(TextNode(text=url),)))
+                i += len(url)
+                continue
 
         buf += text[i]
         i += 1
@@ -1067,7 +1088,16 @@ def _append_content(
 
 def _paragraph_node(token: _ParagraphToken, fn_map: dict[str, int] | None = None) -> Paragraph:
     """Convert a paragraph token into a :class:`~ir.Paragraph` node."""
-    text = " ".join(line.strip() for line in token.lines)
+    # Trailing backslash on a line is a hard line break (CommonMark / pymdownx.escapeall).
+    # Preserve it as <br> so the inline parser can detect it.
+    parts: list[str] = []
+    for line in token.lines:
+        stripped = line.strip()
+        if stripped.endswith("\\"):
+            parts.append(stripped[:-1] + "<br>")
+        else:
+            parts.append(stripped)
+    text = " ".join(parts)
     return Paragraph(children=_parse_inline(text, fn_map=fn_map))
 
 
