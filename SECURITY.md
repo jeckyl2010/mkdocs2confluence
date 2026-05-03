@@ -26,3 +26,19 @@ This tool runs locally and publishes Markdown content to Confluence. The main ri
 - **Confluence credentials** — passed via environment variables or `mkdocs.yml`; never logged or stored by this tool
 - **URL handling** — source links and edit URIs are validated using `urlparse` hostname matching, not substring checks
 - **Dependency vulnerabilities** — monitored automatically via Dependabot and `pip-audit` in CI
+
+### Kroki diagram rendering
+
+When Mermaid or D2 diagrams are present, diagram source code is sent to a [Kroki](https://kroki.io) server for rendering to PNG.
+
+**By default this uses the public `kroki.io` service** — meaning diagram content leaves your machine and is processed by a third-party server.
+
+If your diagrams contain sensitive or proprietary information, configure a self-hosted Kroki instance in `mkdocs.yml`:
+
+```yaml
+extra:
+  confluence:
+    kroki_url: https://kroki.your-company.com
+```
+
+Self-hosting Kroki is straightforward via Docker: `docker run -p 8000:8000 yuzutech/kroki`.
