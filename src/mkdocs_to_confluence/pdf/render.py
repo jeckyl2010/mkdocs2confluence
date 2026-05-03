@@ -20,7 +20,7 @@ from mkdocs_to_confluence.preview.render import render_html
 _PDF_CSS = """
 @page {
   size: A4 portrait;
-  margin: 25mm 20mm 25mm 20mm;
+  margin: 18mm 15mm 18mm 20mm;
   @bottom-center {
     content: counter(page);
     font-size: 9pt;
