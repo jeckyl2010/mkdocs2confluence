@@ -39,6 +39,7 @@ from mkdocs_to_confluence.ir.nodes import (
     InlineHtmlNode,
     IRNode,
     ItalicNode,
+    InsertNode,
     LineBreakNode,
     LinkNode,
     ListItem,
@@ -548,6 +549,8 @@ def _emit_inline(node: IRNode) -> str:
         return f"<sub>{_emit_inlines(node.children)}</sub>"
     if isinstance(node, SuperscriptNode):
         return f"<sup>{_emit_inlines(node.children)}</sup>"
+    if isinstance(node, InsertNode):
+        return f"<u>{_emit_inlines(node.children)}</u>"
     if isinstance(node, CodeInlineNode):
         style_attr = styles_to_attr(_styles.code_inline) if _styles else ""
         return f"<code{style_attr}>{html.escape(node.code)}</code>"

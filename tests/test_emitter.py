@@ -12,6 +12,7 @@ from mkdocs_to_confluence.ir.nodes import (
     ContentTabs,
     Expandable,
     HorizontalRule,
+    InsertNode,
     ItalicNode,
     LinkNode,
     ListItem,
@@ -266,6 +267,10 @@ class TestSubscriptSuperscriptEmitter:
     def test_superscript(self) -> None:
         out = emit((Paragraph((SuperscriptNode((TextNode("2"),)),)),))
         assert "<sup>2</sup>" in out
+
+    def test_insert(self) -> None:
+        out = emit((Paragraph((InsertNode((TextNode("new"),)),)),))
+        assert "<u>new</u>" in out
 
 
 class TestDefinitionListEmitter:

@@ -74,6 +74,13 @@ class SubscriptNode(IRNode):
 
 
 @dataclass(frozen=True)
+class InsertNode(IRNode):
+    """Inserted (underlined) inline content (``^^text^^``)."""
+
+    children: tuple[IRNode, ...]
+
+
+@dataclass(frozen=True)
 class CodeInlineNode(IRNode):
     """An inline code span (`` `code` ``)."""
 

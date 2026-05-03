@@ -219,12 +219,16 @@ extra_css:
 | `**bold**` / `__bold__` | `<strong>` |
 | `*italic*` | `<em>` |
 | `~~strikethrough~~` | `<s>` |
+| `~subscript~` | `<sub>` (pymdownx.tilde) |
+| `^superscript^` | `<sup>` (pymdownx.caret) |
+| `^^inserted^^` | `<u>` (pymdownx.caret insert) |
 | `` `inline code` `` | `<code>` |
 | `[text](url)` | `<a href="...">` |
+| `https://bare-url` | `<a href="...">` (autolink) |
 | `[text](file.pdf)` | `<ac:link><ri:attachment .../>` (uploaded as attachment) |
 | `![alt](src)` | `<ac:image>` with `<ri:attachment>` (local) or `<ri:url>` (remote) |
 | `![alt](src){ width="400" }` | `<ac:image ac:width="400">` — also supports `height` and `align` |
-| `<br>` / `<br/>` | `<br />` |
+| `<br>` / `<br/>` / trailing `\` | `<br />` |
 | `<sub>` / `<sup>` / `<u>` / `<small>` | Direct XHTML passthrough |
 | `<mark>text</mark>` | `<span style="background-color: yellow;">` |
 | `<kbd>text</kbd>` | `<code>` |
