@@ -24,7 +24,7 @@ def bump_version() -> None:
 class _Handler(BaseHTTPRequestHandler):
     serve_dir: Path  # set on the class before calling start_server()
 
-    def log_message(self, fmt: str, *args: object) -> None:  # silence request logs
+    def log_message(self, _fmt: str, *args: object) -> None:  # silence request logs
         pass
 
     def do_GET(self) -> None:
