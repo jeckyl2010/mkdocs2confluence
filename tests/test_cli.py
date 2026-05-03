@@ -217,3 +217,23 @@ class TestWatchFlag:
         args = p.parse_args(["preview", "--section", "Guide", "--watch"])
         assert args.watch is True
         assert args.section == "Guide"
+
+    def test_watch_renders_html_not_raw_xhtml(self, tmp_path: Path) -> None:
+        """--watch must invoke render_page (HTML output), never raw XHTML."""
+        yml = _minimal_config(tmp_path)
+        (tmp_path / "docs" / "index.md").write_text("# Home\n", encoding="utf-8")
+
+        mock_compile = MagicMock(return_value=("<p>Hello</p>", [], ()))
+        mock_render = MagicMock(return_value="<html>preview</html>")
+
+        with patch("mkdocs_to_confluence.cli.compile_page", mock_compile), \
+             patch("mkdocs_to_confluence.cli.render_page", mock_render), \
+             patch("mkdocs_to_confluence.cli.inject_livereload", return_value="<html>preview</html>"), \
+             patch("mkdocs_to_confluence.preview.server.start_server"), \
+             patch("mkdocs_to_confluence.preview.server.watch_and_rebuild",
+                   side_effect=KeyboardInterrupt), \
+             patch("webbrowser.open"), \
+             patch("sys.stdout.isatty", return_value=False):
+            main(["preview", "--config", str(yml), "--page", "index.md", "--watch"])
+
+        mock_render.assert_called_once()
