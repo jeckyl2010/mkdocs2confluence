@@ -169,7 +169,10 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Requires WeasyPrint:  pip install mkdocs-to-confluence[pdf]\n"
-            "System packages (macOS): brew install pango\n"
+            "System packages also required (pango, cairo):\n"
+            "  macOS:   brew install pango\n"
+            "  Ubuntu:  apt install libpango-1.0-0 libpangoft2-1.0-0\n"
+            "  Windows: choco install gtk-runtime\n"
             "\n"
             "Examples:\n"
             "  mk2conf pdf --config mkdocs.yml --section Guide\n"
