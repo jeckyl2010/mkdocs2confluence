@@ -332,7 +332,7 @@ def test_dry_run_prints_page_list(tmp_path: Path, capsys: pytest.CaptureFixture)
 
     captured = capsys.readouterr()
     assert "Dry run" in captured.out
-    assert "example.atlassian.net" in captured.out  # codeql[py/incomplete-url-substring-sanitization] - test assertion, not URL sanitization
+    assert "example.atlassian.net" in captured.out  # codeql[py/incomplete-url-substring-sanitization]
 
 
 def test_dry_run_no_api_calls(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
