@@ -139,6 +139,7 @@ class _AdmonitionToken:
     kind: str
     title: str | None       # None → use the kind's default Confluence title
     collapsible: bool       # True for ??? and ???+
+    expanded: bool          # True for ???+ (expanded by default)
     body_tokens: list[_Token]
 
 
@@ -386,6 +387,7 @@ def _tokenize(text: str) -> list[_Token]:
             kind = adm_m.group("kind")
             title = adm_m.group("title")    # None if no quoted title given
             collapsible = marker.startswith("?")
+            expanded = marker == "???+"
             i += 1
             # Collect body: blank lines or lines indented by ≥4 spaces / 1 tab.
             body_raw: list[str] = []
@@ -408,6 +410,7 @@ def _tokenize(text: str) -> list[_Token]:
                     kind=kind,
                     title=title,
                     collapsible=collapsible,
+                    expanded=expanded,
                     body_tokens=body_tokens,
                 )
             )
@@ -1055,6 +1058,7 @@ def _build_tree(
                     kind=token.kind,
                     title=token.title,
                     collapsible=token.collapsible,
+                    expanded=token.expanded,
                     children=body_nodes,
                 ),
                 stack,

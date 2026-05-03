@@ -136,6 +136,18 @@ class TestAdmonitionEmitter:
         assert 'ac:name="expand"' in out
         assert 'ac:name="panel"' not in out
 
+    def test_expanded_admonition_renders_as_regular_macro(self) -> None:
+        # ???+ (collapsible=True, expanded=True) has no Confluence equivalent for
+        # "expanded by default", so we degrade to a regular admonition macro.
+        out = emit((
+            Admonition(kind="note", title="Visible", children=(Paragraph((TextNode("body"),)),),
+                       collapsible=True, expanded=True),
+        ))
+        assert 'ac:name="expand"' not in out
+        assert 'ac:name="info"' in out
+        assert "Visible" in out
+        assert "body" in out
+
 
 class TestContentTabsEmitter:
     def test_tabs_render_as_expand_macros(self) -> None:
