@@ -65,11 +65,16 @@ mk2conf preview --config mkdocs.yml --page index.md
 # Open a browser-friendly HTML preview
 mk2conf preview --config mkdocs.yml --page index.md --html --out /tmp/preview.html
 
+# Live preview — auto-rebuilds on every file save
+mk2conf preview --config mkdocs.yml --page index.md --watch
+mk2conf preview --config mkdocs.yml --section Guide --watch
+
 # Dry-run: see what would be published without touching Confluence
 mk2conf publish --config mkdocs.yml --dry-run
 
 # Publish all nav pages to Confluence
-CONFLUENCE_API_TOKEN=your_token mk2conf publish --config mkdocs.yml
+# (set CONFLUENCE_API_TOKEN in your shell profile or CI secrets, not inline)
+mk2conf publish --config mkdocs.yml
 ```
 
 ---
@@ -92,21 +97,9 @@ mk2conf preview [--config PATH] --section NAME [--out FILE] [--watch]
 | `--section NAME` | *(none)* | Render all pages in a nav section as a browseable HTML index |
 | `--out FILE` | stdout | Write output to a file (or directory for `--section`) |
 | `--html` | off | Render macros as styled HTML for local browser review |
-| `--watch` | off | Start a local server on `http://localhost:8765`, open the browser, and **automatically rebuild on every `.md` file change** — no manual refresh needed. Implies `--html`. |
+| `--watch` | off | Start a local server on `http://localhost:8765`, open the browser, and automatically rebuild on every `.md` file change. Implies `--html`. Press `Ctrl+C` to stop. |
 
 The `--html` flag renders Confluence macros as visual HTML panels so you can review a page locally without a Confluence instance. It is for review only — the actual storage XHTML is always the `--html`-free output.
-
-#### Live preview while authoring
-
-```bash
-# Watch a single page
-mk2conf preview --page index.md --watch
-
-# Watch a whole section
-mk2conf preview --section Guide --watch
-```
-
-The browser reloads automatically within ~1 second of saving any Markdown file. Press `Ctrl+C` to stop the server.
 
 ---
 
@@ -311,7 +304,6 @@ Any unrecognised block is preserved as a visible `warning` macro — no content 
 |---|---|
 | **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro styling — no custom colours. `danger`, `error`, and `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
 | **Abbreviation tooltips** | No native tooltip support. First occurrence expanded inline; remainder left as-is. |
-| **Grid cards** | Wrapper stripped; inner admonitions rendered individually. |
 | **Page ordering** | Confluence sorts child pages alphabetically. The v2 REST API has no write endpoint for child ordering; nav order cannot be enforced. |
 | **Code language aliases** | Pygments short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
 
