@@ -1,8 +1,8 @@
 """Tests for preprocess.icons — icon shortcode stripping/mapping.
 
-All mapped symbols must be BMP characters (U+0000–U+FFFF, ≤ 3-byte UTF-8).
-Supplementary-plane emoji (U+10000+) render as ``???`` in Confluence
-deployments that use MySQL ``utf8`` rather than ``utf8mb4``.
+Confluence Cloud uses utf8mb4 and supports full Unicode including
+supplementary-plane emoji (U+10000+).  Shortcodes with no clear emoji
+equivalent are stripped silently.
 """
 
 from __future__ import annotations
@@ -29,23 +29,20 @@ class TestKnownMappings:
     def test_close_maps_to_cross(self) -> None:
         assert strip_icon_shortcodes(":material-close:") == "✗"
 
-    def test_lock_stripped(self) -> None:
-        # 🔒 is non-BMP (U+1F512); strip silently instead
-        assert strip_icon_shortcodes(":material-lock:") == ""
+    def test_lock_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-lock:") == "🔒"
 
-    def test_shield_stripped(self) -> None:
-        assert strip_icon_shortcodes(":material-shield:") == ""
+    def test_shield_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-shield:") == "🛡️"
 
-    def test_rocket_stripped(self) -> None:
-        # 🚀 is non-BMP (U+1F680); strip silently instead
-        assert strip_icon_shortcodes(":material-rocket-launch:") == ""
+    def test_rocket_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-rocket-launch:") == "🚀"
 
     def test_settings_maps_to_gear(self) -> None:
         assert strip_icon_shortcodes(":material-cog:") == "⚙"
 
-    def test_search_stripped(self) -> None:
-        # 🔍 is non-BMP (U+1F50D); strip silently instead
-        assert strip_icon_shortcodes(":material-magnify:") == ""
+    def test_search_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-magnify:") == "🔍"
 
     def test_refresh_maps_to_arrow(self) -> None:
         assert strip_icon_shortcodes(":material-refresh:") == "↻"
@@ -84,18 +81,17 @@ class TestArrowMappings:
 
 
 class TestBuggedIcons:
-    """Regression tests for icons that previously rendered as ??? in Confluence."""
+    """Regression tests for icons that should not produce wrong output."""
 
-    def test_link_variant_stripped(self) -> None:
-        # Was: 🔗 (U+1F517, non-BMP) → ??  in Confluence
-        assert strip_icon_shortcodes(":material-link-variant:") == ""
+    def test_link_variant_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-link-variant:") == "🔗"
 
     def test_grid_view_outline_stripped(self) -> None:
-        # Was: 👁️ (wrong semantic + non-BMP) → ??? in Confluence
+        # grid/view have no meaningful emoji analogue
         assert strip_icon_shortcodes(":material-grid-view-outline:") == ""
 
-    def test_link_stripped(self) -> None:
-        assert strip_icon_shortcodes(":material-link:") == ""
+    def test_link_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-link:") == "🔗"
 
     def test_view_stripped(self) -> None:
         assert strip_icon_shortcodes(":material-view-dashboard:") == ""
@@ -124,21 +120,26 @@ class TestUnknownIcons:
         assert strip_icon_shortcodes(":fontawesome-brands-github:") == ""
 
 
-class TestBmpSafety:
-    """All mapped values must be BMP-only (≤ U+FFFF, max 3-byte UTF-8)."""
+class TestEmojiMappings:
+    """Supplementary-plane emoji now map to real emoji (Cloud utf8mb4 support)."""
 
-    def test_all_mapped_values_are_bmp(self) -> None:
-        from mkdocs_to_confluence.preprocess.icons import _KEYWORD_MAP
+    def test_fire_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-fire:") == "🔥"
 
-        non_bmp = {
-            kw: val
-            for kw, val in _KEYWORD_MAP.items()
-            if val is not None and any(ord(c) > 0xFFFF for c in val)
-        }
-        assert non_bmp == {}, (
-            f"Non-BMP characters found in _KEYWORD_MAP (will render as ??? "
-            f"in Confluence MySQL utf8): {non_bmp}"
-        )
+    def test_lightbulb_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-lightbulb:") == "💡"
+
+    def test_bug_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-bug:") == "🐛"
+
+    def test_package_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-package:") == "📦"
+
+    def test_account_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-account:") == "👤"
+
+    def test_robot_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":material-robot:") == "🤖"
 
 
 class TestInlineReplacement:
@@ -162,14 +163,14 @@ class TestInlineReplacement:
 class TestStandardEmoji:
     """Tests for bare emoji shortcodes like :rotating_light:."""
 
-    def test_rotating_light_maps_to_warning(self) -> None:
-        assert strip_icon_shortcodes(":rotating_light:") == "⚠"
+    def test_rotating_light_maps_to_siren(self) -> None:
+        assert strip_icon_shortcodes(":rotating_light:") == "🚨"
 
     def test_octagonal_sign_maps_to_no_entry(self) -> None:
         assert strip_icon_shortcodes(":octagonal_sign:") == "⛔"
 
-    def test_wrench_maps_to_gear(self) -> None:
-        assert strip_icon_shortcodes(":wrench:") == "⚙"
+    def test_wrench_maps_to_wrench_emoji(self) -> None:
+        assert strip_icon_shortcodes(":wrench:") == "🔧"
 
     def test_information_source_maps_to_info(self) -> None:
         assert strip_icon_shortcodes(":information_source:") == "ℹ"
@@ -180,8 +181,8 @@ class TestStandardEmoji:
     def test_x_maps_to_cross(self) -> None:
         assert strip_icon_shortcodes(":x:") == "✗"
 
-    def test_briefcase_stripped(self) -> None:
-        assert strip_icon_shortcodes(":briefcase:") == ""
+    def test_briefcase_maps_to_emoji(self) -> None:
+        assert strip_icon_shortcodes(":briefcase:") == "💼"
 
     def test_unknown_shortcode_unchanged(self) -> None:
         assert strip_icon_shortcodes(":unknown_emoji_xyz:") == ":unknown_emoji_xyz:"
@@ -195,11 +196,7 @@ class TestStandardEmoji:
         result = strip_icon_shortcodes(":material-check-circle:")
         assert result == "✓"
 
-    def test_all_standard_emoji_values_are_bmp(self) -> None:
+    def test_all_standard_emoji_values_are_strings(self) -> None:
         from mkdocs_to_confluence.preprocess.icons import _STANDARD_EMOJI_MAP
         for name, symbol in _STANDARD_EMOJI_MAP.items():
-            for ch in symbol:
-                assert ord(ch) <= 0xFFFF, (
-                    f"_STANDARD_EMOJI_MAP[{name!r}] contains supplementary-plane "
-                    f"character U+{ord(ch):04X} — use BMP or empty string"
-                )
+            assert isinstance(symbol, str), f"_STANDARD_EMOJI_MAP[{name!r}] is not a string"
