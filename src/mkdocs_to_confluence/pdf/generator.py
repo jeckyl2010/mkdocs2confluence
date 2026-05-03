@@ -17,6 +17,8 @@ def write_pdf(html: str, out_path: Path) -> None:
     ------
     ImportError
         If WeasyPrint is not installed.
+    OSError
+        If a required system library (pango, gobject) cannot be loaded.
     """
     try:
         import weasyprint
@@ -27,6 +29,15 @@ def write_pdf(html: str, out_path: Path) -> None:
             "System packages also required (pango, cairo):\n"
             "  macOS:  brew install pango\n"
             "  Ubuntu: apt install libpango-1.0-0 libpangoft2-1.0-0"
+        ) from exc
+    except OSError as exc:
+        raise OSError(
+            "WeasyPrint cannot find a required system library (pango/gobject).\n"
+            "Install the system packages and try again:\n"
+            "  macOS:  brew install pango\n"
+            "  Ubuntu: apt install libpango-1.0-0 libpangoft2-1.0-0\n"
+            "If already installed, set the library path explicitly:\n"
+            "  DYLD_LIBRARY_PATH=/opt/homebrew/lib mk2conf pdf ..."
         ) from exc
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

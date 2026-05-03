@@ -143,6 +143,22 @@ class TestWritePdf:
             with pytest.raises(ImportError, match="pip install"):
                 gen_mod.write_pdf("<html></html>", tmp_path / "out.pdf")
 
+    def test_oserror_on_missing_dylib(self, tmp_path: Path) -> None:
+        """OSError from cffi (missing pango dylib) surfaces as OSError with guidance."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def _broken_import(name: str, *args: object, **kwargs: object) -> object:
+            if name == "weasyprint":
+                raise OSError("cannot load library 'libgobject-2.0-0'")
+            return original_import(name, *args, **kwargs)
+
+        import mkdocs_to_confluence.pdf.generator as gen_mod
+        with patch("builtins.__import__", side_effect=_broken_import):
+            with pytest.raises(OSError, match="DYLD_LIBRARY_PATH"):
+                gen_mod.write_pdf("<html></html>", tmp_path / "out.pdf")
+
 
 # ── CLI: mk2conf pdf ───────────────────────────────────────────────────────────
 
