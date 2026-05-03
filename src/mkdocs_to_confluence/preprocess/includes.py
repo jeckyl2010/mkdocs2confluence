@@ -43,6 +43,12 @@ _SNIPPET_RE = re.compile(r'^--8<--\s+"(?P<path>[^"]+)"\s*$')
 
 # Raw HTML block wrappers that have no Confluence equivalent — stripped silently.
 # Matches opening tags like <div class="grid" markdown> and bare </div>.
+# Note: <div class="grid cards" markdown> is NOT stripped here — it is parsed
+# by the tokenizer and converted to a GridCards IR node.
+_GRID_CARD_RE = re.compile(
+    r'^\s*<div\b[^>]*\bclass=["\'][^"\']*\bgrid\s+cards\b[^"\']*["\'][^>]*>\s*$',
+    re.IGNORECASE,
+)
 _STRIP_TAG_RE = re.compile(
     r'^\s*<div\b[^>]*\bmarkdown\b[^>]*>\s*$'   # <div ... markdown ...>
     r'|^\s*</div>\s*$',                          # </div>
@@ -111,11 +117,16 @@ def strip_unsupported_html(text: str) -> str:
 
     Strips ``<div ... markdown ...>`` opening tags and bare ``</div>`` closing
     tags.  The content inside is preserved — only the wrapper lines are dropped.
+
+    ``<div class="grid cards" markdown>`` blocks are preserved intact — they are
+    handled by the parser and converted to native ``ac:layout`` grid sections.
+
     Tags inside fenced code blocks are left untouched.
     """
     lines = text.splitlines(keepends=True)
     result: list[str] = []
     tracker = FenceTracker()
+    grid_depth = 0  # >0 means we are inside a grid cards div
 
     for line in lines:
         stripped = line.rstrip("\n").rstrip("\r")
@@ -125,6 +136,21 @@ def strip_unsupported_html(text: str) -> str:
         if was_in_fence or tracker.in_fence:
             result.append(line)
             continue
+
+        # Grid card opener — preserve and track nesting depth.
+        if _GRID_CARD_RE.match(stripped):
+            grid_depth += 1
+            result.append(line)
+            continue
+
+        if grid_depth > 0:
+            # Inside a grid card block: preserve all content, including </div>.
+            if re.match(r'^\s*</div>\s*$', stripped, re.IGNORECASE):
+                grid_depth -= 1
+            result.append(line)
+            continue
+
+        # Outside grid cards: strip other markdown div wrappers.
         if _STRIP_TAG_RE.match(stripped):
             continue  # drop the wrapper line silently
         result.append(line)

@@ -444,6 +444,21 @@ class FootnoteBlock(IRNode):
     items: tuple[FootnoteDef, ...]
 
 
+# ── Grid cards ───────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class GridCards(IRNode):
+    """Material for MkDocs ``<div class="grid cards" markdown>`` layout.
+
+    Each element of *items* is a tuple of IR nodes representing one card.
+    The emitter maps this to a native ``ac:layout`` multi-column section,
+    choosing ``two_equal`` or ``three_equal`` based on the number of cards.
+    """
+
+    items: tuple[tuple[IRNode, ...], ...]
+
+
 # ── Graceful degradation ──────────────────────────────────────────────────────
 
 
@@ -489,3 +504,7 @@ def walk(node: IRNode) -> Generator[IRNode, None, None]:
             for item in value:
                 if isinstance(item, IRNode):
                     yield from walk(item)
+                elif isinstance(item, tuple):
+                    for sub in item:
+                        if isinstance(sub, IRNode):
+                            yield from walk(sub)

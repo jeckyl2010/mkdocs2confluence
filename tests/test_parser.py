@@ -1228,3 +1228,62 @@ class TestKeyboardKeys:
         para = first(parse("C++ is a language\n"), Paragraph)
         text = "".join(n.text for n in para.children if isinstance(n, TextNode))
         assert "C++" in text
+
+
+class TestGridCards:
+    def test_bullet_list_items_become_cards(self) -> None:
+        from mkdocs_to_confluence.ir import GridCards, Paragraph
+        md = (
+            '<div class="grid cards" markdown>\n'
+            "- **Fast** — compiles quickly\n"
+            "- **Secure** — no credentials stored\n"
+            "</div>\n"
+        )
+        nodes = parse(md)
+        gc = next(n for n in nodes if isinstance(n, GridCards))
+        assert len(gc.items) == 2
+        assert any(isinstance(n, Paragraph) for n in gc.items[0])
+        assert any(isinstance(n, Paragraph) for n in gc.items[1])
+
+    def test_admonition_items_become_cards(self) -> None:
+        from mkdocs_to_confluence.ir import Admonition, GridCards
+        md = (
+            '<div class="grid cards" markdown>\n'
+            '\n'
+            '!!! tip "Card 1"\n'
+            '    First card content\n'
+            '\n'
+            '!!! info "Card 2"\n'
+            '    Second card content\n'
+            '\n'
+            '</div>\n'
+        )
+        nodes = parse(md)
+        gc = next(n for n in nodes if isinstance(n, GridCards))
+        assert len(gc.items) == 2
+        assert any(isinstance(n, Admonition) for n in gc.items[0])
+        assert any(isinstance(n, Admonition) for n in gc.items[1])
+
+    def test_single_card(self) -> None:
+        from mkdocs_to_confluence.ir import GridCards
+        md = (
+            '<div class="grid cards" markdown>\n'
+            "- Only one card\n"
+            "</div>\n"
+        )
+        nodes = parse(md)
+        gc = next(n for n in nodes if isinstance(n, GridCards))
+        assert len(gc.items) == 1
+
+    def test_three_cards(self) -> None:
+        from mkdocs_to_confluence.ir import GridCards
+        md = (
+            '<div class="grid cards" markdown>\n'
+            "- Card A\n"
+            "- Card B\n"
+            "- Card C\n"
+            "</div>\n"
+        )
+        nodes = parse(md)
+        gc = next(n for n in nodes if isinstance(n, GridCards))
+        assert len(gc.items) == 3

@@ -28,6 +28,7 @@ from mkdocs_to_confluence.ir.nodes import (
     FootnoteBlock,
     FootnoteDef,
     FootnoteRef,
+    GridCards,
     HorizontalRule,
     ImageNode,
     # Inline HTML nodes
@@ -105,6 +106,7 @@ __all__ = [
     "ContentTabs",
     "Tab",
     "Expandable",
+    "GridCards",
     # Degradation
     "UnsupportedBlock",
     # Footnotes

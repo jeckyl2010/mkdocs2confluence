@@ -458,3 +458,88 @@ class TestMermaidEmitter:
         out = emit((node,))
         assert 'ac:align="center"' in out
         assert 'ri:filename="diag.png"' in out
+
+
+class TestGridCardsEmitter:
+    def test_two_cards_uses_two_equal(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        node = GridCards(items=(
+            (Paragraph((TextNode("Fast"),)),),
+            (Paragraph((TextNode("Secure"),)),),
+        ))
+        out = emit((node,))
+        assert 'ac:type="two_equal"' in out
+        assert out.count("<ac:layout-cell>") == 2
+        assert "Fast" in out
+        assert "Secure" in out
+
+    def test_three_cards_uses_three_equal(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        node = GridCards(items=(
+            (Paragraph((TextNode("A"),)),),
+            (Paragraph((TextNode("B"),)),),
+            (Paragraph((TextNode("C"),)),),
+        ))
+        out = emit((node,))
+        assert 'ac:type="three_equal"' in out
+        assert out.count("<ac:layout-cell>") == 3
+
+    def test_one_card_uses_single(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        node = GridCards(items=(
+            (Paragraph((TextNode("Only"),)),),
+        ))
+        out = emit((node,))
+        assert 'ac:type="single"' in out
+
+    def test_four_cards_uses_two_equal_two_rows(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        cards = tuple(
+            (Paragraph((TextNode(f"Card {i}"),)),) for i in range(4)
+        )
+        node = GridCards(items=cards)
+        out = emit((node,))
+        assert 'ac:type="two_equal"' in out
+        assert out.count("<ac:layout-section") == 2
+        assert out.count("<ac:layout-cell>") == 4
+
+    def test_six_cards_uses_three_equal_two_rows(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        cards = tuple(
+            (Paragraph((TextNode(f"Card {i}"),)),) for i in range(6)
+        )
+        node = GridCards(items=cards)
+        out = emit((node,))
+        assert 'ac:type="three_equal"' in out
+        assert out.count("<ac:layout-section") == 2
+
+    def test_five_cards_pads_last_row(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        cards = tuple(
+            (Paragraph((TextNode(f"Card {i}"),)),) for i in range(5)
+        )
+        node = GridCards(items=cards)
+        out = emit((node,))
+        # 5 items with two_equal → 3 rows, last has 1 real + 1 padded cell
+        assert 'ac:type="two_equal"' in out
+        assert out.count("<ac:layout-cell>") == 6  # 5 real + 1 padding
+
+    def test_admonition_inside_card(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import Admonition, GridCards, Paragraph, TextNode
+        adm = Admonition(
+            kind="tip",
+            title="Speed",
+            collapsible=False,
+            children=(Paragraph((TextNode("Fast"),)),),
+        )
+        node = GridCards(items=((adm,), (Paragraph((TextNode("Other"),)),)))
+        out = emit((node,))
+        assert 'ac:name="tip"' in out
+        assert "Speed" in out
+
+    def test_wraps_in_ac_layout(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import GridCards, Paragraph, TextNode
+        node = GridCards(items=((Paragraph((TextNode("x"),)),),))
+        out = emit((node,))
+        assert out.startswith("<ac:layout>")
+        assert "</ac:layout>" in out

@@ -250,6 +250,7 @@ extra_css:
 | Internal links `[text](page.md)` | Native Confluence page link; `#fragment` anchors preserved |
 | `awesome-pages` nav (`.pages` files) | Fully supported |
 | Edit link banner | `info` macro linking back to source in GitHub/GitLab |
+| Grid cards `<div class="grid cards" markdown>` | Native `ac:layout` multi-column sections (auto-detects 1/2/3 columns from card count); admonitions, paragraphs, and mixed content fully supported inside cards |
 
 ### YAML front matter → Page Properties
 
@@ -286,8 +287,6 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are expanded inline — C
 ### Graceful degradation
 
 Any unrecognised block is preserved as a visible `warning` macro — no content is silently lost.
-
-`<div class="grid" markdown>` (Material grid cards) has no Confluence equivalent. The wrapper is stripped; inner admonitions render sequentially.
 
 ---
 

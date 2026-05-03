@@ -17,6 +17,7 @@ from mkdocs_to_confluence.ir import (
     ContentTabs,
     Document,
     Expandable,
+    GridCards,
     HorizontalRule,
     ImageNode,
     InsertNode,
@@ -588,3 +589,28 @@ class TestNodeEquality:
         node = TextNode("key")
         d = {node: "value"}
         assert d[TextNode("key")] == "value"
+
+
+class TestGridCardsNode:
+    def test_basic_construction(self) -> None:
+        card1 = (TextNode("Fast"),)
+        card2 = (TextNode("Secure"),)
+        node = GridCards(items=(card1, card2))
+        assert len(node.items) == 2
+        assert node.items[0][0] == TextNode("Fast")
+
+    def test_immutable(self) -> None:
+        node = GridCards(items=((TextNode("x"),),))
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            node.items = ()  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        a = GridCards(items=((TextNode("x"),),))
+        b = GridCards(items=((TextNode("x"),),))
+        assert a == b
+
+    def test_walk_yields_children(self) -> None:
+        inner = TextNode("hello")
+        node = GridCards(items=((inner,),))
+        found = list(walk(node))
+        assert inner in found
