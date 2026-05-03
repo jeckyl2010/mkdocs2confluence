@@ -4,14 +4,34 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Copenhagen"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "github-actions"
     groups:
       github-actions:
         patterns: ["*"]
+    commit-message:
+      prefix: "ci"
 
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Copenhagen"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    versioning-strategy: "increase-if-necessary"
     groups:
       python-deps:
         patterns: ["*"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
