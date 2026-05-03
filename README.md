@@ -1,4 +1,4 @@
-# mk2conf — MkDocs to Confluence
+# mk2conf — MkDocs / Zensical to Confluence
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -15,6 +15,8 @@
 A Python CLI tool that compiles MkDocs-flavoured Markdown into native Confluence storage XHTML and publishes it to Confluence.
 
 It is a **compiler/transpiler**, not an HTML converter — every Markdown construct is mapped to the equivalent native Confluence macro or element, so pages look and behave like hand-authored Confluence content.
+
+> **Zensical compatible** — [Zensical](https://zensical.org/) is the modern successor to MkDocs + Material for MkDocs, built by the same team. Since Zensical uses the same `mkdocs.yml` format and Python Markdown extensions, your Zensical project works with this tool today — no changes required.
 
 ---
 
