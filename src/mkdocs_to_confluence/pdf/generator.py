@@ -27,16 +27,20 @@ def write_pdf(html: str, out_path: Path) -> None:
             "PDF export requires WeasyPrint.\n"
             "Install it with:  pip install mkdocs-to-confluence[pdf]\n"
             "System packages also required (pango, cairo):\n"
-            "  macOS:  brew install pango\n"
-            "  Ubuntu: apt install libpango-1.0-0 libpangoft2-1.0-0"
+            "  macOS:   brew install pango\n"
+            "  Ubuntu:  apt install libpango-1.0-0 libpangoft2-1.0-0\n"
+            "  Windows: choco install gtk-runtime  (then restart your shell)\n"
+            "           or download from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer"
         ) from exc
     except OSError as exc:
         raise OSError(
             "WeasyPrint cannot find a required system library (pango/gobject).\n"
             "Install the system packages and try again:\n"
-            "  macOS:  brew install pango\n"
-            "  Ubuntu: apt install libpango-1.0-0 libpangoft2-1.0-0\n"
-            "If already installed, set the library path explicitly:\n"
+            "  macOS:   brew install pango\n"
+            "  Ubuntu:  apt install libpango-1.0-0 libpangoft2-1.0-0\n"
+            "  Windows: choco install gtk-runtime  (then restart your shell)\n"
+            "           or download from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer\n"
+            "If already installed on macOS, set the library path explicitly:\n"
             "  DYLD_LIBRARY_PATH=/opt/homebrew/lib mk2conf pdf ..."
         ) from exc
 
