@@ -34,6 +34,7 @@ from mkdocs_to_confluence.ir.nodes import (
     FootnoteBlock,
     FootnoteRef,
     FrontMatter,
+    GridCards,
     HorizontalRule,
     ImageNode,
     InlineHtmlNode,
@@ -188,6 +189,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_front_matter(node)
     if isinstance(node, FootnoteBlock):
         return _emit_footnote_block(node)
+    if isinstance(node, GridCards):
+        return _emit_grid_cards(node)
     if isinstance(node, UnsupportedBlock):
         return _emit_unsupported(node)
     # Inline nodes at block level (shouldn't normally appear, but be safe)
@@ -477,6 +480,51 @@ def _emit_expandable(node: Expandable) -> str:
         f"  <ac:rich-text-body>\n{body}  </ac:rich-text-body>\n"
         "</ac:structured-macro>\n"
     )
+
+
+def _grid_layout_type(n: int) -> str:
+    """Choose an ``ac:layout-section`` type for *n* grid cards.
+
+    Rules (minimise empty cells, prefer fewer rows):
+    - 1 card  → ``single``
+    - divisible by 3 → ``three_equal``
+    - otherwise → ``two_equal``
+    """
+    if n == 1:
+        return "single"
+    if n % 3 == 0:
+        return "three_equal"
+    return "two_equal"
+
+
+def _emit_grid_cards(node: GridCards) -> str:
+    """Emit a Material grid cards block as a native ``ac:layout`` section.
+
+    Each card maps to one ``ac:layout-cell``.  The column count is auto-detected
+    from the number of cards: 1 → single, 3/6/9/… → three_equal, else two_equal.
+    Empty padding cells are added when the last row is not full.
+    """
+    items = node.items
+    layout_type = _grid_layout_type(len(items))
+    cols = 1 if layout_type == "single" else (3 if layout_type == "three_equal" else 2)
+
+    rows: list[list[tuple[IRNode, ...]]] = []
+    for start in range(0, len(items), cols):
+        rows.append(list(items[start : start + cols]))
+
+    parts: list[str] = ["<ac:layout>\n"]
+    for row in rows:
+        parts.append(f'  <ac:layout-section ac:type="{layout_type}">\n')
+        for card_nodes in row:
+            parts.append("    <ac:layout-cell>\n")
+            parts.append(emit(card_nodes))
+            parts.append("    </ac:layout-cell>\n")
+        # Pad last row with empty cells if needed.
+        for _ in range(cols - len(row)):
+            parts.append("    <ac:layout-cell><p /></ac:layout-cell>\n")
+        parts.append("  </ac:layout-section>\n")
+    parts.append("</ac:layout>\n")
+    return "".join(parts)
 
 
 def _emit_unsupported(node: UnsupportedBlock) -> str:

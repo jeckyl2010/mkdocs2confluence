@@ -66,6 +66,7 @@ from mkdocs_to_confluence.ir.nodes import (
     FootnoteBlock,
     FootnoteDef,
     FootnoteRef,
+    GridCards,
     HorizontalRule,
     ImageNode,
     InlineHtmlNode,
@@ -201,6 +202,11 @@ class _DefListToken:
     items: list[_DefListItemData]
 
 
+@dataclass
+class _GridCardsToken:
+    cards: list[list[_Token]]  # each inner list = tokens for one card
+
+
 _Token = Union[
     _HeadingToken,
     _CodeToken,
@@ -214,6 +220,7 @@ _Token = Union[
     _TableToken,
     _FootnoteDefToken,
     _DefListToken,
+    _GridCardsToken,
 ]
 
 
@@ -255,6 +262,41 @@ _FOOTNOTE_REF_RE = re.compile(r'^\[\^(?P<label>[^\]]+)\]')
 # Matches a definition list definition line:  :   text
 _DEFLIST_DEF_RE = re.compile(r'^:\s+(?P<text>.+)$')
 
+# Matches <div class="grid cards" markdown> (with or without quotes around class value).
+_GRID_CARD_DIV_RE = re.compile(
+    r'^\s*<div\b[^>]*\bclass=["\'][^"\']*\bgrid\s+cards\b[^"\']*["\'][^>]*>\s*$',
+    re.IGNORECASE,
+)
+_CLOSE_DIV_RE = re.compile(r'^\s*</div>\s*$', re.IGNORECASE)
+
+
+def _tokenize_grid_cards(inner_lines: list[str]) -> _GridCardsToken:
+    """Convert the inner lines of a grid cards div into a ``_GridCardsToken``.
+
+    Two card formats are supported:
+
+    * **Bullet list** — each list item is one card::
+
+        - :icon: **Title** — description text
+
+    * **Admonition list** — each admonition is one card::
+
+        !!! tip "Title"
+            Body content
+    """
+    inner_tokens = _tokenize("\n".join(inner_lines))
+
+    # Bullet list: each item becomes a card (a single paragraph).
+    if len(inner_tokens) == 1 and isinstance(inner_tokens[0], _BulletListToken):
+        cards: list[list[_Token]] = [
+            [_ParagraphToken(lines=[item.text])]
+            for item in inner_tokens[0].items
+        ]
+        return _GridCardsToken(cards=cards)
+
+    # All other cases: each top-level token is one card.
+    return _GridCardsToken(cards=[[tok] for tok in inner_tokens])
+
 
 def _tokenize(text: str) -> list[_Token]:
     """Convert *text* into a flat list of tokens.
@@ -267,6 +309,25 @@ def _tokenize(text: str) -> list[_Token]:
     i = 0
     while i < len(lines):
         line = lines[i]
+
+        # ── Grid cards div ───────────────────────────────────────────────────
+        if _GRID_CARD_DIV_RE.match(line):
+            i += 1
+            inner_lines: list[str] = []
+            depth = 1
+            while i < len(lines) and depth > 0:
+                if _GRID_CARD_DIV_RE.match(lines[i]):
+                    depth += 1
+                elif _CLOSE_DIV_RE.match(lines[i]):
+                    depth -= 1
+                    if depth == 0:
+                        i += 1
+                        break
+                if depth > 0:
+                    inner_lines.append(lines[i])
+                i += 1
+            tokens.append(_tokenize_grid_cards(inner_lines))
+            continue
 
         # ── Fenced code block ────────────────────────────────────────────────
         fence_m = _FENCE_OPEN_RE.match(line)
@@ -1054,6 +1115,13 @@ def _build_tree(
                 for item in token.items
             )
             _append_content(DefinitionList(items=dl_items), stack, root)
+
+        elif isinstance(token, _GridCardsToken):
+            card_ir = tuple(
+                _build_tree(card_tokens, fn_map=_fn)
+                for card_tokens in token.cards
+            )
+            _append_content(GridCards(items=card_ir), stack, root)
 
     # Close all remaining open sections.
     _close_from_level(0, stack, root)
