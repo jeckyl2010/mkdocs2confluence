@@ -236,7 +236,7 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 
 # Matches an admonition opener:  !!! kind  /  !!! kind "title"  /  ??? kind  /  ???+ kind
 _ADMONITION_RE = re.compile(
-    r'^(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+["\'](?P<title>[^"\']*)["\'])?$'
+    r"""^(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+(?P<q>["'])(?P<title>.*?)(?P=q))?$"""
 )
 
 # Matches a Material for MkDocs content tab opener:  === "Label"
