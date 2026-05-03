@@ -490,6 +490,16 @@ class TestAdmonitions:
         assert isinstance(adm, Admonition)
         assert adm.title == "Pro tip"
 
+    def test_title_with_single_quotes_inside_double_quoted(self) -> None:
+        adm = first(parse("???+ note \"What 'best effort' means (C4)\"\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.title == "What 'best effort' means (C4)"
+
+    def test_title_with_double_quotes_inside_single_quoted(self) -> None:
+        adm = first(parse("!!! note 'title with \"double\" quotes'\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.title == 'title with "double" quotes'
+
     def test_bang_not_collapsible(self) -> None:
         adm = first(parse("!!! note\n    Body.\n"), Admonition)
         assert isinstance(adm, Admonition)
