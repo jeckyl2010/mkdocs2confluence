@@ -32,7 +32,7 @@ pipx install mkdocs2confluence
 
 ```bash
 git clone https://github.com/jeckyl2010/mkdocs2confluence.git
-cd mkdocs2confluence && pip install -e ".[dev]"
+cd mkdocs2confluence && uv sync
 ```
 
 ---
@@ -79,6 +79,28 @@ The API token is read from (in priority order):
 
 ---
 
+## Your first publish
+
+Once you have added the `confluence:` block (see above), this is all you need to get from zero to a live Confluence page:
+
+```bash
+# 1. Set your API token (add this to your shell profile or CI secrets)
+export CONFLUENCE_API_TOKEN=your_api_token_here
+
+# 2. Preview one page locally to verify the output before touching Confluence
+mk2conf preview --page docs/index.md --watch
+
+# 3. Dry-run to see exactly what would be created or updated
+mk2conf publish --dry-run
+
+# 4. Publish
+mk2conf publish
+```
+
+That is it. mk2conf reads `mkdocs.yml` in the current directory, compiles every page listed in `nav:`, mirrors the hierarchy under `parent_page_id`, and skips any page that has not changed since the last run.
+
+---
+
 ## Commands
 
 ### `mk2conf preview`
@@ -87,14 +109,14 @@ Compile and inspect output locally — no Confluence API calls. Mermaid diagrams
 
 ```
 mk2conf preview [--config PATH] --page PATH [--out FILE] [--html] [--watch]
-mk2conf preview [--config PATH] --section NAME [--out FILE] [--watch]
+mk2conf preview [--config PATH] --section SECTION [--out FILE] [--watch]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
 | `--page PATH` | *(required unless --section)* | Relative path to the Markdown file |
-| `--section NAME` | *(none)* | Render all pages in a nav section as a browseable HTML index |
+| `--section SECTION` | *(none)* | Nav section title to render, slash-separated for nested sections (e.g. `Guide` or `Guide/Setup`). Renders all pages in that subtree as a browseable HTML index. |
 | `--out FILE` | stdout | Write output to a file or directory |
 | `--html` | off | Render macros as styled browser-viewable HTML |
 | `--watch` | off | Serve on `http://localhost:8765` and auto-rebuild on file changes. Implies `--html`. `Ctrl+C` to stop. |
@@ -108,14 +130,14 @@ mk2conf preview [--config PATH] --section NAME [--out FILE] [--watch]
 Compile all pages in `nav:` and publish to Confluence Cloud.
 
 ```
-mk2conf publish [--config PATH] [--page PATH] [--section PATH] [--dry-run] [--report FILE] [--prune]
+mk2conf publish [--config PATH] [--page PATH] [--section SECTION] [--dry-run] [--report FILE] [--prune]
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
 | `--page PATH` | *(all nav pages)* | Publish a single page only |
-| `--section PATH` | *(whole nav)* | Publish only a nav subtree (e.g. `Guide/Setup`) |
+| `--section SECTION` | *(whole nav)* | Publish only a nav subtree, slash-separated for nested sections (e.g. `Guide` or `Guide/Setup`) |
 | `--dry-run` | off | Print the publish plan; no Confluence API writes |
 | `--report FILE` | *(none)* | Write a JSON publish report |
 | `--prune` | off | Delete managed pages no longer in `nav:`. Only pages stamped by mk2conf are eligible — manually-created Confluence pages are never touched. Ignored on partial (`--page` / `--section`) runs. |
