@@ -34,10 +34,13 @@ To use the `mk2conf pdf` subcommand, install the optional PDF extra:
 pip install "mkdocs2confluence[pdf]"
 ```
 
-> **macOS only**: WeasyPrint requires Pango for font rendering:
-> ```bash
-> brew install pango
-> ```
+WeasyPrint requires system libraries (Pango, Cairo) — install them for your platform:
+
+| Platform | Command |
+|---|---|
+| macOS | `brew install pango` |
+| Ubuntu / Debian | `apt install libpango-1.0-0 libpangoft2-1.0-0` |
+| Windows 11 | `choco install gtk-runtime` — or download the [GTK3 runtime installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer) and add its `bin\` folder to your `PATH` |
 
 **From source** (see [Setup.md](Setup.md)):
 
