@@ -115,7 +115,10 @@ body {
 /* ── Chapters ── */
 article {
   page-break-before: always;
-  string-set: section-title attr(data-title);
+}
+.pdf-chapter-title {
+  display: none;
+  string-set: section-title content();
 }
 article h1 { font-size: 18pt; color: #0052cc; margin-top: 0; }
 article h2 { font-size: 13pt; color: #0052cc; }
@@ -249,7 +252,7 @@ def build_pdf_html(
 
     # Chapters
     chapter_html = "".join(
-        '<article id="{anchor}" data-title="{title}">\n{body}\n</article>\n'.format(
+        '<article id="{anchor}">\n<span class="pdf-chapter-title">{title}</span>\n{body}\n</article>\n'.format(
             anchor=_anchor(title),
             title=_html.escape(title),
             body=render_html(xhtml),

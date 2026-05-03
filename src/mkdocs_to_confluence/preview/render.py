@@ -72,7 +72,8 @@ _AC_ANCHOR_ATTR_RE = re.compile(r'ac:anchor="(?P<anchor>[^"]*)"')
 
 
 def _params(macro_body: str) -> dict[str, str]:
-    return {m.group(1): m.group(2) for m in _PARAM_RE.finditer(macro_body)}
+    # Values are XML text content (e.g. "&amp;" for "&"); unescape to plain text.
+    return {m.group(1): _html.unescape(m.group(2)) for m in _PARAM_RE.finditer(macro_body)}
 
 
 def _cdata(macro_body: str) -> str:
