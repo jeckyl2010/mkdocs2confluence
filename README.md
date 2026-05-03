@@ -28,6 +28,17 @@ pip install mkdocs2confluence
 pipx install mkdocs2confluence
 ```
 
+To use the `mk2conf pdf` subcommand, install the optional PDF extra:
+
+```bash
+pip install "mkdocs2confluence[pdf]"
+```
+
+> **macOS only**: WeasyPrint requires Pango for font rendering:
+> ```bash
+> brew install pango
+> ```
+
 **From source** (see [Setup.md](Setup.md)):
 
 ```bash
@@ -52,6 +63,9 @@ mk2conf publish --dry-run
 
 # Publish all nav pages to Confluence
 mk2conf publish
+
+# Export a nav section to a stand-alone PDF document
+mk2conf pdf --section Guide --out guide.pdf
 ```
 
 ---
@@ -188,6 +202,28 @@ extra_css:
   - stylesheets/extra.css                   # full Material theme
   - stylesheets/confluence-overrides.css    # simple Confluence-targeted styles
 ```
+
+---
+
+### `mk2conf pdf`
+
+Export a nav section or single page to a stand-alone, printer-ready PDF document. Requires `pip install "mkdocs2confluence[pdf]"`.
+
+```
+mk2conf pdf [--config PATH] (--section SECTION | --page PATH) [--out FILE] [--author TEXT] [--doc-version TEXT] [--quiet]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
+| `--section SECTION` | *(required unless --page)* | Export a nav subtree by section title |
+| `--page PATH` | *(required unless --section)* | Export a single page |
+| `--out FILE` | `<section-or-page>.pdf` | Output PDF path |
+| `--author TEXT` | *(none)* | Author name printed on the cover page |
+| `--doc-version TEXT` | *(none)* | Document version printed on the cover page |
+| `--quiet` | off | Suppress progress output |
+
+The PDF includes a **cover page**, **table of contents** with page numbers, and one chapter per nav page with automatic page breaks. Code blocks avoid mid-block splits; Mermaid diagrams appear as embedded PNGs (same Kroki-rendered images used for Confluence).
 
 ---
 

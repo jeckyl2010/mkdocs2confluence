@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs2confluence"
-version = "0.6.9"
+version = "0.7.0"
 description = "Publish MkDocs Material pages to Confluence Cloud — admonitions, Mermaid diagrams, tabs, page properties and more"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
@@ -42,6 +42,9 @@ Issues = "https://github.com/jeckyl2010/mkdocs2confluence/issues"
 Changelog = "https://github.com/jeckyl2010/mkdocs2confluence/releases"
 
 [project.optional-dependencies]
+pdf = [
+  "weasyprint>=60.0",
+]
 dev = [
   "pytest",
   "pytest-cov",
@@ -74,6 +77,10 @@ python_version = "3.12"
 
 [[tool.mypy.overrides]]
 module = "tinycss2"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "weasyprint"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
