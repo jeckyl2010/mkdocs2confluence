@@ -32,14 +32,7 @@ jobs:
         run: uv run mypy src
 
       - name: Security scan (bandit)
-        run: uv run bandit -r src -ll -q -f sarif -o bandit.sarif || echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Bandit","rules":[]}},"results":[]}]}' > bandit.sarif
-
-      - name: Upload Bandit results to Security tab
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: bandit.sarif
-          category: bandit
+        run: uv run bandit -r src -ll -q
 
       - name: Dead code (vulture)
         run: uv run vulture src --min-confidence 80
