@@ -1181,6 +1181,25 @@ class TestInlineHtmlParsing:
         raw = "".join(n.text for n in para.children if isinstance(n, TextNode))
         assert "<mark>" in raw
 
+    def test_span_with_class_produces_raw_inline_html(self) -> None:
+        from mkdocs_to_confluence.ir import RawInlineHtml
+        para = first(parse('Text <span class="crit-level">C0</span> end\n'), Paragraph)
+        node = next(n for n in para.children if isinstance(n, RawInlineHtml))
+        assert node.html_str == '<span class="crit-level">C0</span>'
+
+    def test_span_without_attrs_not_treated_as_raw(self) -> None:
+        # Plain <span> (no attributes) is not in the known-tag list either,
+        # so it falls through to generic handler.
+        from mkdocs_to_confluence.ir import RawInlineHtml
+        para = first(parse("<span>plain</span>\n"), Paragraph)
+        assert any(isinstance(n, RawInlineHtml) for n in para.children)
+
+    def test_raw_inline_html_emitted_verbatim(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        nodes = parse('| Col |\n|-----|\n| <span class="hl">X</span> |\n')
+        xhtml = emit(nodes)
+        assert '<span class="hl">X</span>' in xhtml
+
 
 class TestKeyboardKeys:
     def test_single_key(self) -> None:

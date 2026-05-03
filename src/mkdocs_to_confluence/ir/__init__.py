@@ -44,6 +44,7 @@ from mkdocs_to_confluence.ir.nodes import (
     OrderedList,
     Paragraph,
     RawHTML,
+    RawInlineHtml,
     # Block nodes
     Section,
     StrikethroughNode,
@@ -81,6 +82,7 @@ __all__ = [
     "ImageNode",
     "LineBreakNode",
     "InlineHtmlNode",
+    "RawInlineHtml",
     "InsertNode",
     # Block
     "Section",

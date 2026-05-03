@@ -24,6 +24,60 @@ _ICON_RE = re.compile(
     r":(?:material|fontawesome|octicons|simple|twemoji)-[a-z0-9-]+:"
 )
 
+# Matches bare GitHub/Python-Markdown emoji shortcodes: :rotating_light:, :wrench: etc.
+# Requires at least one underscore or is a known single-word name.
+# Must not overlap with _ICON_RE (those all contain a hyphenated prefix).
+_STANDARD_EMOJI_RE = re.compile(r":([a-z][a-z0-9_]*):")
+
+# Bare emoji shortcode → BMP Unicode symbol (or "" to strip silently).
+# BMP-only where a reasonable equivalent exists; supplementary-plane emoji
+# are excluded to preserve MySQL utf8 Confluence compatibility.
+_STANDARD_EMOJI_MAP: dict[str, str] = {
+    # Alerts / status
+    "warning": "⚠",                # U+26A0
+    "rotating_light": "⚠",         # U+26A0  (🚨 U+1F6A8 is supplementary)
+    "octagonal_sign": "⛔",         # U+26D4
+    "no_entry": "⛔",               # U+26D4
+    "no_entry_sign": "⛔",
+    "stop_sign": "⛔",
+    "information_source": "ℹ",     # U+2139
+    # Checkmarks / marks
+    "white_check_mark": "✓",       # U+2713  (✅ supplementary)
+    "heavy_check_mark": "✓",       # U+2713
+    "x": "✗",                      # U+2717  (❌ supplementary)
+    "heavy_multiplication_x": "✗",
+    # Objects — tools
+    "wrench": "⚙",                 # U+2699  (🔧 supplementary)
+    "gear": "⚙",                   # U+2699
+    "hammer": "",                   # 🔨 supplementary, no BMP equiv — strip
+    "hammer_and_wrench": "",
+    # Work / business
+    "briefcase": "",                # 💼 supplementary — strip
+    # Nature / miscellaneous
+    "star": "★",                   # U+2605
+    "star2": "★",
+    "rocket": "",                   # 🚀 supplementary — strip
+    "construction": "",             # 🚧 supplementary — strip
+    "tada": "",
+    "trophy": "",
+    "thinking": "",
+    "smile": "",
+    "laughing": "",
+    "heart": "♥",                  # U+2665
+    "fire": "",                     # 🔥 supplementary — strip
+    "zap": "",                      # ⚡ U+26A1 BMP
+    "bulb": "",
+    "computer": "",
+    "notebook": "",
+    "memo": "",
+    "clipboard": "",
+    "link": "",
+    "label": "",
+    "bookmark": "",
+    "chart_with_upwards_trend": "",
+    "bar_chart": "",
+}
+
 # Keyword → symbol.  Keys must be lowercase single words (icon name segments).
 # ALL values must be BMP characters (U+0000–U+FFFF) or "" (strip silently).
 # Ordered so earlier, more-specific entries take priority where ambiguous.
@@ -175,6 +229,19 @@ def _resolve(parts: list[str]) -> str:
     return ""
 
 
+def _replace_standard_emoji(text: str) -> str:
+    """Replace standard emoji shortcodes (e.g. ``:rotating_light:``) with BMP symbols."""
+
+    def _replace(m: re.Match[str]) -> str:
+        name = m.group(1)
+        if name in _STANDARD_EMOJI_MAP:
+            return _STANDARD_EMOJI_MAP[name]
+        # Unknown shortcode — leave it intact (may be valid Markdown syntax).
+        return m.group(0)
+
+    return _STANDARD_EMOJI_RE.sub(_replace, text)
+
+
 def strip_icon_shortcodes(text: str) -> str:
     """Replace icon shortcodes with emoji or strip them silently.
 
@@ -194,4 +261,4 @@ def strip_icon_shortcodes(text: str) -> str:
         parts = name.split("-")
         return _resolve(parts)
 
-    return _ICON_RE.sub(_replace, text)
+    return _ICON_RE.sub(_replace, _replace_standard_emoji(text))
