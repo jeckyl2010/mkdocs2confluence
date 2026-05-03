@@ -515,6 +515,21 @@ class TestAdmonitions:
         assert isinstance(adm, Admonition)
         assert adm.collapsible is True
 
+    def test_question_mark_plus_is_expanded(self) -> None:
+        adm = first(parse("???+ note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.expanded is True
+
+    def test_question_mark_no_plus_is_not_expanded(self) -> None:
+        adm = first(parse("??? note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.expanded is False
+
+    def test_bang_is_not_expanded(self) -> None:
+        adm = first(parse("!!! note\n    Body.\n"), Admonition)
+        assert isinstance(adm, Admonition)
+        assert adm.expanded is False
+
     def test_body_paragraph_parsed(self) -> None:
         adm = first(parse("!!! note\n    Body text here.\n"), Admonition)
         assert isinstance(adm, Admonition)

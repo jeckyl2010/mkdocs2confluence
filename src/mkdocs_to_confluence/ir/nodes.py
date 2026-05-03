@@ -338,12 +338,14 @@ class Admonition(IRNode):
         children:    Block nodes that form the admonition body.
         collapsible: ``True`` when opened with ``???`` (collapsed by default)
                      or ``???+`` (expanded by default).
+        expanded:    ``True`` only for ``???+`` — expanded by default.
     """
 
     kind: str
     title: str | None
     children: tuple[IRNode, ...]
     collapsible: bool = False
+    expanded: bool = False
 
 
 @dataclass(frozen=True)

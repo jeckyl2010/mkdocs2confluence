@@ -307,13 +307,17 @@ def _emit_admonition(node: Admonition) -> str:
     body = emit(node.children)
 
     # ??? and ???+ → Confluence expand macro (collapsible)
-    if node.collapsible:
+    # ???+ means "expanded by default" — Confluence expand has no such option,
+    # so degrade to a regular admonition macro (always visible).
+    if node.collapsible and not node.expanded:
         return (
             '<ac:structured-macro ac:name="expand">\n'
             f'  <ac:parameter ac:name="title">{html.escape(title)}</ac:parameter>\n'
             f"  <ac:rich-text-body>\n{body}  </ac:rich-text-body>\n"
             "</ac:structured-macro>\n"
         )
+
+    # Fall through for ???+ (expanded=True) — render as a regular admonition below.
 
     if node.kind in _ADMONITION_DANGER_KINDS:
         colours = "".join(
