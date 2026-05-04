@@ -48,6 +48,7 @@ def attach_source_url(
             labels=nodes[0].labels,
             source_url=edit_url,
             site_url=site_url,
+            confluence_status=nodes[0].confluence_status,
         )
         return (updated,) + nodes[1:]
 
