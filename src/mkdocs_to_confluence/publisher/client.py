@@ -377,7 +377,7 @@ class ConfluenceClient:
             if space_key not in self._space_states:
                 resp = self._http.get(self._v1(f"/space/{space_key}/state"))
                 if resp.is_success:
-                    self._space_states[space_key] = resp.json().get("results", [])
+                    self._space_states[space_key] = resp.json() if isinstance(resp.json(), list) else []
             for state in self._space_states.get(space_key, []):
                 if state.get("name", "").lower() == name.lower():
                     state_body = {"id": state["id"], "name": state["name"], "color": state["color"]}
