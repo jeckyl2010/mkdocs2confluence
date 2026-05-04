@@ -371,7 +371,6 @@ class ConfluenceClient:
         Sends ``{id, name, color}`` when a matching space state is found, otherwise
         falls back to ``{name, color}`` with a sensible default colour.
         """
-        import sys as _sys
         def _normalize(s: str) -> str:
             return s.lower().replace("-", " ").strip()
 
@@ -383,7 +382,6 @@ class ConfluenceClient:
             self._space_states[cache_key] = self._fetch_available_states(page_id)
             print(
                 f"  [status] space states fetched: {[s.get('name') for s in self._space_states[cache_key]]}",
-                file=_sys.stderr,
             )
 
         matched: dict[str, Any] | None = None
@@ -398,7 +396,7 @@ class ConfluenceClient:
                 "name": matched["name"],
                 "color": matched["color"],
             }
-            print(f"  [status] matched space state: {body}", file=_sys.stderr)
+            print(f"  [status] matched space state: {body}")
         else:
             # Fall back: name + color (required together when no id)
             _default_colors = {
@@ -410,13 +408,13 @@ class ConfluenceClient:
                 "outdated": "#ff7452",
             }
             body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff")}
-            print(f"  [status] no space state match — using fallback: {body}", file=_sys.stderr)
+            print(f"  [status] no space state match — using fallback: {body}")
 
         url = self._v1(f"/content/{page_id}/state")
         resp = self._http.put(url, json=body)
-        print(f"  [status] PUT {url} → HTTP {resp.status_code}", file=_sys.stderr)
+        print(f"  [status] PUT {url} → HTTP {resp.status_code}")
         if not resp.is_success:
-            print(f"  [status] response body: {resp.text[:300]}", file=_sys.stderr)
+            print(f"  [status] response body: {resp.text[:300]}")
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
 
     def _fetch_available_states(self, page_id: str) -> list[dict[str, Any]]:
@@ -429,7 +427,8 @@ class ConfluenceClient:
         resp = self._http.get(self._v1(f"/content/{page_id}/state/available"))
         if resp.is_success:
             data: dict[str, Any] = resp.json()
-            return data.get("spaceContentStates") or []
+            return list(data.get("spaceContentStates") or [])
+        print(f"  [warn] could not fetch available states (HTTP {resp.status_code}) — using fallback")
         return []
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
