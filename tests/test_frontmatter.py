@@ -129,6 +129,24 @@ def test_invalid_yaml_returns_none():
     assert fm is None
 
 
+def test_status_extracted_as_confluence_status():
+    """status: in front matter is stored in confluence_status, not the table."""
+    text = "---\nstatus: in-progress\n---\n\nContent.\n"
+    fm, _ = extract_front_matter(text)
+    assert fm is not None
+    assert fm.confluence_status == "in-progress"
+    prop_keys = [k for k, _ in fm.properties]
+    assert "Status" not in prop_keys
+
+
+def test_status_absent_is_none():
+    """When status: is absent, confluence_status is None."""
+    text = "---\ntitle: My Page\n---\n\nContent.\n"
+    fm, _ = extract_front_matter(text)
+    assert fm is not None
+    assert fm.confluence_status is None
+
+
 # ── emitter ───────────────────────────────────────────────────────────────────
 
 

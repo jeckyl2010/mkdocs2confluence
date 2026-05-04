@@ -73,6 +73,7 @@ class PageAction:
     xhtml: str | None = None
     attachments: list[Path] = field(default_factory=list)
     labels: tuple[str, ...] = field(default_factory=tuple)
+    confluence_status: str | None = None
     is_folder: bool = False        # True when this action creates a Confluence folder
     parent_is_folder: bool = False  # True when the parent content is a folder
     # Set after execution:
@@ -137,16 +138,16 @@ def compile_page(
     link_map: dict[str, str] | None = None,
     *,
     quiet: bool = False,
-) -> tuple[str, list[Path], tuple[str, ...]]:
+) -> tuple[str, list[Path], tuple[str, ...], str | None]:
     """Run the full compile pipeline for one page.
 
     Returns
     -------
-    tuple[str, list[Path], tuple[str, ...]]
-        ``(xhtml_string, attachment_paths, labels)``
+    tuple[str, list[Path], tuple[str, ...], str | None]
+        ``(xhtml_string, attachment_paths, labels, confluence_status)``
     """
     if node.source_path is None:
-        return "", [], ()
+        return "", [], (), None
 
     raw = load_page(node)
 
@@ -189,15 +190,17 @@ def compile_page(
     if edit_url or site_url:
         ir_nodes = attach_source_url(ir_nodes, edit_url or "", site_url)
 
-    # Extract labels from FrontMatter node (tags: field)
+    # Extract labels and confluence_status from FrontMatter node.
     labels: tuple[str, ...] = ()
+    confluence_status: str | None = None
     for node_item in ir_nodes:
         if isinstance(node_item, FrontMatter):
             labels = node_item.labels
+            confluence_status = node_item.confluence_status
             break
 
     xhtml = emit(ir_nodes)
-    return xhtml, attachments, labels
+    return xhtml, attachments, labels, confluence_status
 
 
 def _xhtml_hash(xhtml: str) -> str:
@@ -271,7 +274,9 @@ def _plan_nodes(
                     if not quiet:
                         print(f"  compiling  '{clean_title}'  (section index)")
                     try:
-                        xhtml, attachments, labels = compile_page(index_child, config, link_map, quiet=quiet)
+                        xhtml, attachments, labels, confluence_status = compile_page(
+                            index_child, config, link_map, quiet=quiet
+                        )
                         existing = client.find_page(space_id, clean_title)
                         xhtml_h = _xhtml_hash(xhtml)
                         if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
@@ -300,6 +305,7 @@ def _plan_nodes(
                             xhtml=xhtml,
                             attachments=attachments,
                             labels=labels,
+                            confluence_status=confluence_status,
                             page_id=str(existing["id"]) if existing is not None else None,
                             version=(
                                 existing["version"]["number"] if existing is not None else None
@@ -367,7 +373,7 @@ def _plan_nodes(
             if not quiet:
                 print(f"  compiling  '{clean_title}'")
             try:
-                xhtml, attachments, labels = compile_page(node, config, link_map, quiet=quiet)
+                xhtml, attachments, labels, confluence_status = compile_page(node, config, link_map, quiet=quiet)
             except (PageLoadError, OSError) as exc:
                 if not quiet:
                     print(f"  skipping   '{clean_title}'  (error: {exc})")
@@ -405,6 +411,7 @@ def _plan_nodes(
                 xhtml=xhtml,
                 attachments=attachments,
                 labels=labels,
+                confluence_status=confluence_status,
                 page_id=str(existing["id"]) if existing is not None else None,
                 version=(
                     existing["version"]["number"] if existing is not None else None
@@ -648,6 +655,13 @@ def _post_process_action(
     if action.page_id and action.labels and not action.is_folder:
         try:
             client.set_page_labels(action.page_id, action.labels)
+        except Exception:
+            pass
+
+    # Set Confluence page status (rough-draft / in-progress / etc.) — non-fatal.
+    if action.page_id and action.confluence_status and not action.is_folder:
+        try:
+            client.set_page_status(action.page_id, action.confluence_status)
         except Exception:
             pass
 

@@ -426,6 +426,7 @@ class FrontMatter(IRNode):
     labels: tuple[str, ...]
     source_url: str | None = None
     site_url: str | None = None
+    confluence_status: str | None = None
 
 
 # ── Abbreviation footnotes ────────────────────────────────────────────────────

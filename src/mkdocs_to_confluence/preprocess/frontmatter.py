@@ -47,7 +47,9 @@ from mkdocs_to_confluence.ir.nodes import FrontMatter
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 # Fields that carry no meaning in Confluence and should be discarded silently.
-_STRIP_FIELDS: frozenset[str] = frozenset({"source"})
+# ``status`` is consumed as a publishing directive (sets the Confluence page
+# status via the API) and must not appear in the Page Properties table.
+_STRIP_FIELDS: frozenset[str] = frozenset({"source", "status"})
 
 # Fields whose value has special formatting logic (see _format_value).
 _DISPLAY_NAMES: dict[str, str] = {
@@ -114,6 +116,10 @@ def _build_node(raw: dict[str, Any]) -> FrontMatter:
     title: str | None = _stringify(raw.get("title")) if "title" in raw else None
     subtitle: str | None = _stringify(raw.get("subtitle")) if "subtitle" in raw else None
 
+    # ``status:`` sets the Confluence page lifecycle status via the API.
+    status_raw = raw.get("status")
+    confluence_status: str | None = str(status_raw) if status_raw is not None else None
+
     # Labels come from the ``tags`` field.
     tags_raw = raw.get("tags", [])
     labels: tuple[str, ...] = tuple(str(t) for t in (tags_raw if isinstance(tags_raw, list) else [tags_raw]))
@@ -140,6 +146,7 @@ def _build_node(raw: dict[str, Any]) -> FrontMatter:
         subtitle=subtitle,
         properties=tuple(properties),
         labels=labels,
+        confluence_status=confluence_status,
     )
 
 

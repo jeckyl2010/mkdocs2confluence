@@ -361,6 +361,16 @@ class ConfluenceClient:
             resp = self._http.post(label_url, json=payload)
             self._raise_for_status(resp, f"set_page_labels({page_id!r})")
 
+    def set_page_status(self, page_id: str, status_key: str) -> None:
+        """Set the Confluence page status (e.g. ``rough-draft``, ``in-progress``).
+
+        Uses the v1 ``PUT /content/{id}/state`` endpoint.  The *status_key*
+        must match a state key configured in the Confluence space.
+        """
+        url = self._v1(f"/content/{page_id}/state")
+        resp = self._http.put(url, json={"state": {"key": status_key}})
+        self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
+
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
         """Return a ``{filename: metadata}`` mapping of all page attachments.
 

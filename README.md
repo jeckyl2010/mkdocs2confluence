@@ -300,6 +300,7 @@ lastUpdated: 2026-01-12
 author: "Anders Hybertz"
 tags: [architecture, iam]
 ready: true
+status: in-progress
 ---
 ```
 
@@ -309,6 +310,7 @@ ready: true
 | `subtitle` | Rendered as italic lead paragraph above the properties table |
 | `tags` | Also applied as Confluence page labels |
 | `ready` | `true` → ✅ Ready · `false` → 📝 Draft (skips publish) |
+| `status` | Sets the Confluence page status badge — common values: `rough-draft`, `in-progress`, `ready-for-review` (space-specific values are also supported). Not shown in the properties table. |
 | *other fields* | Title-cased key, value stringified |
 
 If `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row links to the source file. If `site_url` is set, a **Published Page** row links to the rendered MkDocs site.
