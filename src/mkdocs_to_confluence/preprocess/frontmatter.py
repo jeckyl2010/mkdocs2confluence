@@ -105,10 +105,6 @@ def extract_front_matter(text: str) -> tuple[FrontMatter | None, str]:
     if not isinstance(raw, dict):
         return None, text
 
-    if "status" in raw:
-        print(f"  [debug-status] raw YAML block repr: {m.group(1)!r}")
-        print(f"  [debug-status] raw['status'] = {raw['status']!r}")
-
     return _build_node(raw), remaining
 
 
@@ -117,7 +113,6 @@ def extract_front_matter(text: str) -> tuple[FrontMatter | None, str]:
 
 def _build_node(raw: dict[str, Any]) -> FrontMatter:
     """Convert a raw front matter dict to a :class:`FrontMatter` IR node."""
-    print(f"  [debug-fm] raw keys: {list(raw.keys())}")
     title: str | None = _stringify(raw.get("title")) if "title" in raw else None
     subtitle: str | None = _stringify(raw.get("subtitle")) if "subtitle" in raw else None
 
