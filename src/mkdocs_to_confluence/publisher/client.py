@@ -368,7 +368,7 @@ class ConfluenceClient:
         must match a state key configured in the Confluence space.
         """
         url = self._v1(f"/content/{page_id}/state")
-        resp = self._http.put(url, json={"state": {"key": status_key}})
+        resp = self._http.post(url, json={"state": {"key": status_key}})
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
