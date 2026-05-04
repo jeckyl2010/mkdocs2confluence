@@ -125,6 +125,21 @@ class ConfluenceClient:
             raise ConfluenceError(f"Could not determine spaceId from page {page_id!r}.")
         return str(space_id)
 
+    def get_space_key_from_page(self, page_id: str) -> str | None:
+        """Return the space key for the space containing *page_id*.
+
+        Uses the v1 content endpoint which includes ``space.key``.
+        Returns ``None`` on any failure (non-fatal — only used for state lookup).
+        """
+        try:
+            url = self._v1(f"/content/{page_id}")
+            resp = self._http.get(url, params={"expand": "space"})
+            if resp.is_success:
+                return resp.json().get("space", {}).get("key") or None
+        except Exception:
+            pass
+        return None
+
     # ── Folders ────────────────────────────────────────────────────────────────
 
     def find_folder_under(
