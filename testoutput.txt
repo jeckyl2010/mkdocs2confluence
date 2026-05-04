@@ -1,5 +1,5 @@
 PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section explanation
-mk2conf 0.7.30
+mk2conf 0.7.31
 Planning...
   compiling  'Explanation'  (folder)
   compiling  'OT/IT Data Vision'
@@ -44,6 +44,8 @@ Planning...
   unchanged  'DevOps Principles'  (content unchanged)
   compiling  'Values'  (folder)
   compiling  'CloudEvents values'
+  [debug-status] raw YAML block repr: 'title: CloudEvents Message Format – Key Values\ndescription: Why we standardize the event envelope on CloudEvents and keep payload encoding flexible (JSON for inspection, Protobuf for efficiency).\ntags:\n  - values\n  - integration\n  - events\n  - cloudevents\n  - interoperability\n  - protobuf\n  - json\nstatus: in-progress\n'
+  [debug-status] raw['status'] = 'in-progress'
   [debug-fm] raw keys: ['title', 'description', 'tags', 'status']
   [debug] 'CloudEvents values': status=None labels=('values', 'integration', 'events', 'cloudevents', 'interoperability', 'protobuf', 'json')
   unchanged  'CloudEvents values'  (content unchanged)
@@ -67,5 +69,4 @@ Publishing 5 page(s)...
   [4/5] create  'Principles'
   [5/5] create  'Values'
 Published:  0 created, 5 updated, 13 skipped
-Assets:     0 uploaded, 0 skipped
-PS C:\repos\rockwool\docs>
+Assets:     0 uploaded, 0 s
