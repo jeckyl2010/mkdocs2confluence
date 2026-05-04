@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from mkdocs_to_confluence.ir.nodes import (
     AbbrevFootnoteNode,
+    AbbrevGlossaryBlock,
     Admonition,
     BoldNode,
-    BulletList,
     CodeBlock,
-    HorizontalRule,
     LinkNode,
     Paragraph,
     Section,
@@ -89,17 +88,22 @@ def test_expands_first_occurrence_as_footnote():
     para = result[0]
     assert isinstance(para, Paragraph)
     children = para.children
-    # Should be: TextNode("The ") + AbbrevFootnoteNode + TextNode(" platform handles IAM requests.")
+    # TextNode("The ") + AbbrevFootnoteNode + TextNode(" platform handles IAM requests.")
     assert len(children) == 3
-    assert isinstance(children[0], TextNode)
-    assert children[0].text == "The "
-    assert isinstance(children[1], AbbrevFootnoteNode)
-    assert children[1].abbr == "IAM"
-    assert children[1].definition == "Identity and Access Management"
+    assert isinstance(children[0], TextNode) and children[0].text == "The "
+    fn = children[1]
+    assert isinstance(fn, AbbrevFootnoteNode)
+    assert fn.abbr == "IAM"
+    assert fn.definition == "Identity and Access Management"
+    assert fn.number == 1
     # Second occurrence left as plain text
     assert isinstance(children[2], TextNode)
     assert "IAM requests." in children[2].text
-    assert "Identity and Access Management" not in children[2].text
+    # Glossary block appended
+    glossary = result[1]
+    assert isinstance(glossary, AbbrevGlossaryBlock)
+    assert glossary.footnoted[0].abbr == "IAM"
+    assert glossary.footnoted[0].number == 1
 
 
 def test_expands_multiple_different_abbrevs():
@@ -107,11 +111,12 @@ def test_expands_multiple_different_abbrevs():
     nodes = (_para("Use IAM and RBAC for access control."),)
     result = apply_abbreviations(nodes, abbrevs, page_text="Use IAM and RBAC for access control.")
     para = result[0]
-    assert isinstance(para, Paragraph)
     footnotes = [c for c in para.children if isinstance(c, AbbrevFootnoteNode)]
     abbrs = {fn.abbr for fn in footnotes}
     assert "IAM" in abbrs
     assert "RBAC" in abbrs
+    numbers = sorted(fn.number for fn in footnotes)
+    assert numbers == [1, 2]
 
 
 def test_no_expand_when_no_abbrevs():
@@ -122,65 +127,40 @@ def test_no_expand_when_no_abbrevs():
 
 def test_no_expand_in_section_heading():
     abbrevs = {"IAM": "Identity and Access Management"}
-    section = Section(
-        level=2,
-        anchor="iam",
-        title=(TextNode("IAM Platform"),),
-        children=(),
-    )
+    section = Section(level=2, anchor="iam", title=(TextNode("IAM Platform"),), children=())
     result = apply_abbreviations((section,), abbrevs, page_text="IAM Platform")
     heading_text = result[0].title[0].text  # type: ignore[union-attr]
-    assert heading_text == "IAM Platform"  # not expanded
+    assert heading_text == "IAM Platform"  # not annotated
 
 
-def test_glossary_appended_for_heading_only_abbrev():
+def test_glossary_block_appended_for_heading_only_abbrev():
     abbrevs = {"IAM": "Identity and Access Management"}
-    section = Section(
-        level=2,
-        anchor="iam",
-        title=(TextNode("IAM Platform"),),
-        children=(),
-    )
+    section = Section(level=2, anchor="iam", title=(TextNode("IAM Platform"),), children=())
     result = apply_abbreviations((section,), abbrevs, page_text="IAM Platform")
-    # IAM only in heading (unsafe) → no footnote → glossary fallback appended
-    assert len(result) == 3
-    assert isinstance(result[1], HorizontalRule)
-    glossary = result[2]
-    assert isinstance(glossary, Section)
-    assert glossary.anchor == "glossary"
-    assert glossary.level == 6
-    bullet_list = glossary.children[0]
-    assert isinstance(bullet_list, BulletList)
-    item_text = bullet_list.items[0].children[0].children[0].text  # type: ignore[union-attr]
-    assert "IAM" in item_text
-    assert "Identity and Access Management" in item_text
+    assert len(result) == 2
+    glossary = result[1]
+    assert isinstance(glossary, AbbrevGlossaryBlock)
+    assert len(glossary.footnoted) == 0
+    assert glossary.extras == (("IAM", "Identity and Access Management"),)
 
 
 def test_no_glossary_when_abbrev_footnoted_inline():
     abbrevs = {"IAM": "Identity and Access Management"}
     nodes = (_para("The IAM platform."),)
     result = apply_abbreviations(nodes, abbrevs, page_text="The IAM platform.")
-    # Footnoted inline → no glossary needed
-    assert len(result) == 1
-    assert isinstance(result[0], Paragraph)
+    assert len(result) == 2
+    assert isinstance(result[1], AbbrevGlossaryBlock)
+    assert len(result[1].extras) == 0
 
 
 def test_no_expand_in_table_header_cell():
     abbrevs = {"API": "Application Programming Interface"}
-    header = TableRow(cells=(
-        TableCell(children=(TextNode("API Endpoint"),), is_header=True),
-    ))
-    body = TableRow(cells=(
-        TableCell(children=(TextNode("The API docs"),), is_header=False),
-    ))
+    header = TableRow(cells=(TableCell(children=(TextNode("API Endpoint"),), is_header=True),))
+    body = TableRow(cells=(TableCell(children=(TextNode("The API docs"),), is_header=False),))
     table = Table(header=header, rows=(body,))
     result = apply_abbreviations((table,), abbrevs, page_text="API Endpoint The API docs")
-
-    # Header cell: not expanded
     header_text = result[0].header.cells[0].children[0].text  # type: ignore[union-attr]
     assert header_text == "API Endpoint"
-
-    # Body cell: first occurrence footnoted
     body_children = result[0].rows[0].cells[0].children  # type: ignore[union-attr]
     assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "API" for c in body_children)
 
@@ -188,14 +168,11 @@ def test_no_expand_in_table_header_cell():
 def test_no_expand_in_admonition_title():
     abbrevs = {"TLS": "Transport Layer Security"}
     admonition = Admonition(
-        kind="note",
-        title="TLS Configuration",
+        kind="note", title="TLS Configuration",
         children=(_para("Use TLS for encryption."),),
     )
     result = apply_abbreviations((admonition,), abbrevs, page_text="TLS Configuration Use TLS for encryption.")
-    # Title is str, unchanged
     assert result[0].title == "TLS Configuration"  # type: ignore[union-attr]
-    # Body paragraph: TLS footnoted
     body_children = result[0].children[0].children  # type: ignore[union-attr]
     assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "TLS" for c in body_children)
 
@@ -203,28 +180,21 @@ def test_no_expand_in_admonition_title():
 def test_no_expand_in_code_block():
     abbrevs = {"SQL": "Structured Query Language"}
     code = CodeBlock(code="SELECT * FROM SQL_table", language="sql")
-    nodes = (code,)
-    result = apply_abbreviations(nodes, abbrevs, page_text="SELECT * FROM SQL_table")
-    assert result[0].code == "SELECT * FROM SQL_table"
+    result = apply_abbreviations((code,), abbrevs, page_text="SELECT * FROM SQL_table")
+    assert result[0].code == "SELECT * FROM SQL_table"  # type: ignore[union-attr]
 
 
 def test_no_expand_in_link_text():
     abbrevs = {"CLI": "Command Line Interface"}
-    link = LinkNode(
-        href="https://example.com",
-        children=(TextNode("CLI tools"),),
-    )
-    para = Paragraph(children=(link,))
-    result = apply_abbreviations((para,), abbrevs, page_text="CLI tools")
-    link_text = result[0].children[0].children[0].text  # type: ignore[union-attr]
-    assert link_text == "CLI tools"  # not expanded inside link
+    link = LinkNode(href="https://example.com", children=(TextNode("CLI tools"),))
+    result = apply_abbreviations((Paragraph(children=(link,)),), abbrevs, page_text="CLI tools")
+    assert result[0].children[0].children[0].text == "CLI tools"  # type: ignore[union-attr]
 
 
 def test_expands_inside_bold():
     abbrevs = {"CI": "Continuous Integration"}
     bold = BoldNode(children=(TextNode("CI pipeline"),))
-    para = Paragraph(children=(bold,))
-    result = apply_abbreviations((para,), abbrevs, page_text="CI pipeline")
+    result = apply_abbreviations((Paragraph(children=(bold,)),), abbrevs, page_text="CI pipeline")
     bold_children = result[0].children[0].children  # type: ignore[union-attr]
     assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "CI" for c in bold_children)
 
@@ -234,53 +204,33 @@ def test_word_boundary_not_partial_match():
     nodes = (_para("The RAPID response via API."),)
     result = apply_abbreviations(nodes, abbrevs, page_text="The RAPID response via API.")
     para = result[0]
-    assert isinstance(para, Paragraph)
-    # RAPID should be untouched; API should be footnoted
     all_text = "".join(c.text for c in para.children if isinstance(c, TextNode))
     assert "RAPID" in all_text
-    footnotes = [c for c in para.children if isinstance(c, AbbrevFootnoteNode)]
-    assert any(fn.abbr == "API" for fn in footnotes)
+    assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "API" for c in para.children)
 
 
-def test_footnoted_abbrevs_not_in_glossary():
-    # Abbreviations expanded inline via footnote should NOT also appear in a glossary.
+def test_footnoted_abbrevs_not_in_extras():
     abbrevs = {"API": "Application Programming Interface", "IAM": "Identity and Access Management"}
     nodes = (_para("Use the API and IAM to authenticate."),)
-    result = apply_abbreviations(
-        nodes, abbrevs,
-        page_text="Use the API and IAM to authenticate."
-    )
-    # Both footnoted inline → no glossary
-    assert len(result) == 1
-    para = result[0]
-    assert isinstance(para, Paragraph)
-    footnotes = [c for c in para.children if isinstance(c, AbbrevFootnoteNode)]
-    assert {fn.abbr for fn in footnotes} == {"API", "IAM"}
+    result = apply_abbreviations(nodes, abbrevs, page_text="Use the API and IAM to authenticate.")
+    assert len(result) == 2
+    glossary = result[1]
+    assert isinstance(glossary, AbbrevGlossaryBlock)
+    assert {fn.abbr for fn in glossary.footnoted} == {"API", "IAM"}
+    assert len(glossary.extras) == 0
 
 
 def test_abbrev_not_in_text_produces_no_glossary():
     abbrevs = {"XYZ": "Some Definition"}
-    nodes = (_para("Nothing relevant here."),)
-    result = apply_abbreviations(nodes, abbrevs, page_text="Nothing relevant here.")
-    # XYZ never mentioned → no glossary
+    result = apply_abbreviations((_para("Nothing relevant here."),), abbrevs, page_text="Nothing relevant here.")
     assert len(result) == 1
 
 
-def test_glossary_entries_sorted_alphabetically():
+def test_extras_sorted_alphabetically():
     abbrevs = {"RBAC": "Role-Based Access Control", "IAM": "Identity and Access Management"}
-    # Both only in heading (unsafe), so both go to glossary
-    section = Section(
-        level=1,
-        anchor="overview",
-        title=(TextNode("IAM and RBAC Overview"),),
-        children=(),
-    )
-    result = apply_abbreviations(
-        (section,), abbrevs, page_text="IAM and RBAC Overview"
-    )
+    section = Section(level=1, anchor="overview", title=(TextNode("IAM and RBAC Overview"),), children=())
+    result = apply_abbreviations((section,), abbrevs, page_text="IAM and RBAC Overview")
     glossary = result[-1]
-    assert isinstance(glossary, Section)
-    items = glossary.children[0].items  # type: ignore[union-attr]
-    labels = [item.children[0].children[0].text for item in items]  # type: ignore[union-attr]
-    assert labels == sorted(labels)
-
+    assert isinstance(glossary, AbbrevGlossaryBlock)
+    extra_abbrs = [abbr for abbr, _ in glossary.extras]
+    assert extra_abbrs == sorted(extra_abbrs)

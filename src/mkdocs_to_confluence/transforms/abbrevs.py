@@ -30,13 +30,13 @@ from dataclasses import replace
 
 from mkdocs_to_confluence.ir.nodes import (
     AbbrevFootnoteNode,
+    AbbrevGlossaryBlock,
     Admonition,
     BlockQuote,
     BoldNode,
     BulletList,
     ContentTabs,
     Expandable,
-    HorizontalRule,
     IRNode,
     ItalicNode,
     LinkNode,
@@ -60,12 +60,17 @@ class _State:
 
     def __init__(self, abbrevs: dict[str, str]) -> None:
         self.abbrevs = abbrevs
-        self.expanded: set[str] = set()
+        self._expanded_list: list[str] = []  # ordered by first encounter
+        self._expanded_set: set[str] = set()  # fast membership test
         # Pre-compile word-boundary patterns once.
         self._patterns: dict[str, re.Pattern[str]] = {
             abbr: re.compile(r"\b" + re.escape(abbr) + r"\b")
             for abbr in abbrevs
         }
+
+    @property
+    def expanded(self) -> set[str]:
+        return self._expanded_set
 
     def expand_to_nodes(self, text: str) -> tuple[IRNode, ...]:
         """Split *text* around the first unexpanded abbreviation.
@@ -75,7 +80,7 @@ class _State:
         """
         best: tuple[int, int, str] | None = None
         for abbr in self.abbrevs:
-            if abbr in self.expanded:
+            if abbr in self._expanded_set:
                 continue
             m = self._patterns[abbr].search(text)
             if m and (best is None or m.start() < best[0]):
@@ -85,11 +90,13 @@ class _State:
             return (TextNode(text),) if text else ()
 
         start, end, abbr = best
-        self.expanded.add(abbr)
+        self._expanded_list.append(abbr)
+        self._expanded_set.add(abbr)
+        number = len(self._expanded_list)  # 1-based
         nodes: list[IRNode] = []
         if text[:start]:
             nodes.append(TextNode(text[:start]))
-        nodes.append(AbbrevFootnoteNode(abbr=abbr, definition=self.abbrevs[abbr]))
+        nodes.append(AbbrevFootnoteNode(abbr=abbr, definition=self.abbrevs[abbr], number=number))
         nodes.extend(self.expand_to_nodes(text[end:]))
         return tuple(nodes)
 
@@ -197,21 +204,6 @@ def _find_mentioned(text: str, abbrevs: dict[str, str]) -> set[str]:
     }
 
 
-def _build_glossary_section(terms: dict[str, str]) -> tuple[IRNode, ...]:
-    """Return an HR + h6 ``Section`` listing abbreviations that could not be footnoted."""
-    items = tuple(
-        ListItem(children=(Paragraph(children=(TextNode(f"{abbr} — {defn}"),)),))
-        for abbr, defn in sorted(terms.items())
-    )
-    section = Section(
-        level=6,
-        anchor="glossary",
-        title=(TextNode("Glossary"),),
-        children=(BulletList(items=items),),
-    )
-    return (HorizontalRule(), section)
-
-
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
@@ -229,15 +221,15 @@ def apply_abbreviations(
                     :func:`~mkdocs_to_confluence.preprocess.abbrevs.extract_abbreviations`.
         page_text:  The preprocessed page text (after stripping abbreviation
                     definition lines) used to detect which abbreviations are
-                    actually present on the page.  Used to determine which
-                    abbreviations need a glossary entry.
+                    actually present on the page.
 
     Returns:
-        Modified node tuple.  Abbreviations in body text are replaced with an
-        :class:`~mkdocs_to_confluence.ir.nodes.AbbrevFootnoteNode` on first
-        occurrence.  A ``Glossary`` section is appended only for abbreviations
-        that were detected in *page_text* but never footnoted (e.g. they only
-        appeared in headings or table headers).
+        Modified node tuple.  Abbreviations in body text receive an inline
+        superscript anchor-link (:class:`AbbrevFootnoteNode`).  An
+        :class:`AbbrevGlossaryBlock` is appended when any abbreviation was
+        mentioned on the page, listing all footnoted entries (with anchor
+        targets for the back-links) plus any abbreviations that only appeared
+        in headings or other non-expandable contexts.
     """
     if not abbrevs:
         return nodes
@@ -246,15 +238,17 @@ def apply_abbreviations(
     transformed = tuple(_transform_block(n, state) for n in nodes)
 
     mentioned = _find_mentioned(page_text, abbrevs)
-    # Only add a glossary entry for abbreviations that were never footnoted.
-    glossary_needed = {
-        abbr: abbrevs[abbr]
-        for abbr in mentioned
-        if abbr not in state.expanded
-    }
+    footnoted = tuple(
+        AbbrevFootnoteNode(abbr=abbr, definition=abbrevs[abbr], number=i + 1)
+        for i, abbr in enumerate(state._expanded_list)
+    )
+    extras = tuple(
+        (abbr, abbrevs[abbr])
+        for abbr in sorted(mentioned - state._expanded_set)
+    )
 
-    if glossary_needed:
-        transformed = transformed + _build_glossary_section(glossary_needed)
+    if footnoted or extras:
+        transformed = transformed + (AbbrevGlossaryBlock(footnoted=footnoted, extras=extras),)
 
     return transformed
 

@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 
 from mkdocs_to_confluence.ir.nodes import (
     AbbrevFootnoteNode,
+    AbbrevGlossaryBlock,
     Admonition,
     BlockQuote,
     BoldNode,
@@ -191,6 +192,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_front_matter(node)
     if isinstance(node, FootnoteBlock):
         return _emit_footnote_block(node)
+    if isinstance(node, AbbrevGlossaryBlock):
+        return _emit_abbrev_glossary_block(node)
     if isinstance(node, GridCards):
         return _emit_grid_cards(node)
     if isinstance(node, UnsupportedBlock):
@@ -557,15 +560,42 @@ def _emit_footnote_ref(node: FootnoteRef) -> str:
 
 
 def _emit_abbrev_footnote(node: AbbrevFootnoteNode) -> str:
-    """Abbreviation term + inline Confluence footnote macro with its definition."""
+    """Inline: ABBR + superscript anchor-link to the glossary entry."""
+    anchor = html.escape(f"abbr-{node.number}")
+    num = html.escape(str(node.number))
     term = html.escape(node.abbr)
-    defn = html.escape(node.definition)
     return (
         f"{term}"
-        f'<ac:structured-macro ac:name="footnote" ac:schema-version="1">'
-        f"<ac:rich-text-body><p>{defn}</p></ac:rich-text-body>"
-        f"</ac:structured-macro>"
+        f"<sup>"
+        f'<ac:link ac:anchor="{anchor}">'
+        f"<ac:plain-text-link-body><![CDATA[{num}]]></ac:plain-text-link-body>"
+        f"</ac:link>"
+        f"</sup>"
     )
+
+
+def _emit_abbrev_glossary_block(node: AbbrevGlossaryBlock) -> str:
+    """End-of-page abbreviations list with Confluence anchor targets."""
+    parts: list[str] = ["<hr />\n<h6>Abbreviations</h6>\n"]
+    if node.footnoted:
+        parts.append("<ol>\n")
+        for fn in node.footnoted:
+            anchor = html.escape(f"abbr-{fn.number}")
+            anchor_macro = (
+                f'<ac:structured-macro ac:name="anchor">'
+                f'<ac:parameter ac:name=""><![CDATA[{anchor}]]></ac:parameter>'
+                f"</ac:structured-macro>"
+            )
+            abbr = html.escape(fn.abbr)
+            defn = html.escape(fn.definition)
+            parts.append(f"<li>{anchor_macro}<strong>{abbr}</strong> — {defn}</li>\n")
+        parts.append("</ol>\n")
+    if node.extras:
+        parts.append("<ul>\n")
+        for abbr, defn in node.extras:
+            parts.append(f"<li><strong>{html.escape(abbr)}</strong> — {html.escape(defn)}</li>\n")
+        parts.append("</ul>\n")
+    return "".join(parts)
 
 
 def _emit_footnote_block(node: FootnoteBlock) -> str:
