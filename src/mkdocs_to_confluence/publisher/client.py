@@ -380,9 +380,6 @@ class ConfluenceClient:
         # Fetch space states once per run (keyed by space so one run = one API call)
         if cache_key not in self._space_states:
             self._space_states[cache_key] = self._fetch_available_states(page_id)
-            print(
-                f"  [status] space states fetched: {[s.get('name') for s in self._space_states[cache_key]]}",
-            )
 
         matched: dict[str, Any] | None = None
         for state in self._space_states.get(cache_key, []):
@@ -395,8 +392,8 @@ class ConfluenceClient:
                 "id": matched["id"],
                 "name": matched["name"],
                 "color": matched["color"],
+                "status": "current",
             }
-            print(f"  [status] matched space state: {body}")
         else:
             # Fall back: name + color (required together when no id)
             _default_colors = {
@@ -407,14 +404,12 @@ class ConfluenceClient:
                 "in review": "#ffc400",
                 "outdated": "#ff7452",
             }
-            body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff")}
-            print(f"  [status] no space state match — using fallback: {body}")
+            body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff"), "status": "current"}
 
         url = self._v1(f"/content/{page_id}/state")
         resp = self._http.put(url, json=body)
-        print(f"  [status] PUT {url} → HTTP {resp.status_code}")
         if not resp.is_success:
-            print(f"  [status] response body: {resp.text[:300]}")
+            print(f"  [warn] set status body: {resp.text[:300]}")
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
 
     def _fetch_available_states(self, page_id: str) -> list[dict[str, Any]]:
