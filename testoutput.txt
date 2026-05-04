@@ -1,138 +1,44 @@
-PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section reference
-mk2conf 0.5.4
+mk2conf 0.7.26
 Planning...
-  compiling  'Reference'  (folder)
-  compiling  'Stakeholders'
-  compiling  'Mobile Device Architecture'  (section index)
-  compiling  'Design'  (section index)
+  compiling  'Explanation'  (folder)
+  compiling  'OT/IT Data Vision'
+  unchanged  'OT/IT Data Vision'  (content unchanged)
+  compiling  'Business Patterns'  (folder)
+  compiling  'Federated Industrial Superapp (Unified Shell)'
+  unchanged  'Federated Industrial Superapp (Unified Shell)'  (content unchanged)
+  compiling  'Managed Mobile Device Strategy (No-BYOD)'
+  unchanged  'Managed Mobile Device Strategy (No-BYOD)'  (content unchanged)
+  compiling  'Semantic Edge to Enterprise Fabric'
+  unchanged  'Semantic Edge to Enterprise Fabric'  (content unchanged)
+  compiling  'Hybrid IAM Fabric'
+  unchanged  'Hybrid IAM Fabric'  (content unchanged)
+  compiling  'Integration Patterns'  (folder)
+  compiling  'Blob Content Transfer Pattern'
         rendering  mermaid diagram (cached)
-  compiling  '01 Overview'
-  compiling  '01A Cloud Identity And Management'
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-  compiling  '02 Device Model'
-  compiling  '03 Infrastructure'
-        rendering  mermaid diagram (cached)
-  compiling  '04 Manifest Deployment'
-  compiling  '05 Authentication'
-        rendering  mermaid diagram (cached)
-  compiling  '06 App Distribution'
-  compiling  '07 Connector Resolution'
-  compiling  '08 Observability'
-  compiling  '09 Operational Procedures'
-  compiling  '10 Phases'
-  compiling  '11 Architecture Concept'
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-  compiling  'Raw Unstructured Architecture'
+  unchanged  'Blob Content Transfer Pattern'  (content unchanged)
+  compiling  'Principles'  (folder)
+  compiling  'Manufacturing Building Blocks'
+  unchanged  'Manufacturing Building Blocks'  (content unchanged)
+  compiling  'Manufacturing Principles'
+  unchanged  'Manufacturing Principles'  (content unchanged)
+  compiling  'DevOps Principles'
+  unchanged  'DevOps Principles'  (content unchanged)
+  compiling  'Values'  (folder)
+  compiling  'CloudEvents values'
+  compiling  'ISA-95 IDMZ values'
+  unchanged  'ISA-95 IDMZ values'  (content unchanged)
+  compiling  'Observability Values'
+  unchanged  'Observability Values'  (content unchanged)
+  compiling  'Saviynt Values'
+  unchanged  'Saviynt Values'  (content unchanged)
 
-Publishing 17 page(s)...
-  [1/17] create  'Reference'
-         folder id=6284738561  parent_id=6261964868  parent_is_folder=False
-  [2/17] create  'Stakeholders'
-  [3/17] create  'Mobile Device Architecture'
-  [4/17] create  'Design'
-        uploading  mermaid_245e2dbf43ff6d82ab12c3d964205b56c8bc646618bff958bb7e7424ea2f575b.png
-  [5/17] create  '01 Overview'
-  [6/17] create  '01A Cloud Identity And Management'
-        uploading  mermaid_91fde96e00b37b45305b86c683a4ce26d724f6dec85e59b777d9ca283047b47f.png
-        uploading  mermaid_88446582f8ca98dd1ccaa9081e48350bb1412c53c88c6e572864b5c41c626893.png
-        uploading  mermaid_d746a33ae434c9cd71fed4aa05e9b3988463d4327794bad78020e8eb3763ac26.png
-        uploading  mermaid_c83a33293fd0eb6f21b63dd85084636c2a6d206a2dc62cfdf4b79df3d2b23fe6.png
-        uploading  mermaid_4872b7ebe83e9b2d6580967f770e9bba58f93a4a0eb7de8918ff3dc6830fedd3.png
-  [7/17] create  '02 Device Model'
-  [8/17] create  '03 Infrastructure'
-        uploading  mermaid_60431b35227d64dea97e9799770abff9209c80d0467023c692b6beccbb9bf887.png
-  [9/17] create  '04 Manifest Deployment'
-  [10/17] create  '05 Authentication'
-        uploading  mermaid_2b5d5d7642c3721b34d719cd9e8a95d0e21fa18e59d8294351802d0856b0520f.png
-  [11/17] create  '06 App Distribution'
-  [12/17] create  '07 Connector Resolution'
-  [13/17] create  '08 Observability'
-  [14/17] create  '09 Operational Procedures'
-  [15/17] create  '10 Phases'
-  [16/17] create  '11 Architecture Concept'
-        uploading  mermaid_aa3891974ba4c2157e2eced49d07e99695d91303e1c0a1e3a215e8321b7b3604.png
-        uploading  mermaid_7af9c124d47fd24d6bb31b1c4e24099f9fbdba000dda73ced2a0b89da6ffc423.png
-        uploading  mermaid_0318ba420a647426cfdc43c8791e073d88edc96100fa614205ee31e36772331f.png
-        uploading  mermaid_85ba25e80fa54bd2369f1cbab5caaa4e832a1264f41f50d9f86d0ae331fa2668.png
-        uploading  mermaid_d47f053ec01433b142aad1ab664e4e5adcd2dc42d6e4acd242c675704bc7e14c.png
-        uploading  mermaid_9f65fbb76724141486540c0c44c47ac03fcd2c0bdb90b297833cb8eae3d48118.png
-  [17/17] create  'Raw Unstructured Architecture'
-Published:  17 created, 0 updated, 0 skipped
-Assets:     14 uploaded, 0 skipped
-PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section reference
-mk2conf 0.5.4
-Planning...
-  compiling  'Reference'  (folder)
-  compiling  'Stakeholders'
-  compiling  'Mobile Device Architecture'  (section index)
-  compiling  'Design'  (section index)
-        rendering  mermaid diagram (cached)
-  compiling  '01 Overview'
-  compiling  '01A Cloud Identity And Management'
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-  compiling  '02 Device Model'
-  compiling  '03 Infrastructure'
-        rendering  mermaid diagram (cached)
-  compiling  '04 Manifest Deployment'
-  compiling  '05 Authentication'
-        rendering  mermaid diagram (cached)
-  compiling  '06 App Distribution'
-  compiling  '07 Connector Resolution'
-  compiling  '08 Observability'
-  compiling  '09 Operational Procedures'
-  compiling  '10 Phases'
-  compiling  '11 Architecture Concept'
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-        rendering  mermaid diagram (cached)
-  compiling  'Raw Unstructured Architecture'
-
-Publishing 17 page(s)...
-  [1/17] create  'Reference'
-  [2/17] update  'Stakeholders'
-  [3/17] update  'Mobile Device Architecture'
-  [4/17] create  'Design'
-  [5/17] create  '01 Overview'
-  [6/17] create  '01A Cloud Identity And Management'
-  [7/17] update  '02 Device Model'
-  [8/17] update  '03 Infrastructure'
-        skipping   mermaid_60431b35227d64dea97e9799770abff9209c80d0467023c692b6beccbb9bf887.png (unchanged)
-  [9/17] update  '04 Manifest Deployment'
-  [10/17] update  '05 Authentication'
-        skipping   mermaid_2b5d5d7642c3721b34d719cd9e8a95d0e21fa18e59d8294351802d0856b0520f.png (unchanged)
-  [11/17] update  '06 App Distribution'
-  [12/17] update  '07 Connector Resolution'
-  [13/17] update  '08 Observability'
-  [14/17] update  '09 Operational Procedures'
-  [15/17] update  '10 Phases'
-  [16/17] update  '11 Architecture Concept'
-        skipping   mermaid_aa3891974ba4c2157e2eced49d07e99695d91303e1c0a1e3a215e8321b7b3604.png (unchanged)
-        skipping   mermaid_7af9c124d47fd24d6bb31b1c4e24099f9fbdba000dda73ced2a0b89da6ffc423.png (unchanged)
-        skipping   mermaid_0318ba420a647426cfdc43c8791e073d88edc96100fa614205ee31e36772331f.png (unchanged)
-        skipping   mermaid_85ba25e80fa54bd2369f1cbab5caaa4e832a1264f41f50d9f86d0ae331fa2668.png (unchanged)
-        skipping   mermaid_d47f053ec01433b142aad1ab664e4e5adcd2dc42d6e4acd242c675704bc7e14c.png (unchanged)
-        skipping   mermaid_9f65fbb76724141486540c0c44c47ac03fcd2c0bdb90b297833cb8eae3d48118.png (unchanged)
-  [17/17] update  'Raw Unstructured Architecture'
-Published:  0 created, 14 updated, 0 skipped
-Assets:     0 uploaded, 8 skipped
-Errors:     3
-  ✗ Design: create_page('Design'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A page with this title already exists: A page already exists with the same TITLE in this space","detail":null}]}
-  ✗ 01 Overview: create_page('01 Overview'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A page with this title already exists: A page already exists with the same TITLE in this space","detail":null}]}
-  ✗ 01A Cloud Identity And Management: create_page('01A Cloud Identity And Management'): HTTP 400 — {"errors":[{"status":400,"code":"BAD_REQUEST","title":"A page with this title already exists: A page already exists with the same TITLE in this space","detail":null}]}
+Publishing 6 page(s)...
+  [1/6] create  'Explanation'
+  [2/6] create  'Business Patterns'
+  [3/6] create  'Integration Patterns'
+  [4/6] create  'Principles'
+  [5/6] create  'Values'
+  [6/6] create  'CloudEvents values'
+Published:  1 created, 5 updated, 12 skipped
+Assets:     0 uploaded, 0 skipped
 PS C:\repos\rockwool\docs>
