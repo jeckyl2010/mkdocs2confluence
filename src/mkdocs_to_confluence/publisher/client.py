@@ -371,6 +371,7 @@ class ConfluenceClient:
         Sends ``{id, name, color}`` when a matching space state is found, otherwise
         falls back to ``{name, color}`` with a sensible default colour.
         """
+        import sys as _sys
         def _normalize(s: str) -> str:
             return s.lower().replace("-", " ").strip()
 
@@ -380,6 +381,10 @@ class ConfluenceClient:
         # Fetch space states once per run (keyed by space so one run = one API call)
         if cache_key not in self._space_states:
             self._space_states[cache_key] = self._fetch_available_states(page_id)
+            print(
+                f"  [status] space states fetched: {[s.get('name') for s in self._space_states[cache_key]]}",
+                file=_sys.stderr,
+            )
 
         matched: dict[str, Any] | None = None
         for state in self._space_states.get(cache_key, []):
@@ -393,6 +398,7 @@ class ConfluenceClient:
                 "name": matched["name"],
                 "color": matched["color"],
             }
+            print(f"  [status] matched space state: {body}", file=_sys.stderr)
         else:
             # Fall back: name + color (required together when no id)
             _default_colors = {
@@ -404,9 +410,13 @@ class ConfluenceClient:
                 "outdated": "#ff7452",
             }
             body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff")}
+            print(f"  [status] no space state match — using fallback: {body}", file=_sys.stderr)
 
         url = self._v1(f"/content/{page_id}/state")
         resp = self._http.put(url, json=body)
+        print(f"  [status] PUT {url} → HTTP {resp.status_code}", file=_sys.stderr)
+        if not resp.is_success:
+            print(f"  [status] response body: {resp.text[:300]}", file=_sys.stderr)
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
 
     def _fetch_available_states(self, page_id: str) -> list[dict[str, Any]]:

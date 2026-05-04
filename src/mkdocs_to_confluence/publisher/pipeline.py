@@ -664,7 +664,9 @@ def _post_process_action(
     # Set Confluence page status (rough-draft / in-progress / etc.) — non-fatal.
     if action.page_id and action.confluence_status and not action.is_folder:
         try:
+            print(f"  [status] setting '{action.confluence_status}' on page {action.page_id!r}...", file=sys.stderr)
             client.set_page_status(action.page_id, action.confluence_status, space_key=space_key)
+            print("  [status] ok", file=sys.stderr)
         except Exception as exc:
             # Always print status errors — user configured status explicitly
             print(f"  [warn] could not set page status '{action.confluence_status}': {exc}", file=sys.stderr)
@@ -730,13 +732,17 @@ def execute_publish(
             # Still apply status even for unchanged pages.
             if action.page_id and action.confluence_status and not action.is_folder:
                 try:
+                    print(
+                        f"  [status] setting '{action.confluence_status}' on page {action.page_id!r}...",
+                        file=sys.stderr,
+                    )
                     client.set_page_status(action.page_id, action.confluence_status, space_key=space_key)
+                    print("  [status] ok", file=sys.stderr)
                 except Exception as exc:
-                    if not quiet:
-                        print(
-                            f"  [warn] could not set page status '{action.confluence_status}': {exc}",
-                            file=sys.stderr,
-                        )
+                    print(
+                        f"  [warn] could not set page status '{action.confluence_status}': {exc}",
+                        file=sys.stderr,
+                    )
             continue
 
         counter += 1
