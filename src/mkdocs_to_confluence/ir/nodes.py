@@ -433,15 +433,33 @@ class FrontMatter(IRNode):
 
 @dataclass(frozen=True)
 class AbbrevFootnoteNode(IRNode):
-    """An abbreviation annotated with an inline Confluence footnote.
+    """Inline: abbreviated term with a superscript anchor-link to the glossary.
 
-    The emitter outputs the abbreviated term immediately followed by a
-    ``footnote`` macro containing the full definition.  Confluence collects
-    all footnote macros and renders their bodies at the bottom of the page.
+    The emitter renders ``ABBR<sup>[N]</sup>`` where ``[N]`` links to the
+    corresponding entry in the end-of-page :class:`AbbrevGlossaryBlock`.
     """
 
     abbr: str
     definition: str
+    number: int  # 1-based, assigned by the transform in order of first encounter
+
+
+@dataclass(frozen=True)
+class AbbrevGlossaryBlock(IRNode):
+    """End-of-page abbreviations reference block.
+
+    Rendered as a numbered list (with Confluence anchor targets for the
+    back-links) followed by an optional bullet list of abbreviations that
+    only appeared in headings or other non-expandable contexts.
+
+    Attributes:
+        footnoted: Abbreviations annotated inline, ordered by first encounter.
+        extras:    ``(abbr, definition)`` pairs for abbreviations that could
+                   not be annotated inline, sorted alphabetically.
+    """
+
+    footnoted: tuple[AbbrevFootnoteNode, ...]
+    extras: tuple[tuple[str, str], ...]
 
 
 # ── Footnotes ────────────────────────────────────────────────────────────────
