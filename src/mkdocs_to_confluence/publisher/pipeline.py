@@ -289,6 +289,7 @@ def _plan_nodes(
                                 parent_id=parent_id,
                                 parent_is_folder=parent_is_folder,
                                 page_id=str(existing["id"]),
+                                confluence_status=confluence_status,
                             ))
                             non_index = [c for c in node.children if c is not index_child]
                             _plan_nodes(
@@ -399,6 +400,7 @@ def _plan_nodes(
                         action="skip",
                         parent_id=parent_id,
                         page_id=str(existing["id"]),
+                        confluence_status=confluence_status,
                     )
                 )
                 continue
@@ -662,8 +664,9 @@ def _post_process_action(
     if action.page_id and action.confluence_status and not action.is_folder:
         try:
             client.set_page_status(action.page_id, action.confluence_status)
-        except Exception:
-            pass
+        except Exception as exc:
+            if not quiet:
+                print(f"  [warn] could not set page status '{action.confluence_status}': {exc}", file=sys.stderr)
 
     # Upload assets — skip files whose mtime is not newer than Confluence.
     if action.page_id and action.attachments:
