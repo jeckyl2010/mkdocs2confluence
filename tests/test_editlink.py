@@ -35,6 +35,20 @@ def test_existing_front_matter_fields_preserved():
     assert updated.source_url == "https://example.com/edit"
 
 
+def test_confluence_status_preserved_by_attach_source_url():
+    """confluence_status must survive the attach_source_url transform (regression)."""
+    fm = FrontMatter(
+        title="My Page",
+        subtitle=None,
+        properties=(),
+        labels=("arch",),
+        confluence_status="in-progress",
+    )
+    result = attach_source_url((fm,), "https://example.com/edit")
+    updated: FrontMatter = result[0]  # type: ignore[assignment]
+    assert updated.confluence_status == "in-progress"
+
+
 def test_minimal_front_matter_created_when_none_present():
     """A minimal FrontMatter is prepended when the page has no front matter."""
     body = (Paragraph(children=(TextNode(text="Content"),)),)
