@@ -277,6 +277,8 @@ def _plan_nodes(
                         xhtml, attachments, labels, confluence_status = compile_page(
                             index_child, config, link_map, quiet=quiet
                         )
+                        if confluence_status:
+                            print(f"  [debug] '{clean_title}' (index) has frontmatter status: {confluence_status!r}")
                         existing = client.find_page(space_id, clean_title)
                         xhtml_h = _xhtml_hash(xhtml)
                         if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
@@ -387,6 +389,9 @@ def _plan_nodes(
                     )
                 )
                 continue
+
+            if confluence_status:
+                print(f"  [debug] '{clean_title}' has frontmatter status: {confluence_status!r}")
 
             existing = client.find_page(space_id, clean_title)
             xhtml_h = _xhtml_hash(xhtml)
