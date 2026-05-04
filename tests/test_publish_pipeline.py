@@ -1945,3 +1945,100 @@ def test_execute_publish_quiet_suppresses_stdout(tmp_path: Path, capsys: pytest.
 
     out, _ = capsys.readouterr()
     assert out == ""
+
+
+# ── Status: end-to-end flow ───────────────────────────────────────────────────
+
+
+def test_compile_page_returns_confluence_status(tmp_path: Path) -> None:
+    """compile_page must return the status: value from front matter."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("---\nstatus: in-progress\n---\n\n# My Page\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("My Page", md)
+    config = _make_config(docs)
+    _, _, _, confluence_status = compile_page(node, config)
+
+    assert confluence_status == "in-progress"
+
+
+def test_plan_publish_sets_confluence_status_on_create(tmp_path: Path) -> None:
+    """plan_publish must carry confluence_status into a create PageAction."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("---\nstatus: in-progress\n---\n\n# My Page\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("My Page", md)
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+
+    client = MagicMock()
+    client.find_page.return_value = None
+
+    plan = plan_publish([node], client, config, conf_config, space_id="42")
+
+    assert plan[0].action == "create"
+    assert plan[0].confluence_status == "in-progress"
+
+
+def test_plan_publish_sets_confluence_status_on_skip(tmp_path: Path) -> None:
+    """plan_publish must carry confluence_status into a skip (unchanged) PageAction."""
+    from mkdocs_to_confluence.publisher.pipeline import _xhtml_hash
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("---\nstatus: in-progress\n---\n\n# My Page\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("My Page", md)
+    config = _make_config(docs)
+    conf_config = _make_conf_config()
+
+    xhtml, _, _, _ = compile_page(node, config)
+    stored_hash = _xhtml_hash(xhtml)
+
+    existing_page = {"id": "77", "version": {"number": 2}}
+    client = MagicMock()
+    client.find_page.return_value = existing_page
+    client.get_content_hash.return_value = stored_hash
+
+    plan = plan_publish([node], client, config, conf_config, space_id="42")
+
+    assert plan[0].action == "skip"
+    assert plan[0].confluence_status == "in-progress"
+
+
+def test_execute_publish_calls_set_page_status_on_create(tmp_path: Path) -> None:
+    """execute_publish must call client.set_page_status for a created page with confluence_status."""
+    from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+    node = _make_section_node("P", [])
+    action = PageAction(
+        node=node, title="P", action="create",
+        parent_id=None, xhtml="<p/>", confluence_status="in-progress",
+    )
+    client = MagicMock()
+    client.create_page.return_value = {"id": "99"}
+
+    execute_publish([action], client, space_id="42", docs_dir=tmp_path)
+
+    client.set_page_status.assert_called_once_with("99", "in-progress", space_key=None)
+
+
+def test_execute_publish_calls_set_page_status_on_skip(tmp_path: Path) -> None:
+    """execute_publish must call client.set_page_status even for skipped (unchanged) pages."""
+    from mkdocs_to_confluence.publisher.pipeline import execute_publish
+
+    node = _make_section_node("P", [])
+    action = PageAction(
+        node=node, title="P", action="skip",
+        parent_id=None, page_id="88", confluence_status="in-progress",
+    )
+    client = MagicMock()
+
+    execute_publish([action], client, space_id="42", docs_dir=tmp_path)
+
+    client.set_page_status.assert_called_once_with("88", "in-progress", space_key=None)
