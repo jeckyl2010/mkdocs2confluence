@@ -478,8 +478,10 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                 # parent_page_id is the authoritative anchor — derive space from it.
                 # space_key is only used when no parent_page_id is configured.
                 space_id = client.get_space_id_from_page(conf_config.parent_page_id)
+                space_key = conf_config.space_key or client.get_space_key_from_page(conf_config.parent_page_id)
             elif conf_config.space_key:
                 space_id = client.get_space_id(conf_config.space_key)
+                space_key = conf_config.space_key
             else:
                 print(
                     "error: cannot determine space — set 'space_key' or 'parent_page_id' in mkdocs.yml",
@@ -492,7 +494,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             partial = bool(getattr(args, "page", None) or getattr(args, "section", None))
             report = execute_publish(
                 plan, client, dry_run=False, space_id=space_id,
-                space_key=conf_config.space_key,
+                space_key=space_key,
                 docs_dir=config.docs_dir, full_width=conf_config.full_width,
                 root_page_id=conf_config.parent_page_id,
                 prune=getattr(args, "prune", False) and not partial,
