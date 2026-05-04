@@ -500,7 +500,19 @@ class TestAdmonitions:
         assert isinstance(adm, Admonition)
         assert adm.title == 'title with "double" quotes'
 
-    def test_bang_not_collapsible(self) -> None:
+    def test_bold_markers_stripped_from_title(self) -> None:
+        adm = first(parse('!!! info "**Test**"\n    Body.\n'), Admonition)
+        assert adm.title == "Test"
+
+    def test_italic_markers_stripped_from_title(self) -> None:
+        adm = first(parse('!!! info "*Test*"\n    Body.\n'), Admonition)
+        assert adm.title == "Test"
+
+    def test_mixed_md_stripped_from_title(self) -> None:
+        adm = first(parse('!!! info "**Bold** and *italic*"\n    Body.\n'), Admonition)
+        assert adm.title == "Bold and italic"
+
+
         adm = first(parse("!!! note\n    Body.\n"), Admonition)
         assert isinstance(adm, Admonition)
         assert adm.collapsible is False
