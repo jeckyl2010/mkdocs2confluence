@@ -392,7 +392,6 @@ class ConfluenceClient:
                 "id": matched["id"],
                 "name": matched["name"],
                 "color": matched["color"],
-                "status": "current",
             }
         else:
             # Fall back: name + color (required together when no id)
@@ -404,10 +403,11 @@ class ConfluenceClient:
                 "in review": "#ffc400",
                 "outdated": "#ff7452",
             }
-            body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff"), "status": "current"}
+            body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff")}
 
+        # `status` query param tells the API which page version to target (current vs draft).
         url = self._v1(f"/content/{page_id}/state")
-        resp = self._http.put(url, json=body)
+        resp = self._http.put(url, json=body, params={"status": "current"})
         if not resp.is_success:
             print(f"  [warn] set status body: {resp.text[:300]}")
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
