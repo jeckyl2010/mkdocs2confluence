@@ -105,6 +105,10 @@ def extract_front_matter(text: str) -> tuple[FrontMatter | None, str]:
     if not isinstance(raw, dict):
         return None, text
 
+    if "status" in raw:
+        print(f"  [debug-status] raw YAML block repr: {m.group(1)!r}")
+        print(f"  [debug-status] raw['status'] = {raw['status']!r}")
+
     return _build_node(raw), remaining
 
 
