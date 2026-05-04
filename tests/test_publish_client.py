@@ -167,8 +167,8 @@ def test_set_page_labels_skips_post_when_empty() -> None:
 # ── set_page_status ───────────────────────────────────────────────────────────
 
 
-def test_set_page_status_sends_post() -> None:
-    """set_page_status POSTs the state key to the v1 /content/{id}/state endpoint."""
+def test_set_page_status_sends_put() -> None:
+    """set_page_status PUTs name-based body to the v1 /content/{id}/state endpoint."""
     transport = _MockTransport(httpx.Response(200, json={}))
     config = _make_config()
     with ConfluenceClient(config) as client:
@@ -176,11 +176,11 @@ def test_set_page_status_sends_post() -> None:
         client.set_page_status("42", "in-progress")
     assert len(transport.requests) == 1
     req = transport.requests[0]
-    assert req.method == "POST"
+    assert req.method == "PUT"
     assert "/content/42/state" in str(req.url)
     import json
     body = json.loads(req.content)
-    assert body == {"state": {"key": "in-progress"}}
+    assert body == {"name": "In Progress"}
 
 
 def test_set_page_full_width_creates_property_when_absent() -> None:
