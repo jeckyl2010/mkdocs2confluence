@@ -35,6 +35,7 @@ from mkdocs_to_confluence.ir.nodes import (
     BlockQuote,
     BoldNode,
     BulletList,
+    CodeBlock,
     ContentTabs,
     Expandable,
     IRNode,
@@ -50,6 +51,12 @@ from mkdocs_to_confluence.ir.nodes import (
     TableCell,
     TableRow,
     TextNode,
+)
+
+# Block node types that can appear as direct children of a ListItem in a loose list.
+_BLOCK_TYPES = (
+    Section, Paragraph, CodeBlock, Admonition,
+    BulletList, OrderedList, Table, BlockQuote, ContentTabs, Expandable,
 )
 
 # ── Internal state ────────────────────────────────────────────────────────────
@@ -148,7 +155,12 @@ def _transform_block(node: IRNode, state: _State) -> IRNode:
 
 
 def _transform_list_item(item: ListItem, state: _State) -> ListItem:
-    new_children = tuple(_transform_block(c, state) for c in item.children)
+    if any(isinstance(c, _BLOCK_TYPES) for c in item.children):
+        # Loose item: children are block nodes (paragraphs, nested lists, etc.)
+        new_children = tuple(_transform_block(c, state) for c in item.children)
+    else:
+        # Tight item: children are inline nodes — expand directly.
+        new_children = _inline(item.children, state, safe=True)
     return replace(item, children=new_children)
 
 

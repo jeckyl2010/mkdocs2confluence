@@ -234,3 +234,23 @@ def test_extras_sorted_alphabetically():
     assert isinstance(glossary, AbbrevGlossaryBlock)
     extra_abbrs = [abbr for abbr, _ in glossary.extras]
     assert extra_abbrs == sorted(extra_abbrs)
+
+
+def test_expands_in_tight_list_item():
+    from mkdocs_to_confluence.ir.nodes import BulletList, ListItem
+    abbrevs = {"API": "Application Programming Interface"}
+    item = ListItem(children=(TextNode("Use the API here."),))
+    nodes = (BulletList(items=(item,)),)
+    result = apply_abbreviations(nodes, abbrevs, page_text="Use the API here.")
+    item_children = result[0].items[0].children  # type: ignore[union-attr]
+    assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "API" for c in item_children)
+
+
+def test_expands_in_loose_list_item():
+    from mkdocs_to_confluence.ir.nodes import BulletList, ListItem
+    abbrevs = {"API": "Application Programming Interface"}
+    item = ListItem(children=(Paragraph(children=(TextNode("Use the API here."),)),))
+    nodes = (BulletList(items=(item,)),)
+    result = apply_abbreviations(nodes, abbrevs, page_text="Use the API here.")
+    para_children = result[0].items[0].children[0].children  # type: ignore[union-attr]
+    assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "API" for c in para_children)
