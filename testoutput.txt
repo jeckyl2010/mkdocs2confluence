@@ -1,46 +1,56 @@
-PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section explanation
-mk2conf 0.7.27
 Planning...
   compiling  'Explanation'  (folder)
   compiling  'OT/IT Data Vision'
+  [debug] 'OT/IT Data Vision': status=None labels=('vision', 'architecture', 'isa-95', 'purdue', 'idmz', 'mqtt', 'uns', 'security', 'integration', 'governance', 'blackout')
   unchanged  'OT/IT Data Vision'  (content unchanged)
   compiling  'Business Patterns'  (folder)
   compiling  'Federated Industrial Superapp (Unified Shell)'
+  [debug] 'Federated Industrial Superapp (Unified Shell)': status=None labels=('patterns', 'business-patterns', 'mobility', 'devices', 'integration', 'uns', 'isa-95', 'idmz', 'governance', 'security', 'blackout')
   unchanged  'Federated Industrial Superapp (Unified Shell)'  (content unchanged)
   compiling  'Managed Mobile Device Strategy (No-BYOD)'
+  [debug] 'Managed Mobile Device Strategy (No-BYOD)': status=None labels=('patterns', 'business-patterns', 'devices', 'mobility', 'uem', 'mdm', 'zero-trust', 'isa-95', 'idmz', 'security', 'blackout')
   unchanged  'Managed Mobile Device Strategy (No-BYOD)'  (content unchanged)
   compiling  'Semantic Edge to Enterprise Fabric'
+  [debug] 'Semantic Edge to Enterprise Fabric': status=None labels=('patterns', 'business-patterns', 'integration', 'isa-95', 'idmz', 'governance', 'uns')
   unchanged  'Semantic Edge to Enterprise Fabric'  (content unchanged)
   compiling  'Hybrid IAM Fabric'
+  [debug] 'Hybrid IAM Fabric': status=None labels=('patterns', 'business-patterns', 'iam', 'identity', 'isa-95', 'idmz', 'governance', 'blackout')
   unchanged  'Hybrid IAM Fabric'  (content unchanged)
   compiling  'Integration Patterns'  (folder)
   compiling  'Blob Content Transfer Pattern'
         rendering  mermaid diagram (cached)
+  [debug] 'Blob Content Transfer Pattern': status=None labels=('patterns', 'integration', 'isa-95', 'idmz', 'security', 'mqtt', 'kafka', 'sftpgo', 'object-storage', 'dapr', 'openshift')
   unchanged  'Blob Content Transfer Pattern'  (content unchanged)
   compiling  'Principles'  (folder)
   compiling  'Manufacturing Building Blocks'
+  [debug] 'Manufacturing Building Blocks': status=None labels=('building-blocks', 'architecture', 'manufacturing-it', 'isa-95', 'idmz', 'integration', 'platform')
   unchanged  'Manufacturing Building Blocks'  (content unchanged)
   compiling  'Manufacturing Principles'
+  [debug] 'Manufacturing Principles': status=None labels=('principles', 'manufacturing-it', 'architecture', 'factory-of-the-future')
   unchanged  'Manufacturing Principles'  (content unchanged)
   compiling  'DevOps Principles'
+  [debug] 'DevOps Principles': status=None labels=('principles', 'delivery', 'operations', 'cicd', 'gitops', 'dora', 'reliability', 'security', 'observability')
   unchanged  'DevOps Principles'  (content unchanged)
   compiling  'Values'  (folder)
   compiling  'CloudEvents values'
+  [debug] 'CloudEvents values': status=None labels=('values', 'integration', 'events', 'cloudevents', 'interoperability', 'protobuf', 'json')
+  unchanged  'CloudEvents values'  (content unchanged)
   compiling  'ISA-95 IDMZ values'
+  [debug] 'ISA-95 IDMZ values': status=None labels=('principles', 'isa-95', 'idmz', 'security', 'architecture')
+  unchanged  'ISA-95 IDMZ values'  (content unchanged)
   compiling  'Observability Values'
+  [debug] 'Observability Values': status=None labels=('values', 'observability', 'reliability', 'operations', 'security', 'opentelemetry')
+  unchanged  'Observability Values'  (content unchanged)
   compiling  'Saviynt Values'
+  [debug] 'Saviynt Values': status=None labels=('principles', 'iam', 'iga', 'saviynt', 'governance', 'pam')
+  unchanged  'Saviynt Values'  (content unchanged)
 
-Publishing 9 page(s)...
-  [1/9] create  'Explanation'
-  [2/9] create  'Business Patterns'
-  [3/9] create  'Integration Patterns'
-  [4/9] create  'Principles'
-  [5/9] create  'Values'
-         folder id=6317932558  parent_id=6315868208  parent_is_folder=True
-  [6/9] create  'CloudEvents values'
-  [7/9] create  'ISA-95 IDMZ values'
-  [8/9] create  'Observability Values'
-  [9/9] create  'Saviynt Values'
-Published:  5 created, 4 updated, 9 skipped
+Publishing 5 page(s)...
+  [1/5] create  'Explanation'
+  [2/5] create  'Business Patterns'
+  [3/5] create  'Integration Patterns'
+  [4/5] create  'Principles'
+  [5/5] create  'Values'
+Published:  0 created, 5 updated, 13 skipped
 Assets:     0 uploaded, 0 skipped
 PS C:\repos\rockwool\docs>
