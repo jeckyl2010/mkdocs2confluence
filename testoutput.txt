@@ -1,47 +1,62 @@
+PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section explanation
+mk2conf 0.7.30
 Planning...
   compiling  'Explanation'  (folder)
   compiling  'OT/IT Data Vision'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'OT/IT Data Vision': status=None labels=('vision', 'architecture', 'isa-95', 'purdue', 'idmz', 'mqtt', 'uns', 'security', 'integration', 'governance', 'blackout')
   unchanged  'OT/IT Data Vision'  (content unchanged)
   compiling  'Business Patterns'  (folder)
   compiling  'Federated Industrial Superapp (Unified Shell)'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Federated Industrial Superapp (Unified Shell)': status=None labels=('patterns', 'business-patterns', 'mobility', 'devices', 'integration', 'uns', 'isa-95', 'idmz', 'governance', 'security', 'blackout')
   unchanged  'Federated Industrial Superapp (Unified Shell)'  (content unchanged)
   compiling  'Managed Mobile Device Strategy (No-BYOD)'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Managed Mobile Device Strategy (No-BYOD)': status=None labels=('patterns', 'business-patterns', 'devices', 'mobility', 'uem', 'mdm', 'zero-trust', 'isa-95', 'idmz', 'security', 'blackout')
   unchanged  'Managed Mobile Device Strategy (No-BYOD)'  (content unchanged)
   compiling  'Semantic Edge to Enterprise Fabric'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Semantic Edge to Enterprise Fabric': status=None labels=('patterns', 'business-patterns', 'integration', 'isa-95', 'idmz', 'governance', 'uns')
   unchanged  'Semantic Edge to Enterprise Fabric'  (content unchanged)
   compiling  'Hybrid IAM Fabric'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Hybrid IAM Fabric': status=None labels=('patterns', 'business-patterns', 'iam', 'identity', 'isa-95', 'idmz', 'governance', 'blackout')
   unchanged  'Hybrid IAM Fabric'  (content unchanged)
   compiling  'Integration Patterns'  (folder)
   compiling  'Blob Content Transfer Pattern'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
         rendering  mermaid diagram (cached)
   [debug] 'Blob Content Transfer Pattern': status=None labels=('patterns', 'integration', 'isa-95', 'idmz', 'security', 'mqtt', 'kafka', 'sftpgo', 'object-storage', 'dapr', 'openshift')
   unchanged  'Blob Content Transfer Pattern'  (content unchanged)
   compiling  'Principles'  (folder)
   compiling  'Manufacturing Building Blocks'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Manufacturing Building Blocks': status=None labels=('building-blocks', 'architecture', 'manufacturing-it', 'isa-95', 'idmz', 'integration', 'platform')
   unchanged  'Manufacturing Building Blocks'  (content unchanged)
   compiling  'Manufacturing Principles'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Manufacturing Principles': status=None labels=('principles', 'manufacturing-it', 'architecture', 'factory-of-the-future')
   unchanged  'Manufacturing Principles'  (content unchanged)
   compiling  'DevOps Principles'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'DevOps Principles': status=None labels=('principles', 'delivery', 'operations', 'cicd', 'gitops', 'dora', 'reliability', 'security', 'observability')
   unchanged  'DevOps Principles'  (content unchanged)
   compiling  'Values'  (folder)
   compiling  'CloudEvents values'
+  [debug-fm] raw keys: ['title', 'description', 'tags', 'status']
   [debug] 'CloudEvents values': status=None labels=('values', 'integration', 'events', 'cloudevents', 'interoperability', 'protobuf', 'json')
   unchanged  'CloudEvents values'  (content unchanged)
   compiling  'ISA-95 IDMZ values'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'ISA-95 IDMZ values': status=None labels=('principles', 'isa-95', 'idmz', 'security', 'architecture')
   unchanged  'ISA-95 IDMZ values'  (content unchanged)
   compiling  'Observability Values'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Observability Values': status=None labels=('values', 'observability', 'reliability', 'operations', 'security', 'opentelemetry')
   unchanged  'Observability Values'  (content unchanged)
   compiling  'Saviynt Values'
+  [debug-fm] raw keys: ['title', 'description', 'tags']
   [debug] 'Saviynt Values': status=None labels=('principles', 'iam', 'iga', 'saviynt', 'governance', 'pam')
   unchanged  'Saviynt Values'  (content unchanged)
 
