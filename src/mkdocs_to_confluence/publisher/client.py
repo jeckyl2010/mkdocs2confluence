@@ -418,8 +418,8 @@ class ConfluenceClient:
         """
         resp = self._http.get(self._v1(f"/content/{page_id}/state/available"))
         if resp.is_success:
-            data = resp.json()
-            return data.get("spaceContentStates", [])
+            data: dict[str, Any] = resp.json()
+            return data.get("spaceContentStates") or []
         return []
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
