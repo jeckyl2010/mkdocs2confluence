@@ -1,17 +1,5 @@
-  compiling  'Saviynt Values'
-  unchanged  'Saviynt Values'  (content unchanged)
-
-Publishing 5 page(s)...
-  [1/5] create  'Explanation'
-  [2/5] create  'Business Patterns'
-  [3/5] create  'Integration Patterns'
-  [4/5] create  'Principles'
-  [5/5] create  'Values'
   [status] setting 'in-progress' on page '6315638872'...
-  [status] space states fetched: ['Rough draft', 'In progress', 'Ready for review', 'Verified']
-  [status] matched space state: {'id': 6315900972, 'name': 'In progress', 'color': '#2684ff'}
-  [status] PUT https://rockwool.atlassian.net/wiki/rest/api/content/6315638872/state → HTTP 400
-  [status] response body: {"statusCode":400,"data":{"authorized":true,"valid":true,"errors":[],"successful":true},"message":"com.atlassian.confluence.api.service.exceptions.api.BadRequestException: Invalid status 'null'.  The status must be one of [current,draft]."}
-  [warn] could not set page status 'in-progress': set_page_status('6315638872', 'in-progress'): HTTP 400 — {"statusCode":400,"data":{"authorized":true,"valid":true,"errors":[],"successful":true},"message":"com.atlassian.confluence.api.service.exceptions.api.BadRequestException: Invalid status 'null'.  The status must be one of [current,draft]."}
+  [warn] set status body: {"statusCode":400,"message":"com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"status\" (class com.atlassian.confluence.api.model.content.ContentStateRestInput), not marked as ignorable (3 known properties: \"id\", \"name\", \"color\"])\n at [Source: (org.springf
+  [warn] could not set page status 'in-progress': set_page_status('6315638872', 'in-progress'): HTTP 400 — {"statusCode":400,"message":"com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"status\" (class com.atlassian.confluence.api.model.content.ContentStateRestInput), not marked as ignorable (3 known properties: \"id\", \"name\", \"color\"])\n at [Source: (org.springframework.web.util.ContentCachingRequestWrapper$ContentCachingInputStream); line: 1, column: 67] (thr
 Published:  0 created, 5 updated, 13 skipped
-Assets:     0 uploaded, 0 skipp
+Assets:     0 uploaded, 0 ski
