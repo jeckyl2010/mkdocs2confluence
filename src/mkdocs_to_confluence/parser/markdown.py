@@ -243,6 +243,18 @@ _ADMONITION_RE = re.compile(
 # Matches a Material for MkDocs content tab opener:  === "Label"
 _TAB_RE = re.compile(r'^===\s+["\'](?P<label>[^"\']*)["\']$')
 
+# Inline Markdown formatting patterns to strip from plain-text title strings.
+_INLINE_MD_RE = re.compile(r'\*\*(.+?)\*\*|__(.+?)__|[*_](.+?)[*_]|`(.+?)`')
+
+
+def _strip_md_inline(text: str) -> str:
+    """Remove inline Markdown formatting markers from a plain-text string.
+
+    Used for titles that land in ``ac:parameter`` elements (plain text only).
+    ``**bold**`` → ``bold``, ``*italic*`` → ``italic``, etc.
+    """
+    return _INLINE_MD_RE.sub(lambda m: next(g for g in m.groups() if g is not None), text)
+
 # Matches a horizontal rule (3+ dashes, stars, or underscores alone on a line).
 _HR_RE = re.compile(r'^(?:-{3,}|\*{3,}|_{3,})\s*$')
 
@@ -386,6 +398,8 @@ def _tokenize(text: str) -> list[_Token]:
             marker = adm_m.group("marker")
             kind = adm_m.group("kind")
             title = adm_m.group("title")    # None if no quoted title given
+            if title is not None:
+                title = _strip_md_inline(title)
             collapsible = marker.startswith("?")
             expanded = marker == "???+"
             i += 1
@@ -424,7 +438,7 @@ def _tokenize(text: str) -> list[_Token]:
                 tm = _TAB_RE.match(lines[i])
                 if not tm:
                     break
-                label = tm.group("label")
+                label = _strip_md_inline(tm.group("label"))
                 i += 1
                 body_raw_tab: list[str] = []
                 while i < len(lines):
