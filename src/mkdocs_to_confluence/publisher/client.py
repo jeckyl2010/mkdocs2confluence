@@ -33,7 +33,7 @@ class ConfluenceClient:
     def __init__(self, config: ConfluenceConfig) -> None:
         self._config = config
         self._client: httpx.Client | None = None
-        self._space_states: dict[str, list[dict]] = {}  # space_key → list of ContentState
+        self._space_states: dict[str, list[dict[str, Any]]] = {}  # space_key → list of ContentState
 
     # ── Context manager ────────────────────────────────────────────────────────
 
@@ -371,7 +371,7 @@ class ConfluenceClient:
         existing space state rather than creating a new custom one.
         """
         name = status_key.replace("-", " ").title()
-        state_body: dict = {"name": name}
+        state_body: dict[str, Any] = {"name": name}
 
         if space_key:
             if space_key not in self._space_states:
