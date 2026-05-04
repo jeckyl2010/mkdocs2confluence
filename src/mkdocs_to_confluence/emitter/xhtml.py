@@ -22,6 +22,7 @@ from typing import Sequence
 from urllib.parse import urlparse
 
 from mkdocs_to_confluence.ir.nodes import (
+    AbbrevFootnoteNode,
     Admonition,
     BlockQuote,
     BoldNode,
@@ -555,6 +556,18 @@ def _emit_footnote_ref(node: FootnoteRef) -> str:
     )
 
 
+def _emit_abbrev_footnote(node: AbbrevFootnoteNode) -> str:
+    """Abbreviation term + inline Confluence footnote macro with its definition."""
+    term = html.escape(node.abbr)
+    defn = html.escape(node.definition)
+    return (
+        f"{term}"
+        f'<ac:structured-macro ac:name="footnote" ac:schema-version="1">'
+        f"<ac:rich-text-body><p>{defn}</p></ac:rich-text-body>"
+        f"</ac:structured-macro>"
+    )
+
+
 def _emit_footnote_block(node: FootnoteBlock) -> str:
     """Footnotes section: heading + ordered list with anchor targets."""
     items: list[str] = []
@@ -613,6 +626,8 @@ def _emit_inline(node: IRNode) -> str:
         return _emit_image(node)
     if isinstance(node, FootnoteRef):
         return _emit_footnote_ref(node)
+    if isinstance(node, AbbrevFootnoteNode):
+        return _emit_abbrev_footnote(node)
     if isinstance(node, LineBreakNode):
         return "<br />"
     if isinstance(node, InlineHtmlNode):

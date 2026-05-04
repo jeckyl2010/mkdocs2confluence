@@ -428,6 +428,22 @@ class FrontMatter(IRNode):
     site_url: str | None = None
 
 
+# ── Abbreviation footnotes ────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class AbbrevFootnoteNode(IRNode):
+    """An abbreviation annotated with an inline Confluence footnote.
+
+    The emitter outputs the abbreviated term immediately followed by a
+    ``footnote`` macro containing the full definition.  Confluence collects
+    all footnote macros and renders their bodies at the bottom of the page.
+    """
+
+    abbr: str
+    definition: str
+
+
 # ── Footnotes ────────────────────────────────────────────────────────────────
 
 
