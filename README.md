@@ -315,7 +315,7 @@ If `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row links
 
 ### Abbreviation expansion
 
-MkDocs abbreviation definitions (`*[ABBR]: Full term`) are expanded inline — Confluence has no native `<abbr>` tooltip. The **first occurrence** in body text is expanded as `IAM (Identity and Access Management)`; subsequent occurrences are left as-is. Abbreviations that only appear in headings or code are collected into an auto-appended **Glossary** section.
+MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline Confluence **footnotes**. The **first occurrence** of each abbreviation in body text is annotated with a footnote macro — Confluence renders it as a superscript number and collects all definitions at the bottom of the page. Subsequent occurrences are left as plain text. Abbreviations that only appear in headings or other non-expandable contexts are collected into an auto-appended **Glossary** section as a fallback.
 
 ---
 
@@ -324,7 +324,7 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are expanded inline — C
 | Feature | Behaviour |
 |---|---|
 | **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro colours. `danger`, `error`, `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
-| **Abbreviation tooltips** | No native tooltip support. First occurrence expanded inline; remainder left as-is. |
+| **Abbreviation tooltips** | No native tooltip support. First occurrence annotated with an inline Confluence footnote; definition collected at the bottom of the page. |
 | **Page ordering** | Confluence sorts child pages alphabetically; the v2 REST API has no write endpoint for ordering. |
 | **Code language aliases** | Short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
 | **Unrecognised blocks** | Preserved as a visible `warning` macro — no content is silently lost. |

@@ -3,17 +3,19 @@
 Collects ``*[ABBR]: definition`` pairs (extracted by
 :mod:`mkdocs_to_confluence.preprocess.abbrevs`) and walks the IR tree to:
 
-1. **Expand** the first occurrence of each abbreviation in *safe* body nodes —
-   paragraphs, list items, table body cells, blockquotes — by rewriting it to
-   ``ABBR (definition)``.
+1. **Annotate** the first occurrence of each abbreviation in *safe* body nodes —
+   paragraphs, list items, table body cells, blockquotes — by inserting an
+   inline Confluence ``footnote`` macro immediately after the term.  Confluence
+   renders this as a superscript number and collects all definitions at the
+   bottom of the page.
 
 2. **Skip** structural/title nodes where expansion would look odd:
    section headings, table header cells, admonition/panel titles, code spans,
    and link text.
 
 3. **Append a Glossary section** at the end of the page for any abbreviation
-   that was detected in the page text but could not be expanded inline because
-   it only appeared in skipped contexts.
+   that was detected in the page text but could not be footnoted because it
+   only appeared in skipped contexts (headings, table headers, etc.).
 
 Entry point
 -----------
@@ -27,6 +29,7 @@ import re
 from dataclasses import replace
 
 from mkdocs_to_confluence.ir.nodes import (
+    AbbrevFootnoteNode,
     Admonition,
     BlockQuote,
     BoldNode,
@@ -64,21 +67,31 @@ class _State:
             for abbr in abbrevs
         }
 
-    def expand_text(self, text: str) -> str:
-        """Return *text* with first-occurrence abbreviations expanded.
+    def expand_to_nodes(self, text: str) -> tuple[IRNode, ...]:
+        """Split *text* around the first unexpanded abbreviation.
 
-        Each abbreviation is expanded at most once across the entire page.
-        Once an abbreviation has been expanded, subsequent occurrences are left
-        as plain text.
+        Returns a mix of :class:`TextNode` and :class:`AbbrevFootnoteNode`.
+        Each abbreviation is footnoted at most once per page.
         """
-        for abbr, defn in self.abbrevs.items():
+        best: tuple[int, int, str] | None = None
+        for abbr in self.abbrevs:
             if abbr in self.expanded:
                 continue
-            pattern = self._patterns[abbr]
-            if pattern.search(text):
-                text = pattern.sub(f"{abbr} ({defn})", text, count=1)
-                self.expanded.add(abbr)
-        return text
+            m = self._patterns[abbr].search(text)
+            if m and (best is None or m.start() < best[0]):
+                best = (m.start(), m.end(), abbr)
+
+        if best is None:
+            return (TextNode(text),) if text else ()
+
+        start, end, abbr = best
+        self.expanded.add(abbr)
+        nodes: list[IRNode] = []
+        if text[:start]:
+            nodes.append(TextNode(text[:start]))
+        nodes.append(AbbrevFootnoteNode(abbr=abbr, definition=self.abbrevs[abbr]))
+        nodes.extend(self.expand_to_nodes(text[end:]))
+        return tuple(nodes)
 
 
 # ── Block-level transform ─────────────────────────────────────────────────────
@@ -151,22 +164,25 @@ def _transform_table_cell(cell: TableCell, state: _State) -> TableCell:
 
 
 def _inline(nodes: tuple[IRNode, ...], state: _State, safe: bool) -> tuple[IRNode, ...]:
-    return tuple(_transform_inline(n, state, safe) for n in nodes)
+    result: list[IRNode] = []
+    for n in nodes:
+        result.extend(_transform_inline(n, state, safe))
+    return tuple(result)
 
 
-def _transform_inline(node: IRNode, state: _State, safe: bool) -> IRNode:
+def _transform_inline(node: IRNode, state: _State, safe: bool) -> tuple[IRNode, ...]:
     if isinstance(node, TextNode):
-        return TextNode(state.expand_text(node.text)) if safe else node
+        return state.expand_to_nodes(node.text) if safe else (node,)
 
     if isinstance(node, (BoldNode, ItalicNode, StrikethroughNode)):
-        return replace(node, children=_inline(node.children, state, safe))
+        return (replace(node, children=_inline(node.children, state, safe)),)
 
     if isinstance(node, LinkNode):
         # Expanding inside link text could break the anchor label — skip.
-        return replace(node, children=_inline(node.children, state, safe=False))
+        return (replace(node, children=_inline(node.children, state, safe=False)),)
 
     # CodeInlineNode, ImageNode — never expand.
-    return node
+    return (node,)
 
 
 # ── Glossary builder ──────────────────────────────────────────────────────────
@@ -182,7 +198,7 @@ def _find_mentioned(text: str, abbrevs: dict[str, str]) -> set[str]:
 
 
 def _build_glossary_section(terms: dict[str, str]) -> tuple[IRNode, ...]:
-    """Return an HR + h6 ``Section`` listing abbreviations that could not be expanded inline."""
+    """Return an HR + h6 ``Section`` listing abbreviations that could not be footnoted."""
     items = tuple(
         ListItem(children=(Paragraph(children=(TextNode(f"{abbr} — {defn}"),)),))
         for abbr, defn in sorted(terms.items())
@@ -217,9 +233,11 @@ def apply_abbreviations(
                     abbreviations need a glossary entry.
 
     Returns:
-        Modified node tuple.  A ``Glossary`` section is appended if any
-        abbreviation was detected in *page_text* but could not be expanded
-        inline (e.g. it only appeared in headings or table headers).
+        Modified node tuple.  Abbreviations in body text are replaced with an
+        :class:`~mkdocs_to_confluence.ir.nodes.AbbrevFootnoteNode` on first
+        occurrence.  A ``Glossary`` section is appended only for abbreviations
+        that were detected in *page_text* but never footnoted (e.g. they only
+        appeared in headings or table headers).
     """
     if not abbrevs:
         return nodes
@@ -228,12 +246,15 @@ def apply_abbreviations(
     transformed = tuple(_transform_block(n, state) for n in nodes)
 
     mentioned = _find_mentioned(page_text, abbrevs)
+    # Only add a glossary entry for abbreviations that were never footnoted.
     glossary_needed = {
         abbr: abbrevs[abbr]
         for abbr in mentioned
+        if abbr not in state.expanded
     }
 
     if glossary_needed:
         transformed = transformed + _build_glossary_section(glossary_needed)
 
     return transformed
+
