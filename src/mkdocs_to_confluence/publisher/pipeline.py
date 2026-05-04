@@ -636,6 +636,7 @@ def _post_process_action(
     full_width: bool,
     docs_dir: Path,
     report: PublishReport,
+    space_key: str | None = None,
     quiet: bool = False,
 ) -> None:
     """Run all non-fatal post-create/update work for a single action."""
@@ -663,7 +664,7 @@ def _post_process_action(
     # Set Confluence page status (rough-draft / in-progress / etc.) — non-fatal.
     if action.page_id and action.confluence_status and not action.is_folder:
         try:
-            client.set_page_status(action.page_id, action.confluence_status)
+            client.set_page_status(action.page_id, action.confluence_status, space_key=space_key)
         except Exception as exc:
             if not quiet:
                 print(f"  [warn] could not set page status '{action.confluence_status}': {exc}", file=sys.stderr)
@@ -685,6 +686,7 @@ def execute_publish(
     *,
     dry_run: bool = False,
     space_id: str,
+    space_key: str | None = None,
     docs_dir: Path,
     full_width: bool = True,
     root_page_id: str | None = None,
@@ -725,6 +727,16 @@ def execute_publish(
     for action in plan:
         if action.action == "skip":
             report.skipped += 1
+            # Still apply status even for unchanged pages.
+            if action.page_id and action.confluence_status and not action.is_folder:
+                try:
+                    client.set_page_status(action.page_id, action.confluence_status, space_key=space_key)
+                except Exception as exc:
+                    if not quiet:
+                        print(
+                            f"  [warn] could not set page status '{action.confluence_status}': {exc}",
+                            file=sys.stderr,
+                        )
             continue
 
         counter += 1
@@ -746,7 +758,10 @@ def execute_publish(
         if action.node.is_section and action.page_id:
             _wire_children(action, action_by_node)
 
-        _post_process_action(action, client, full_width=full_width, docs_dir=docs_dir, report=report, quiet=quiet)
+        _post_process_action(
+            action, client,
+            full_width=full_width, docs_dir=docs_dir, space_key=space_key, report=report, quiet=quiet,
+        )
 
     if prune and root_page_id:
         published_ids = {a.page_id for a in plan if a.page_id}
