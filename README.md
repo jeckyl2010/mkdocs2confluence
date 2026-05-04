@@ -315,7 +315,7 @@ If `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row links
 
 ### Abbreviation expansion
 
-MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline Confluence **footnotes**. The **first occurrence** of each abbreviation in body text is annotated with a footnote macro — Confluence renders it as a superscript number and collects all definitions at the bottom of the page. Subsequent occurrences are left as plain text. Abbreviations that only appear in headings or other non-expandable contexts are collected into an auto-appended **Glossary** section as a fallback.
+MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline superscript anchor links. The **first occurrence** of each abbreviation in body text gets a superscript number (`API¹`) that links to a numbered glossary appended at the bottom of the page. Subsequent occurrences are left as plain text. Abbreviations that only appear in headings or other non-expandable contexts are included in the glossary as plain numbered entries (no inline back-link). Uses only native Confluence storage format — no plugins required.
 
 ---
 
@@ -324,7 +324,7 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline Co
 | Feature | Behaviour |
 |---|---|
 | **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro colours. `danger`, `error`, `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
-| **Abbreviation tooltips** | No native tooltip support. First occurrence annotated with an inline Confluence footnote; definition collected at the bottom of the page. |
+| **Abbreviation tooltips** | No native tooltip support. First occurrence gets a superscript anchor link (`API¹`); all definitions collected in a numbered glossary at the bottom of the page. No plugins required. |
 | **Page ordering** | Confluence sorts child pages alphabetically; the v2 REST API has no write endpoint for ordering. |
 | **Code language aliases** | Short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
 | **Unrecognised blocks** | Preserved as a visible `warning` macro — no content is silently lost. |
