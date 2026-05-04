@@ -1964,6 +1964,30 @@ def test_compile_page_returns_confluence_status(tmp_path: Path) -> None:
     assert confluence_status == "in-progress"
 
 
+def test_compile_page_returns_confluence_status_with_repo_url(tmp_path: Path) -> None:
+    """confluence_status must survive attach_source_url when repo_url is set (regression).
+
+    When repo_url is configured, attach_source_url reconstructs the FrontMatter node.
+    This test ensures confluence_status is not silently dropped in that path.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text("---\nstatus: in-progress\n---\n\n# My Page\n\nContent.\n", encoding="utf-8")
+
+    node = _page_node("My Page", md)
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=docs,
+        repo_url="https://github.com/org/repo",
+        edit_uri="edit/main/docs/",
+        nav=None,
+    )
+    _, _, _, confluence_status = compile_page(node, config)
+
+    assert confluence_status == "in-progress"
+
+
 def test_plan_publish_sets_confluence_status_on_create(tmp_path: Path) -> None:
     """plan_publish must carry confluence_status into a create PageAction."""
     docs = tmp_path / "docs"

@@ -192,7 +192,7 @@ def test_set_page_status_sends_put() -> None:
 
 
 def test_set_page_status_uses_space_state_when_matched() -> None:
-    """set_page_status sends {id, name, color} when a matching space state is found."""
+    """set_page_status sends {id, name, color} and ?status=current query param."""
     space_states = [{"id": 1, "name": "In Progress", "color": "#2684ff"}]
     available_resp = httpx.Response(200, json={"spaceContentStates": space_states, "customContentStates": []})
     put_resp = httpx.Response(200, json={})
@@ -202,8 +202,10 @@ def test_set_page_status_uses_space_state_when_matched() -> None:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         client.set_page_status("42", "in-progress")
     import json
-    body = json.loads(transport.requests[1].content)
+    put_req = transport.requests[1]
+    body = json.loads(put_req.content)
     assert body == {"id": 1, "name": "In Progress", "color": "#2684ff"}
+    assert "status=current" in str(put_req.url)
 
 
 def test_set_page_status_caches_space_states() -> None:
