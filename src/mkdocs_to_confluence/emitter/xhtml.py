@@ -576,25 +576,21 @@ def _emit_abbrev_footnote(node: AbbrevFootnoteNode) -> str:
 
 def _emit_abbrev_glossary_block(node: AbbrevGlossaryBlock) -> str:
     """End-of-page abbreviations list with Confluence anchor targets."""
-    parts: list[str] = ["<hr />\n<h6>Abbreviations</h6>\n"]
-    if node.footnoted:
-        parts.append("<ol>\n")
-        for fn in node.footnoted:
-            anchor = html.escape(f"abbr-{fn.number}")
-            anchor_macro = (
-                f'<ac:structured-macro ac:name="anchor">'
-                f'<ac:parameter ac:name=""><![CDATA[{anchor}]]></ac:parameter>'
-                f"</ac:structured-macro>"
-            )
-            abbr = html.escape(fn.abbr)
-            defn = html.escape(fn.definition)
-            parts.append(f"<li>{anchor_macro}<strong>{abbr}</strong> — {defn}</li>\n")
-        parts.append("</ol>\n")
-    if node.extras:
-        parts.append("<ul>\n")
-        for abbr, defn in node.extras:
-            parts.append(f"<li><strong>{html.escape(abbr)}</strong> — {html.escape(defn)}</li>\n")
-        parts.append("</ul>\n")
+    parts: list[str] = ["<hr />\n<h6>Abbreviations</h6>\n<ol>\n"]
+    for fn in node.footnoted:
+        anchor = html.escape(f"abbr-{fn.number}")
+        anchor_macro = (
+            f'<ac:structured-macro ac:name="anchor">'
+            f'<ac:parameter ac:name=""><![CDATA[{anchor}]]></ac:parameter>'
+            f"</ac:structured-macro>"
+        )
+        abbr = html.escape(fn.abbr)
+        defn = html.escape(fn.definition)
+        parts.append(f"<li>{anchor_macro}<strong>{abbr}</strong> — {defn}</li>\n")
+    for abbr, defn in node.extras:
+        # No anchor — these only appeared in headings/titles, no inline superscript links here.
+        parts.append(f"<li><strong>{html.escape(abbr)}</strong> — {html.escape(defn)}</li>\n")
+    parts.append("</ol>\n")
     return "".join(parts)
 
 

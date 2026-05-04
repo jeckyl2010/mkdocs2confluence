@@ -402,6 +402,24 @@ class TestFootnoteEmitter:
         assert 'fn-1' in html_out
         assert 'My note.' in html_out
 
+    def test_abbrev_glossary_extras_in_ol_not_ul(self) -> None:
+        """Abbreviations only in headings/titles must appear in <ol>, not <ul>."""
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        from mkdocs_to_confluence.ir.nodes import AbbrevFootnoteNode, AbbrevGlossaryBlock
+        fn = AbbrevFootnoteNode(abbr="API", definition="Application Programming Interface", number=1)
+        block = AbbrevGlossaryBlock(
+            footnoted=(fn,),
+            extras=(("AD", "Active Directory"),),
+        )
+        out = emit((block,))
+        assert "<ol>" in out
+        assert "<ul>" not in out
+        assert "AD" in out
+        assert "Active Directory" in out
+        assert "API" in out
+        # extras must NOT get an anchor macro
+        assert out.count('ac:name="anchor"') == 1  # only for the footnoted entry
+
 
 # ── Inline HTML emitters ──────────────────────────────────────────────────────
 
