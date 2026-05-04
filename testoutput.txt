@@ -1,4 +1,5 @@
-mk2conf 0.7.26
+PS C:\repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section explanation
+mk2conf 0.7.27
 Planning...
   compiling  'Explanation'  (folder)
   compiling  'OT/IT Data Vision'
@@ -26,19 +27,20 @@ Planning...
   compiling  'Values'  (folder)
   compiling  'CloudEvents values'
   compiling  'ISA-95 IDMZ values'
-  unchanged  'ISA-95 IDMZ values'  (content unchanged)
   compiling  'Observability Values'
-  unchanged  'Observability Values'  (content unchanged)
   compiling  'Saviynt Values'
-  unchanged  'Saviynt Values'  (content unchanged)
 
-Publishing 6 page(s)...
-  [1/6] create  'Explanation'
-  [2/6] create  'Business Patterns'
-  [3/6] create  'Integration Patterns'
-  [4/6] create  'Principles'
-  [5/6] create  'Values'
-  [6/6] create  'CloudEvents values'
-Published:  1 created, 5 updated, 12 skipped
+Publishing 9 page(s)...
+  [1/9] create  'Explanation'
+  [2/9] create  'Business Patterns'
+  [3/9] create  'Integration Patterns'
+  [4/9] create  'Principles'
+  [5/9] create  'Values'
+         folder id=6317932558  parent_id=6315868208  parent_is_folder=True
+  [6/9] create  'CloudEvents values'
+  [7/9] create  'ISA-95 IDMZ values'
+  [8/9] create  'Observability Values'
+  [9/9] create  'Saviynt Values'
+Published:  5 created, 4 updated, 9 skipped
 Assets:     0 uploaded, 0 skipped
 PS C:\repos\rockwool\docs>
