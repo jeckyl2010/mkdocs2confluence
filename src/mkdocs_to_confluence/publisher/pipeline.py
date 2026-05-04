@@ -666,8 +666,8 @@ def _post_process_action(
         try:
             client.set_page_status(action.page_id, action.confluence_status, space_key=space_key)
         except Exception as exc:
-            if not quiet:
-                print(f"  [warn] could not set page status '{action.confluence_status}': {exc}", file=sys.stderr)
+            # Always print status errors — user configured status explicitly
+            print(f"  [warn] could not set page status '{action.confluence_status}': {exc}", file=sys.stderr)
 
     # Upload assets — skip files whose mtime is not newer than Confluence.
     if action.page_id and action.attachments:

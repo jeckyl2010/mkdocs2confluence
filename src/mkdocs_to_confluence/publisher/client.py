@@ -33,7 +33,7 @@ class ConfluenceClient:
     def __init__(self, config: ConfluenceConfig) -> None:
         self._config = config
         self._client: httpx.Client | None = None
-        self._space_states: dict[str, list[dict[str, Any]]] = {}  # space_key → list of ContentState
+        self._space_states: dict[str, list[dict[str, Any]]] = {}  # cache_key → list of ContentState
 
     # ── Context manager ────────────────────────────────────────────────────────
 
@@ -125,20 +125,6 @@ class ConfluenceClient:
             raise ConfluenceError(f"Could not determine spaceId from page {page_id!r}.")
         return str(space_id)
 
-    def get_space_key_from_page(self, page_id: str) -> str | None:
-        """Return the space key for the space containing *page_id*.
-
-        Uses the v1 content endpoint which includes ``space.key``.
-        Returns ``None`` on any failure (non-fatal — only used for state lookup).
-        """
-        try:
-            url = self._v1(f"/content/{page_id}")
-            resp = self._http.get(url, params={"expand": "space"})
-            if resp.is_success:
-                return resp.json().get("space", {}).get("key") or None
-        except Exception:
-            pass
-        return None
 
     # ── Folders ────────────────────────────────────────────────────────────────
 
@@ -380,27 +366,61 @@ class ConfluenceClient:
     def set_page_status(self, page_id: str, status_key: str, space_key: str | None = None) -> None:
         """Set the Confluence page content state (e.g. ``rough-draft``, ``in-progress``).
 
-        Uses the v1 ``PUT /content/{id}/state`` endpoint.  When *space_key* is
-        provided the space states are fetched once (cached) so the correct
-        ``id``, ``name``, and ``color`` are sent — required to match an
-        existing space state rather than creating a new custom one.
+        Uses ``GET /content/{id}/state/available`` (requires only edit permission) on the
+        first call to discover available space states, then caches them for the run.
+        Sends ``{id, name, color}`` when a matching space state is found, otherwise
+        falls back to ``{name, color}`` with a sensible default colour.
         """
-        name = status_key.replace("-", " ").title()
-        state_body: dict[str, Any] = {"name": name}
+        def _normalize(s: str) -> str:
+            return s.lower().replace("-", " ").strip()
 
-        if space_key:
-            if space_key not in self._space_states:
-                resp = self._http.get(self._v1(f"/space/{space_key}/state"))
-                if resp.is_success:
-                    self._space_states[space_key] = resp.json() if isinstance(resp.json(), list) else []
-            for state in self._space_states.get(space_key, []):
-                if state.get("name", "").lower() == name.lower():
-                    state_body = {"id": state["id"], "name": state["name"], "color": state["color"]}
-                    break
+        name = status_key.replace("-", " ").title()
+        cache_key = space_key or "_default"
+
+        # Fetch space states once per run (keyed by space so one run = one API call)
+        if cache_key not in self._space_states:
+            self._space_states[cache_key] = self._fetch_available_states(page_id)
+
+        matched: dict[str, Any] | None = None
+        for state in self._space_states.get(cache_key, []):
+            if _normalize(state.get("name", "")) == _normalize(name):
+                matched = state
+                break
+
+        if matched:
+            body: dict[str, Any] = {
+                "id": matched["id"],
+                "name": matched["name"],
+                "color": matched["color"],
+            }
+        else:
+            # Fall back: name + color (required together when no id)
+            _default_colors = {
+                "in progress": "#2684ff",
+                "rough draft": "#97a0af",
+                "reviewed": "#57d9a3",
+                "done": "#57d9a3",
+                "in review": "#ffc400",
+                "outdated": "#ff7452",
+            }
+            body = {"name": name, "color": _default_colors.get(_normalize(name), "#2684ff")}
 
         url = self._v1(f"/content/{page_id}/state")
-        resp = self._http.put(url, json=state_body)
+        resp = self._http.put(url, json=body)
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
+
+    def _fetch_available_states(self, page_id: str) -> list[dict[str, Any]]:
+        """Fetch space content states via the content-available endpoint.
+
+        Requires only content-edit permission (not space admin).
+        Returns the ``spaceContentStates`` list, which is the same for every
+        page in the space.
+        """
+        resp = self._http.get(self._v1(f"/content/{page_id}/state/available"))
+        if resp.is_success:
+            data = resp.json()
+            return data.get("spaceContentStates", [])
+        return []
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
         """Return a ``{filename: metadata}`` mapping of all page attachments.

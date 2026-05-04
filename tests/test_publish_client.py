@@ -168,19 +168,60 @@ def test_set_page_labels_skips_post_when_empty() -> None:
 
 
 def test_set_page_status_sends_put() -> None:
-    """set_page_status PUTs name-based body to the v1 /content/{id}/state endpoint."""
-    transport = _MockTransport(httpx.Response(200, json={}))
+    """set_page_status fetches available states then PUTs {name, color} to /content/{id}/state."""
+    # First request: GET /content/42/state/available (returns empty → fallback)
+    # Second request: PUT /content/42/state
+    available_resp = httpx.Response(200, json={"spaceContentStates": [], "customContentStates": []})
+    put_resp = httpx.Response(200, json={})
+    transport = _MockTransport(available_resp, put_resp)
     config = _make_config()
     with ConfluenceClient(config) as client:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         client.set_page_status("42", "in-progress")
-    assert len(transport.requests) == 1
-    req = transport.requests[0]
+    assert len(transport.requests) == 2
+    assert transport.requests[0].method == "GET"
+    assert "/content/42/state/available" in str(transport.requests[0].url)
+    req = transport.requests[1]
     assert req.method == "PUT"
     assert "/content/42/state" in str(req.url)
     import json
     body = json.loads(req.content)
-    assert body == {"name": "In Progress"}
+    # Fallback: name + default colour (no matching space state)
+    assert body["name"] == "In Progress"
+    assert "color" in body
+
+
+def test_set_page_status_uses_space_state_when_matched() -> None:
+    """set_page_status sends {id, name, color} when a matching space state is found."""
+    space_states = [{"id": 1, "name": "In Progress", "color": "#2684ff"}]
+    available_resp = httpx.Response(200, json={"spaceContentStates": space_states, "customContentStates": []})
+    put_resp = httpx.Response(200, json={})
+    transport = _MockTransport(available_resp, put_resp)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_status("42", "in-progress")
+    import json
+    body = json.loads(transport.requests[1].content)
+    assert body == {"id": 1, "name": "In Progress", "color": "#2684ff"}
+
+
+def test_set_page_status_caches_space_states() -> None:
+    """Space states are fetched only once even when set_page_status is called twice."""
+    space_states = [{"id": 0, "name": "Rough Draft", "color": "#97a0af"}]
+    available_resp = httpx.Response(200, json={"spaceContentStates": space_states, "customContentStates": []})
+    put_resp = httpx.Response(200, json={})
+    transport = _MockTransport(available_resp, put_resp, put_resp)
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.set_page_status("42", "rough-draft")
+        client.set_page_status("99", "rough-draft")
+    # Only one GET (cached), two PUTs
+    gets = [r for r in transport.requests if r.method == "GET"]
+    puts = [r for r in transport.requests if r.method == "PUT"]
+    assert len(gets) == 1
+    assert len(puts) == 2
 
 
 def test_set_page_full_width_creates_property_when_absent() -> None:
