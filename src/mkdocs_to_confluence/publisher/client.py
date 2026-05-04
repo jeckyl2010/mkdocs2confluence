@@ -33,6 +33,7 @@ class ConfluenceClient:
     def __init__(self, config: ConfluenceConfig) -> None:
         self._config = config
         self._client: httpx.Client | None = None
+        self._space_states: dict[str, list[dict]] = {}  # space_key → list of ContentState
 
     # ── Context manager ────────────────────────────────────────────────────────
 
@@ -361,16 +362,29 @@ class ConfluenceClient:
             resp = self._http.post(label_url, json=payload)
             self._raise_for_status(resp, f"set_page_labels({page_id!r})")
 
-    def set_page_status(self, page_id: str, status_key: str) -> None:
+    def set_page_status(self, page_id: str, status_key: str, space_key: str | None = None) -> None:
         """Set the Confluence page content state (e.g. ``rough-draft``, ``in-progress``).
 
-        Uses the v1 ``PUT /content/{id}/state`` endpoint.  *status_key* is a
-        kebab-case alias that is converted to a title-case name matching the
-        built-in Confluence space states (e.g. ``in-progress`` → ``In Progress``).
+        Uses the v1 ``PUT /content/{id}/state`` endpoint.  When *space_key* is
+        provided the space states are fetched once (cached) so the correct
+        ``id``, ``name``, and ``color`` are sent — required to match an
+        existing space state rather than creating a new custom one.
         """
         name = status_key.replace("-", " ").title()
+        state_body: dict = {"name": name}
+
+        if space_key:
+            if space_key not in self._space_states:
+                resp = self._http.get(self._v1(f"/space/{space_key}/state"))
+                if resp.is_success:
+                    self._space_states[space_key] = resp.json().get("results", [])
+            for state in self._space_states.get(space_key, []):
+                if state.get("name", "").lower() == name.lower():
+                    state_body = {"id": state["id"], "name": state["name"], "color": state["color"]}
+                    break
+
         url = self._v1(f"/content/{page_id}/state")
-        resp = self._http.put(url, json={"name": name})
+        resp = self._http.put(url, json=state_body)
         self._raise_for_status(resp, f"set_page_status({page_id!r}, {status_key!r})")
 
     def list_attachments(self, page_id: str) -> dict[str, dict[str, Any]]:
