@@ -315,7 +315,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
             for node in pages:
                 html_name = page_link_map.get(node.title, f"{Path(node.docs_path or node.title).stem}.html")
                 try:
-                    xhtml, _a, _l = compile_page(node, config, link_map, quiet=args.quiet)
+                    xhtml, _a, _l, _s = compile_page(node, config, link_map, quiet=args.quiet)
                 except PageLoadError as exc:
                     print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
                     continue
@@ -373,7 +373,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
         def _build_page() -> None:
             try:
-                xhtml, _a, _l = compile_page(page_node, config, link_map, quiet=True)
+                xhtml, _a, _l, _s = compile_page(page_node, config, link_map, quiet=True)
             except PageLoadError as exc:
                 print(f"  warning: {exc}", file=sys.stderr)
                 return
@@ -397,7 +397,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         return
 
     try:
-        xhtml, _attachments, _labels = compile_page(page_node, config, link_map, quiet=args.quiet)
+        xhtml, _attachments, _labels, _status = compile_page(page_node, config, link_map, quiet=args.quiet)
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -583,7 +583,7 @@ def _cmd_pdf(args: argparse.Namespace) -> None:
     chapters: list[tuple[str, str]] = []
     for node in pages:
         try:
-            xhtml, _a, _l = compile_page(node, config, link_map, quiet=args.quiet)
+            xhtml, _a, _l, _s = compile_page(node, config, link_map, quiet=args.quiet)
         except PageLoadError as exc:
             print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
             continue
