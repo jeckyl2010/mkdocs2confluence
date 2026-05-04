@@ -203,7 +203,7 @@ def test_set_page_status_uses_space_state_when_matched() -> None:
         client.set_page_status("42", "in-progress")
     import json
     body = json.loads(transport.requests[1].content)
-    assert body == {"id": 1, "name": "In Progress", "color": "#2684ff", "status": "current"}
+    assert body == {"id": 1, "name": "In Progress", "color": "#2684ff"}
 
 
 def test_set_page_status_caches_space_states() -> None:
