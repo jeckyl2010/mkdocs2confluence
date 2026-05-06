@@ -647,13 +647,6 @@ def _post_process_action(
         except Exception:
             pass  # non-fatal
 
-    # Set full-width layout on created/updated pages (not folders).
-    if full_width and action.page_id and not action.is_folder:
-        try:
-            client.set_page_full_width(action.page_id)
-        except Exception:
-            pass  # non-fatal — page is published, layout is cosmetic
-
     # Apply labels (tags) from front matter — non-fatal on failure.
     if action.page_id and action.labels and not action.is_folder:
         try:
@@ -670,6 +663,13 @@ def _post_process_action(
         except Exception as exc:
             # Always print status errors — user configured status explicitly
             print(f"  [warn] could not set page status '{action.confluence_status}': {exc}")
+
+    # Set full-width LAST — Confluence's state/label PUTs can reset the appearance property.
+    if full_width and action.page_id and not action.is_folder:
+        try:
+            client.set_page_full_width(action.page_id)
+        except Exception:
+            pass  # non-fatal — page is published, layout is cosmetic
 
     # Upload assets — skip files whose mtime is not newer than Confluence.
     if action.page_id and action.attachments:
@@ -729,13 +729,8 @@ def execute_publish(
     for action in plan:
         if action.action == "skip":
             report.skipped += 1
-            # Still apply full-width and status even for unchanged pages so that
-            # Confluence appearance resets (e.g. after manual edits) are corrected.
-            if full_width and action.page_id and not action.is_folder:
-                try:
-                    client.set_page_full_width(action.page_id)
-                except Exception as exc:
-                    print(f"  [warn] could not set full-width on page {action.page_id!r}: {exc}")
+            # Still apply status and full-width even for unchanged pages.
+            # full-width is applied LAST — status PUT can reset the appearance property.
             if action.page_id and action.confluence_status and not action.is_folder:
                 try:
                     print(
@@ -747,6 +742,11 @@ def execute_publish(
                     print(
                         f"  [warn] could not set page status '{action.confluence_status}': {exc}",
                     )
+            if full_width and action.page_id and not action.is_folder:
+                try:
+                    client.set_page_full_width(action.page_id)
+                except Exception as exc:
+                    print(f"  [warn] could not set full-width on page {action.page_id!r}: {exc}")
             continue
 
         counter += 1
