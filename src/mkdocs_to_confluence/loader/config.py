@@ -30,6 +30,9 @@ class ConfluenceConfig:
     full_width: bool = True  # set full-width layout on every published page
     nav_file: str = ".pages"  # awesome-pages filename (default: .pages, can be .nav etc.)
     mermaid_render: str = "kroki"  # "kroki", "kroki:<url>", or "none"
+    github_repo: str | None = None          # "owner/repo" — required for sync-comments
+    github_token: str | None = None         # GitHub PAT (falls back to GITHUB_TOKEN env var)
+    github_base_branch: str = "main"        # base branch for review PRs
 
 
 @dataclass(frozen=True)
@@ -241,6 +244,10 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             full_width=bool(raw_conf.get("full_width", True)),
             nav_file=str(raw_conf.get("nav_file", ".pages")),
             mermaid_render=str(raw_conf.get("mermaid_render", "kroki")),
+            github_repo=str(raw_conf["github_repo"]) if raw_conf.get("github_repo") else None,
+            github_token=(str(raw_conf["github_token"]) if raw_conf.get("github_token")
+                          else os.environ.get("GITHUB_TOKEN") or None),
+            github_base_branch=str(raw_conf.get("github_base_branch", "main")),
         )
 
     # --- extra_css (optional) ---

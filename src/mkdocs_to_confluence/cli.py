@@ -223,6 +223,48 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Suppress per-item progress output.",
     )
 
+    # --- sync-comments ---
+    sc = sub.add_parser(
+        "sync-comments",
+        help="Sync open Confluence comments to GitHub review PRs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Requires github_repo and github_token (or GITHUB_TOKEN env var) in mkdocs.yml.\n"
+            "\n"
+            "Examples:\n"
+            "  mk2conf sync-comments                     # sync new comments → PRs\n"
+            "  mk2conf sync-comments --check-merges      # resolve merged PRs in Confluence\n"
+            "  mk2conf sync-comments --dry-run           # preview without making changes\n"
+        ),
+    )
+    sc.add_argument(
+        "--config",
+        metavar="PATH",
+        default="mkdocs.yml",
+        help="Path to mkdocs.yml (default: ./mkdocs.yml).",
+    )
+    sc.add_argument(
+        "--check-merges",
+        action="store_true",
+        help="Check tracked PRs for merges and resolve their Confluence comments.",
+    )
+    sc.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-sync pages that already have an open review PR.",
+    )
+    sc.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be synced without creating branches, PRs, or review threads.",
+    )
+    sc.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress progress output.",
+    )
+
     return parser
 
 
@@ -244,6 +286,8 @@ def main(argv: list[str] | None = None) -> None:
             _cmd_publish(args)
         elif args.command == "pdf":
             _cmd_pdf(args)
+        elif args.command == "sync-comments":
+            _cmd_sync_comments(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -503,6 +547,27 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
     print(str(report))
 
+    # Write page map so sync-comments can match source files to Confluence pages.
+    if not (getattr(args, "page", None) or getattr(args, "section", None)):
+        import json as _json_pm
+        try:
+            repo_root = config_path.parent
+            try:
+                docs_rel = config.docs_dir.relative_to(repo_root)
+            except ValueError:
+                docs_rel = Path("docs")
+            page_map = {
+                str(docs_rel / action.node.docs_path): action.page_id
+                for action in plan
+                if action.node.docs_path and action.page_id and not action.is_folder
+            }
+            pm_path = repo_root / ".mk2conf-pages.json"
+            pm_path.write_text(_json_pm.dumps(page_map, indent=2), encoding="utf-8")
+            if not getattr(args, "quiet", False):
+                print(f"Page map: {len(page_map)} page(s) → {pm_path.name}")
+        except Exception as exc:
+            print(f"  [warn] could not write page map: {exc}", file=sys.stderr)
+
     if getattr(args, "report", None):
         import json as _json
 
@@ -612,3 +677,61 @@ def _cmd_pdf(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     print(f"PDF written to {out_path}")
+
+
+def _cmd_sync_comments(args: argparse.Namespace) -> None:
+    from mkdocs_to_confluence.publisher.client import ConfluenceClient, ConfluenceError
+    from mkdocs_to_confluence.sync.command import check_and_resolve_merges, run_sync_comments
+    from mkdocs_to_confluence.sync.github import GitHubReviewClient
+
+    config_path = Path(args.config).resolve()
+    config = load_config(config_path)
+
+    conf = config.confluence
+    if conf is None:
+        print("error: no 'confluence:' section in mkdocs.yml", file=sys.stderr)
+        sys.exit(1)
+
+    if not conf.token:
+        print("error: Confluence API token not set. Set CONFLUENCE_API_TOKEN env var.", file=sys.stderr)
+        sys.exit(1)
+
+    if not conf.github_repo:
+        print(
+            "error: 'confluence.github_repo' is required for sync-comments (e.g. 'owner/repo').",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not conf.github_token:
+        print(
+            "error: GitHub token not set. Set GITHUB_TOKEN env var or 'confluence.github_token' in mkdocs.yml.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    review_client = GitHubReviewClient(conf.github_repo, conf.github_token)
+    config_dir = config_path.parent
+
+    try:
+        with ConfluenceClient(conf) as confluence_client:
+            if args.check_merges:
+                check_and_resolve_merges(
+                    config_dir=config_dir,
+                    confluence_client=confluence_client,
+                    review_client=review_client,
+                    quiet=args.quiet,
+                )
+            else:
+                run_sync_comments(
+                    config=config,
+                    config_dir=config_dir,
+                    confluence_client=confluence_client,
+                    review_client=review_client,
+                    force=args.force,
+                    dry_run=args.dry_run,
+                    quiet=args.quiet,
+                )
+    except ConfluenceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)

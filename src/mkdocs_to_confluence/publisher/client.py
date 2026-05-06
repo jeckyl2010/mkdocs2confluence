@@ -538,3 +538,85 @@ class ConfluenceClient:
         """Permanently delete *page_id* from Confluence."""
         resp = self._http.delete(self._v2(f"/pages/{page_id}"))
         self._raise_for_status(resp, f"delete_page({page_id!r})")
+
+    # ── Comments ───────────────────────────────────────────────────────────────
+
+    def get_page_inline_comments(self, page_id: str) -> list[dict[str, Any]]:
+        """Return all open inline comments for *page_id* (paginated)."""
+        results: list[dict[str, Any]] = []
+        url = self._v2(f"/pages/{page_id}/inline-comments")
+        params: dict[str, Any] = {"resolution-status": "open", "body-format": "storage", "limit": 250}
+        while True:
+            resp = self._http.get(url, params=params)
+            self._raise_for_status(resp, f"get_page_inline_comments({page_id!r})")
+            data = resp.json()
+            results.extend(data.get("results", []))
+            next_url = data.get("_links", {}).get("next")
+            if not next_url:
+                break
+            url = self._v2(f"/pages/{page_id}/inline-comments")
+            params = {"resolution-status": "open", "body-format": "storage",
+                      "limit": 250, "cursor": _extract_cursor(next_url)}
+        return results
+
+    def get_page_footer_comments(self, page_id: str) -> list[dict[str, Any]]:
+        """Return all open footer comments for *page_id* (paginated)."""
+        results: list[dict[str, Any]] = []
+        url = self._v2(f"/pages/{page_id}/footer-comments")
+        params: dict[str, Any] = {"resolution-status": "open", "body-format": "storage", "limit": 250}
+        while True:
+            resp = self._http.get(url, params=params)
+            self._raise_for_status(resp, f"get_page_footer_comments({page_id!r})")
+            data = resp.json()
+            results.extend(data.get("results", []))
+            next_url = data.get("_links", {}).get("next")
+            if not next_url:
+                break
+            url = self._v2(f"/pages/{page_id}/footer-comments")
+            params = {"resolution-status": "open", "body-format": "storage",
+                      "limit": 250, "cursor": _extract_cursor(next_url)}
+        return results
+
+    def add_comment_reply(self, comment_id: str, reply_text: str) -> None:
+        """Post a reply to *comment_id* using the v1 content API."""
+        url = self._v1(f"/content/{comment_id}/child/comment")
+        resp = self._http.post(url, json={
+            "type": "comment",
+            "body": {
+                "storage": {
+                    "value": f"<p>{reply_text}</p>",
+                    "representation": "storage",
+                }
+            },
+        })
+        self._raise_for_status(resp, f"add_comment_reply({comment_id!r})")
+
+    def resolve_inline_comment(self, comment_id: str) -> None:
+        """Resolve an inline comment by setting *resolved=true*."""
+        url = self._v2(f"/inline-comments/{comment_id}")
+        get_resp = self._http.get(url, params={"body-format": "storage"})
+        self._raise_for_status(get_resp, f"get_inline_comment({comment_id!r})")
+        data = get_resp.json()
+        version = data.get("version", {}).get("number", 1)
+        body_value = data.get("body", {}).get("storage", {}).get("value", "")
+        resp = self._http.put(url, json={
+            "version": {"number": version + 1},
+            "resolved": True,
+            "body": {"representation": "storage", "value": body_value},
+        })
+        self._raise_for_status(resp, f"resolve_inline_comment({comment_id!r})")
+
+    def resolve_footer_comment(self, comment_id: str) -> None:
+        """Resolve a footer comment by setting *resolved=true*."""
+        url = self._v2(f"/footer-comments/{comment_id}")
+        get_resp = self._http.get(url, params={"body-format": "storage"})
+        self._raise_for_status(get_resp, f"get_footer_comment({comment_id!r})")
+        data = get_resp.json()
+        version = data.get("version", {}).get("number", 1)
+        body_value = data.get("body", {}).get("storage", {}).get("value", "")
+        resp = self._http.put(url, json={
+            "version": {"number": version + 1},
+            "resolved": True,
+            "body": {"representation": "storage", "value": body_value},
+        })
+        self._raise_for_status(resp, f"resolve_footer_comment({comment_id!r})")

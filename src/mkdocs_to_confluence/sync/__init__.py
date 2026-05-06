@@ -1,0 +1,1 @@
+"""Confluence ↔ GitHub comment synchronisation."""

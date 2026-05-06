@@ -230,6 +230,48 @@ The PDF includes a **cover page**, **table of contents** with page numbers, and 
 
 ---
 
+### `mk2conf sync-comments`
+
+Bridge Confluence page/inline comments to GitHub pull request review threads. Non-technical reviewers comment in Confluence; developers address feedback on a GitHub feature branch; Confluence comments are auto-resolved when the PR is merged.
+
+```
+mk2conf sync-comments [--config PATH] [--check-merges] [--force] [--dry-run] [--quiet]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
+| `--check-merges` | off | Check tracked PRs for merges and auto-resolve Confluence comments |
+| `--force` | off | Re-sync pages that already have an open review PR |
+| `--dry-run` | off | Print what would be synced without making any API calls |
+| `--quiet` | off | Suppress progress output |
+
+**Required config** (under `extra.confluence` in `mkdocs.yml`):
+
+```yaml
+extra:
+  confluence:
+    github_repo: owner/repo        # required for sync-comments
+    github_token: ${GITHUB_TOKEN}  # falls back to GITHUB_TOKEN env var
+    github_base_branch: main       # default: main
+```
+
+**Workflow:**
+
+1. Run `mk2conf publish` first — generates `.mk2conf-pages.json` mapping source files to Confluence page IDs.
+2. Run `mk2conf sync-comments` — for each page with open Confluence comments, creates a `mk2conf/review/{slug}` branch and PR, then posts each comment as a GitHub review thread. Inline comments with a text selection are anchored to the matching source line; page-level comments fall back to file-level review threads. Every thread body includes a **View in Confluence** deep-link that opens Confluence focused on the exact comment.
+3. Developer addresses feedback on the branch, pushes changes, and merges the PR.
+4. Run `mk2conf sync-comments --check-merges` — detects merged PRs, adds a resolution reply to each Confluence comment with the commit info, and marks the comments as resolved.
+
+**State files** (add to `.gitignore`):
+
+| File | Purpose |
+|---|---|
+| `.mk2conf-pages.json` | Source path → Confluence page ID map, written after each `publish` |
+| `.mk2conf-sync-state.json` | Tracks open/merged review PRs and their associated comment IDs |
+
+---
+
 ## Supported Markdown features
 
 ### Block elements
