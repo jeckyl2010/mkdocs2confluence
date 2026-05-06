@@ -27,7 +27,7 @@ def _minimal_config(tmp_path: Path, *, extra: str = "") -> Path:
         """),
         encoding="utf-8",
     )
-    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs").mkdir(exist_ok=True)
     return yml
 
 
@@ -237,3 +237,59 @@ class TestWatchFlag:
             main(["preview", "--config", str(yml), "--page", "index.md", "--watch"])
 
         mock_render.assert_called_once()
+
+
+class TestPageMap:
+    """The page map (.mk2conf-pages.json) should merge on every publish run."""
+
+    def _run_publish(self, tmp_path: Path, plan_actions: list) -> None:
+        yml = _minimal_config(tmp_path)
+        (tmp_path / "docs").mkdir(exist_ok=True)
+        (tmp_path / "docs" / "index.md").write_text("# Home\n", encoding="utf-8")
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.get_space_id.return_value = "~SPACE"
+        with patch("mkdocs_to_confluence.publisher.client.ConfluenceClient", return_value=mock_client), \
+             patch("mkdocs_to_confluence.publisher.pipeline.plan_publish", return_value=plan_actions), \
+             patch("mkdocs_to_confluence.publisher.pipeline.execute_publish", return_value=MagicMock(
+                 __str__=lambda s: "0 created",
+                 errors=[],
+             )), \
+             patch("sys.stdout.isatty", return_value=False):
+            main(["publish", "--config", str(yml), "--quiet"])
+
+    def _make_action(self, docs_path: str, page_id: str) -> MagicMock:
+        action = MagicMock()
+        action.node.docs_path = docs_path
+        action.page_id = page_id
+        action.is_folder = False
+        return action
+
+    def test_page_map_written_on_full_publish(self, tmp_path: Path) -> None:
+        action = self._make_action("index.md", "111")
+        self._run_publish(tmp_path, [action])
+        import json
+        pm = json.loads((tmp_path / ".mk2conf-pages.json").read_text())
+        assert "docs/index.md" in pm
+        assert pm["docs/index.md"] == "111"
+
+    def test_page_map_merges_on_second_publish(self, tmp_path: Path) -> None:
+        import json
+        # First publish: index.md
+        self._run_publish(tmp_path, [self._make_action("index.md", "111")])
+        # Second publish: overview.md only
+        self._run_publish(tmp_path, [self._make_action("overview.md", "222")])
+        pm = json.loads((tmp_path / ".mk2conf-pages.json").read_text())
+        # Both entries should be present
+        assert pm.get("docs/index.md") == "111"
+        assert pm.get("docs/overview.md") == "222"
+
+    def test_page_map_merge_updates_existing_entry(self, tmp_path: Path) -> None:
+        import json
+        # First publish: index.md with page_id 111
+        self._run_publish(tmp_path, [self._make_action("index.md", "111")])
+        # Second publish: same file, new page_id (e.g. recreated)
+        self._run_publish(tmp_path, [self._make_action("index.md", "999")])
+        pm = json.loads((tmp_path / ".mk2conf-pages.json").read_text())
+        assert pm["docs/index.md"] == "999"

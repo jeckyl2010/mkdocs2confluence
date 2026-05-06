@@ -286,7 +286,7 @@ confluence:
 
 **Workflow:**
 
-1. Run `mk2conf publish` first — generates `.mk2conf-pages.json` mapping source files to Confluence page IDs.
+1. Run `mk2conf publish` (full or partial) — writes/merges `.mk2conf-pages.json` mapping source files to Confluence page IDs. Every publish run merges into this file, so partial `--page` / `--section` runs and multiple configs in the same repo all accumulate correctly.
 2. Run `mk2conf sync-comments` — for each page with open Confluence comments, creates a `mk2conf/review/{slug}` branch and PR, then posts each comment as a GitHub review thread. Inline comments with a text selection are anchored to the matching source line; page-level comments fall back to file-level review threads. Every thread body includes a **View in Confluence** deep-link that opens Confluence focused on the exact comment.
 3. Developer addresses feedback on the branch, pushes changes, and merges the PR.
 4. Run `mk2conf sync-comments --check-merges` — detects merged PRs, adds a resolution reply to each Confluence comment with the commit info, and marks the comments as resolved.
@@ -295,7 +295,7 @@ confluence:
 
 | File | Purpose |
 |---|---|
-| `.mk2conf-pages.json` | Source path → Confluence page ID map, written after each `publish` |
+| `.mk2conf-pages.json` | Source path → Confluence page ID map, merged after each `publish` run |
 | `.mk2conf-sync-state.json` | Tracks open/merged review PRs and their associated comment IDs |
 
 ---
