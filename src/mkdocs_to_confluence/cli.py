@@ -548,25 +548,33 @@ def _cmd_publish(args: argparse.Namespace) -> None:
     print(str(report))
 
     # Write page map so sync-comments can match source files to Confluence pages.
-    if not (getattr(args, "page", None) or getattr(args, "section", None)):
-        import json as _json_pm
+    # Always merge into the existing map so partial runs (--page/--section) and
+    # multiple configs pointing to the same repo root all accumulate correctly.
+    import json as _json_pm
+    try:
+        repo_root = config_path.parent
         try:
-            repo_root = config_path.parent
+            docs_rel = config.docs_dir.relative_to(repo_root)
+        except ValueError:
+            docs_rel = Path("docs")
+        new_entries = {
+            str(docs_rel / action.node.docs_path): action.page_id
+            for action in plan
+            if action.node.docs_path and action.page_id and not action.is_folder
+        }
+        pm_path = repo_root / ".mk2conf-pages.json"
+        existing: dict[str, str] = {}
+        if pm_path.exists():
             try:
-                docs_rel = config.docs_dir.relative_to(repo_root)
-            except ValueError:
-                docs_rel = Path("docs")
-            page_map = {
-                str(docs_rel / action.node.docs_path): action.page_id
-                for action in plan
-                if action.node.docs_path and action.page_id and not action.is_folder
-            }
-            pm_path = repo_root / ".mk2conf-pages.json"
-            pm_path.write_text(_json_pm.dumps(page_map, indent=2), encoding="utf-8")
-            if not getattr(args, "quiet", False):
-                print(f"Page map: {len(page_map)} page(s) → {pm_path.name}")
-        except Exception as exc:
-            print(f"  [warn] could not write page map: {exc}", file=sys.stderr)
+                existing = _json_pm.loads(pm_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        existing.update(new_entries)
+        pm_path.write_text(_json_pm.dumps(existing, indent=2), encoding="utf-8")
+        if not getattr(args, "quiet", False):
+            print(f"Page map: {len(existing)} page(s) → {pm_path.name}")
+    except Exception as exc:
+        print(f"  [warn] could not write page map: {exc}", file=sys.stderr)
 
     if getattr(args, "report", None):
         import json as _json
