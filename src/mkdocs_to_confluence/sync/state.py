@@ -12,7 +12,7 @@ class PRRecord:
     """Everything we need to know about one open or merged review PR."""
 
     page_id: str
-    page_title: str
+    pr_title: str                   # PR title, e.g. "Documentation review: docs/foo.md"
     source_path: str            # repo-relative, e.g. "docs/architecture/overview.md"
     branch: str
     pr_number: int

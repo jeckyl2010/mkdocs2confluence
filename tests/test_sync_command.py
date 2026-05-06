@@ -88,7 +88,7 @@ def test_run_sync_comments_skips_page_with_open_pr(tmp_path: Path) -> None:
     existing = {
         "10": {
             "page_id": "111",
-            "page_title": "Overview",
+            "pr_title": "Overview",
             "source_path": "docs/overview.md",
             "branch": "mk2conf/review/overview",
             "pr_number": 10,
@@ -199,7 +199,7 @@ def test_check_and_resolve_merges_resolves_merged_pr(tmp_path: Path) -> None:
     existing = {
         "10": {
             "page_id": "111",
-            "page_title": "Overview",
+            "pr_title": "Overview",
             "source_path": "docs/overview.md",
             "branch": "mk2conf/review/overview",
             "pr_number": 10,
@@ -240,7 +240,7 @@ def test_check_and_resolve_merges_skips_already_merged(tmp_path: Path) -> None:
     existing = {
         "10": {
             "page_id": "111",
-            "page_title": "Overview",
+            "pr_title": "Overview",
             "source_path": "docs/overview.md",
             "branch": "mk2conf/review/overview",
             "pr_number": 10,
@@ -295,7 +295,7 @@ def test_run_sync_verbose_skip_message(tmp_path: Path, capsys: pytest.CaptureFix
     existing = {
         "10": {
             "page_id": "111",
-            "page_title": "Overview",
+            "pr_title": "Overview",
             "source_path": "docs/overview.md",
             "branch": "mk2conf/review/overview",
             "pr_number": 10,
@@ -508,7 +508,7 @@ def test_check_merges_verbose_output(tmp_path: Path, capsys: pytest.CaptureFixtu
     existing = {
         "5": {
             "page_id": "AAA",
-            "page_title": "Overview",
+            "pr_title": "Overview",
             "source_path": "docs/overview.md",
             "branch": "mk2conf/review/overview",
             "pr_number": 5,
@@ -542,7 +542,7 @@ def test_check_merges_verbose_no_merges(tmp_path: Path, capsys: pytest.CaptureFi
     existing = {
         "5": {
             "page_id": "AAA",
-            "page_title": "Overview",
+            "pr_title": "Overview",
             "source_path": "docs/overview.md",
             "branch": "mk2conf/review/overview",
             "pr_number": 5,
@@ -574,7 +574,7 @@ def test_check_merges_resolve_failure_warns(tmp_path: Path, capsys: pytest.Captu
     existing = {
         "6": {
             "page_id": "BBB",
-            "page_title": "Guide",
+            "pr_title": "Guide",
             "source_path": "docs/guide.md",
             "branch": "mk2conf/review/guide",
             "pr_number": 6,
@@ -609,7 +609,7 @@ def test_check_merges_no_commit_sha(tmp_path: Path) -> None:
     existing = {
         "7": {
             "page_id": "CCC",
-            "page_title": "Ops",
+            "pr_title": "Ops",
             "source_path": "docs/ops.md",
             "branch": "mk2conf/review/ops",
             "pr_number": 7,

@@ -10,7 +10,7 @@ from mkdocs_to_confluence.sync.state import PRRecord, SyncState
 def _make_record(**kwargs: object) -> PRRecord:
     defaults: dict = {
         "page_id": "111",
-        "page_title": "My Page",
+        "pr_title": "My Page",
         "source_path": "docs/my-page.md",
         "branch": "mk2conf/review/my-page",
         "pr_number": 42,

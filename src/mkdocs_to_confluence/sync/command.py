@@ -57,7 +57,8 @@ def run_sync_comments(
 
     Returns the number of new PRs created.
     """
-    assert config.confluence is not None
+    if config.confluence is None:
+        raise RuntimeError("run_sync_comments called without a 'confluence:' config section")
     conf = config.confluence
 
     page_map = load_page_map(config_dir)
@@ -121,7 +122,7 @@ def run_sync_comments(
 
         state.prs[str(pr_number)] = PRRecord(
             page_id=page_id,
-            page_title=pr_title,
+            pr_title=pr_title,
             source_path=source_path,
             branch=branch,
             pr_number=pr_number,

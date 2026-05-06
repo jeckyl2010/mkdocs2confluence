@@ -554,7 +554,6 @@ class ConfluenceClient:
             next_url = data.get("_links", {}).get("next")
             if not next_url:
                 break
-            url = self._v2(f"/pages/{page_id}/inline-comments")
             params = {"resolution-status": "open", "body-format": "storage",
                       "limit": 250, "cursor": _extract_cursor(next_url)}
         return results
@@ -572,7 +571,6 @@ class ConfluenceClient:
             next_url = data.get("_links", {}).get("next")
             if not next_url:
                 break
-            url = self._v2(f"/pages/{page_id}/footer-comments")
             params = {"resolution-status": "open", "body-format": "storage",
                       "limit": 250, "cursor": _extract_cursor(next_url)}
         return results
