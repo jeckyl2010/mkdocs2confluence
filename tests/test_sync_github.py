@@ -189,3 +189,24 @@ def test_post_review_comment_file_level(client: GitHubReviewClient) -> None:
     assert "FILE" in payload["query"]
     assert "line" not in payload["variables"]
 
+
+
+def test_post_review_comment_graphql_errors_raise(client: GitHubReviewClient) -> None:
+    resp = MagicMock(status_code=200)
+    resp.raise_for_status = MagicMock()
+    resp.is_error = False
+    resp.json.return_value = {"errors": [{"message": "Field 'line' cannot be null"}]}
+
+    http = MagicMock()
+    http.__enter__ = MagicMock(return_value=http)
+    http.__exit__ = MagicMock(return_value=False)
+    http.post.return_value = resp
+
+    with patch("mkdocs_to_confluence.sync.github.httpx.Client", return_value=http):
+        with pytest.raises(RuntimeError, match="GraphQL errors"):
+            client.post_review_comment(
+                pr_node_id="PR_kwABC",
+                path="docs/overview.md",
+                body="A comment.",
+                line=5,
+            )

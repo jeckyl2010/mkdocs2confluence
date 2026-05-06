@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 
 
-class ReviewPlatformClient(Protocol):
+class ReviewPlatformClient(Protocol):  # pragma: no cover
     """Interface for posting review comments on a hosted git platform.
 
     Implement this protocol to add support for GitLab, Azure DevOps, etc.

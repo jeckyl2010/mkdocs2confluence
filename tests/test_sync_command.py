@@ -281,3 +281,357 @@ def test_check_and_resolve_merges_no_state_file(tmp_path: Path) -> None:
     )
 
     review_client.get_pr_merge_info.assert_not_called()
+
+
+# ── verbose output paths (quiet=False) ───────────────────────────────────────
+
+
+def test_run_sync_verbose_skip_message(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import run_sync_comments
+
+    _make_page_map(tmp_path, {"docs/overview.md": "111"})
+    _make_source_file(tmp_path, "docs/overview.md")
+
+    existing = {
+        "10": {
+            "page_id": "111",
+            "page_title": "Overview",
+            "source_path": "docs/overview.md",
+            "branch": "mk2conf/review/overview",
+            "pr_number": 10,
+            "pr_node_id": "PR_kwXX",
+            "merged": False,
+            "inline_comment_ids": [],
+            "footer_comment_ids": [],
+        }
+    }
+    _make_state(tmp_path, existing)
+
+    config = MagicMock()
+    config.confluence.github_base_branch = "main"
+    config.confluence.base_url = "https://example.atlassian.net"
+
+    run_sync_comments(
+        config=config,
+        config_dir=tmp_path,
+        confluence_client=MagicMock(),
+        review_client=MagicMock(),
+        force=False,
+        dry_run=False,
+        quiet=False,
+    )
+
+    out = capsys.readouterr().out
+    assert "[skip]" in out
+
+
+def test_run_sync_verbose_pr_line_and_summary(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import run_sync_comments
+
+    _make_page_map(tmp_path, {"docs/overview.md": "111"})
+    _make_source_file(tmp_path, "docs/overview.md", "# Title\n\nSome text here.\n")
+
+    config = MagicMock()
+    config.confluence.github_base_branch = "main"
+    config.confluence.base_url = "https://example.atlassian.net"
+
+    confluence_client = MagicMock()
+    confluence_client.get_page_inline_comments.return_value = [
+        {
+            "id": "c1",
+            "version": {"authorId": "alice", "createdAt": "2026-05-01T00:00:00Z"},
+            "body": {"storage": {"value": "<p>Fix this.</p>"}},
+            "properties": {"inlineOriginalSelection": "Some text"},
+            "_links": {"webui": "/wiki/spaces/X/pages/111?focusedCommentId=c1"},
+        }
+    ]
+    confluence_client.get_page_footer_comments.return_value = []
+
+    review_client = MagicMock()
+    review_client.create_pull_request.return_value = (5, "PR_kwTEST")
+
+    run_sync_comments(
+        config=config,
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=review_client,
+        force=False,
+        dry_run=False,
+        quiet=False,
+    )
+
+    out = capsys.readouterr().out
+    assert "[sync]" in out
+    assert "PR #5" in out
+    assert "Created 1 review PR" in out
+
+
+def test_run_sync_verbose_no_new_comments(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import run_sync_comments
+
+    _make_page_map(tmp_path, {"docs/overview.md": "111"})
+    _make_source_file(tmp_path, "docs/overview.md")
+
+    config = MagicMock()
+    config.confluence.github_base_branch = "main"
+    config.confluence.base_url = "https://example.atlassian.net"
+
+    confluence_client = MagicMock()
+    confluence_client.get_page_inline_comments.return_value = []
+    confluence_client.get_page_footer_comments.return_value = []
+
+    run_sync_comments(
+        config=config,
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=MagicMock(),
+        force=False,
+        dry_run=False,
+        quiet=False,
+    )
+
+    out = capsys.readouterr().out
+    assert "No new comments" in out
+
+
+def test_run_sync_verbose_base_url_wiki_stripped(tmp_path: Path) -> None:
+    from mkdocs_to_confluence.sync.command import run_sync_comments
+
+    _make_page_map(tmp_path, {"docs/overview.md": "111"})
+    _make_source_file(tmp_path, "docs/overview.md")
+
+    config = MagicMock()
+    config.confluence.github_base_branch = "main"
+    config.confluence.base_url = "https://example.atlassian.net/wiki"
+
+    confluence_client = MagicMock()
+    confluence_client.get_page_inline_comments.return_value = []
+    confluence_client.get_page_footer_comments.return_value = []
+
+    run_sync_comments(
+        config=config,
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=MagicMock(),
+        force=False,
+        dry_run=False,
+        quiet=True,
+    )
+
+
+def test_run_sync_footer_comment_tracked_separately(tmp_path: Path) -> None:
+    from mkdocs_to_confluence.sync.command import run_sync_comments
+
+    _make_page_map(tmp_path, {"docs/overview.md": "111"})
+    _make_source_file(tmp_path, "docs/overview.md", "# Title\n\nBody.\n")
+
+    config = MagicMock()
+    config.confluence.github_base_branch = "main"
+    config.confluence.base_url = "https://example.atlassian.net"
+
+    confluence_client = MagicMock()
+    confluence_client.get_page_inline_comments.return_value = []
+    confluence_client.get_page_footer_comments.return_value = [
+        {
+            "id": "f1",
+            "version": {"authorId": "bob", "createdAt": "2026-05-01T00:00:00Z"},
+            "body": {"storage": {"value": "<p>Page-level comment.</p>"}},
+            "properties": {},
+            "_links": {"webui": "/wiki/spaces/X/pages/111?focusedCommentId=f1"},
+        }
+    ]
+
+    review_client = MagicMock()
+    review_client.create_pull_request.return_value = (20, "PR_kwFOOT")
+
+    run_sync_comments(
+        config=config,
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=review_client,
+        force=False,
+        dry_run=False,
+        quiet=True,
+    )
+
+    state = SyncState.load(tmp_path / ".mk2conf-sync-state.json")
+    rec = state.prs["20"]
+    assert rec.footer_comment_ids == ["f1"]
+    assert rec.inline_comment_ids == []
+
+
+def test_run_sync_post_comment_failure_warns(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import run_sync_comments
+
+    _make_page_map(tmp_path, {"docs/overview.md": "111"})
+    _make_source_file(tmp_path, "docs/overview.md", "# Title\n\nSome text.\n")
+
+    config = MagicMock()
+    config.confluence.github_base_branch = "main"
+    config.confluence.base_url = "https://example.atlassian.net"
+
+    confluence_client = MagicMock()
+    confluence_client.get_page_inline_comments.return_value = [
+        {
+            "id": "c1",
+            "version": {"authorId": "alice", "createdAt": "2026-05-01T00:00:00Z"},
+            "body": {"storage": {"value": "<p>Comment.</p>"}},
+            "properties": {"inlineOriginalSelection": "Some text"},
+            "_links": {"webui": "/wiki/spaces/X/pages/111?focusedCommentId=c1"},
+        }
+    ]
+    confluence_client.get_page_footer_comments.return_value = []
+
+    review_client = MagicMock()
+    review_client.create_pull_request.return_value = (99, "PR_kwFAIL")
+    review_client.post_review_comment.side_effect = RuntimeError("network error")
+
+    run_sync_comments(
+        config=config,
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=review_client,
+        force=False,
+        dry_run=False,
+        quiet=True,
+    )
+
+    state = SyncState.load(tmp_path / ".mk2conf-sync-state.json")
+    assert "99" in state.prs
+    out = capsys.readouterr().out
+    assert "[warn]" in out
+
+
+def test_check_merges_verbose_output(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import check_and_resolve_merges
+
+    existing = {
+        "5": {
+            "page_id": "AAA",
+            "page_title": "Overview",
+            "source_path": "docs/overview.md",
+            "branch": "mk2conf/review/overview",
+            "pr_number": 5,
+            "pr_node_id": "PR_kwXX",
+            "merged": False,
+            "inline_comment_ids": ["c1"],
+            "footer_comment_ids": [],
+        }
+    }
+    _make_state(tmp_path, existing)
+
+    review_client = MagicMock()
+    review_client.get_pr_merge_info.return_value = (True, "abc1234")
+    confluence_client = MagicMock()
+
+    check_and_resolve_merges(
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=review_client,
+        quiet=False,
+    )
+
+    out = capsys.readouterr().out
+    assert "[merged]" in out
+    assert "Resolved 1 PR" in out
+
+
+def test_check_merges_verbose_no_merges(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import check_and_resolve_merges
+
+    existing = {
+        "5": {
+            "page_id": "AAA",
+            "page_title": "Overview",
+            "source_path": "docs/overview.md",
+            "branch": "mk2conf/review/overview",
+            "pr_number": 5,
+            "pr_node_id": "PR_kwXX",
+            "merged": False,
+            "inline_comment_ids": [],
+            "footer_comment_ids": [],
+        }
+    }
+    _make_state(tmp_path, existing)
+
+    review_client = MagicMock()
+    review_client.get_pr_merge_info.return_value = (False, None)
+
+    check_and_resolve_merges(
+        config_dir=tmp_path,
+        confluence_client=MagicMock(),
+        review_client=review_client,
+        quiet=False,
+    )
+
+    out = capsys.readouterr().out
+    assert "No merged PRs" in out
+
+
+def test_check_merges_resolve_failure_warns(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    from mkdocs_to_confluence.sync.command import check_and_resolve_merges
+
+    existing = {
+        "6": {
+            "page_id": "BBB",
+            "page_title": "Guide",
+            "source_path": "docs/guide.md",
+            "branch": "mk2conf/review/guide",
+            "pr_number": 6,
+            "pr_node_id": "PR_kwGG",
+            "merged": False,
+            "inline_comment_ids": ["c1"],
+            "footer_comment_ids": ["f1"],
+        }
+    }
+    _make_state(tmp_path, existing)
+
+    review_client = MagicMock()
+    review_client.get_pr_merge_info.return_value = (True, "deadbeef")
+    confluence_client = MagicMock()
+    confluence_client.resolve_inline_comment.side_effect = RuntimeError("API down")
+    confluence_client.resolve_footer_comment.side_effect = RuntimeError("API down")
+
+    check_and_resolve_merges(
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=review_client,
+        quiet=True,
+    )
+
+    out = capsys.readouterr().out
+    assert out.count("[warn]") == 2
+
+
+def test_check_merges_no_commit_sha(tmp_path: Path) -> None:
+    from mkdocs_to_confluence.sync.command import check_and_resolve_merges
+
+    existing = {
+        "7": {
+            "page_id": "CCC",
+            "page_title": "Ops",
+            "source_path": "docs/ops.md",
+            "branch": "mk2conf/review/ops",
+            "pr_number": 7,
+            "pr_node_id": "PR_kwOP",
+            "merged": False,
+            "inline_comment_ids": ["c1"],
+            "footer_comment_ids": [],
+        }
+    }
+    _make_state(tmp_path, existing)
+
+    review_client = MagicMock()
+    review_client.get_pr_merge_info.return_value = (True, None)
+    confluence_client = MagicMock()
+
+    check_and_resolve_merges(
+        config_dir=tmp_path,
+        confluence_client=confluence_client,
+        review_client=review_client,
+        quiet=True,
+    )
+
+    reply_arg = confluence_client.add_comment_reply.call_args.args[1]
+    assert "PR #7" in reply_arg
+    assert "None" not in reply_arg

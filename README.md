@@ -14,6 +14,8 @@
 
 A Python CLI tool that compiles MkDocs-flavoured Markdown into native Confluence storage XHTML and publishes it directly to Confluence Cloud. It is a **compiler/transpiler**, not an HTML converter — every construct maps to its native Confluence equivalent, so pages look and behave like hand-authored Confluence content.
 
+It also bridges the gap between Confluence reviewers and developers: the `sync-comments` command turns open Confluence page comments into GitHub pull request review threads, and auto-resolves them in Confluence when the PR is merged.
+
 > **Zensical compatible** — [Zensical](https://zensical.org/) is the modern successor to MkDocs + Material for MkDocs. Since it uses the same `mkdocs.yml` format and Python Markdown extensions, your Zensical project works with mk2conf today with no changes required.
 
 ---
@@ -69,6 +71,12 @@ mk2conf publish
 
 # Export a nav section to a stand-alone PDF document
 mk2conf pdf --section Guide --out guide.pdf
+
+# Sync open Confluence comments to GitHub review PRs
+mk2conf sync-comments
+
+# Resolve Confluence comments when their review PRs are merged
+mk2conf sync-comments --check-merges
 ```
 
 ---
@@ -88,11 +96,31 @@ confluence:
   full_width: true                   # default: true
 ```
 
+The `confluence:` block is also accepted under `extra:` (MkDocs strict-mode compatible):
+
+```yaml
+extra:
+  confluence:
+    base_url: https://yourorg.atlassian.net
+    space_key: TECH
+    ...
+```
+
 The API token is read from (in priority order):
 
 1. `token:` in `mkdocs.yml` — typically via `!ENV CONFLUENCE_API_TOKEN`
 2. `CONFLUENCE_API_TOKEN` environment variable
 3. `MK2CONF_TOKEN` environment variable
+
+### Additional fields for `sync-comments`
+
+```yaml
+confluence:
+  # ... base fields above ...
+  github_repo: owner/repo        # required for sync-comments
+  github_token: !ENV GITHUB_TOKEN  # falls back to GITHUB_TOKEN env var
+  github_base_branch: main       # default: main
+```
 
 ---
 
@@ -246,14 +274,14 @@ mk2conf sync-comments [--config PATH] [--check-merges] [--force] [--dry-run] [--
 | `--dry-run` | off | Print what would be synced without making any API calls |
 | `--quiet` | off | Suppress progress output |
 
-**Required config** (under `extra.confluence` in `mkdocs.yml`):
+**Required config** (add to the `confluence:` block in `mkdocs.yml`):
 
 ```yaml
-extra:
-  confluence:
-    github_repo: owner/repo        # required for sync-comments
-    github_token: ${GITHUB_TOKEN}  # falls back to GITHUB_TOKEN env var
-    github_base_branch: main       # default: main
+confluence:
+  # ... base fields ...
+  github_repo: owner/repo            # required for sync-comments
+  github_token: !ENV GITHUB_TOKEN    # falls back to GITHUB_TOKEN env var
+  github_base_branch: main           # default: main
 ```
 
 **Workflow:**
@@ -380,6 +408,8 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline su
 ![Architecture](https://raw.githubusercontent.com/jeckyl2010/mkdocs2confluence/main/docs/architecture.png)
 
 Each stage is a separate Python module under `src/mkdocs_to_confluence/`. The **plan** phase makes all API read calls (find existing pages); the **execute** phase makes all write calls, ensuring parent pages always exist before their children.
+
+The `sync/` package is a self-contained pipeline for the `sync-comments` command: it fetches Confluence comments, anchors them to source lines, posts them as GitHub review threads via GraphQL, and resolves them on PR merge. The `ReviewPlatformClient` Protocol keeps GitHub-specific code isolated so future GitLab or Azure DevOps adapters slot in without touching the core.
 
 ---
 
