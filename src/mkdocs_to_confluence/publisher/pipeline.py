@@ -647,7 +647,7 @@ def _post_process_action(
         except Exception:
             pass  # non-fatal
 
-    # Set full-width layout on newly created or updated pages (not folders).
+    # Set full-width layout on created/updated pages (not folders).
     if full_width and action.page_id and not action.is_folder:
         try:
             client.set_page_full_width(action.page_id)
@@ -729,7 +729,13 @@ def execute_publish(
     for action in plan:
         if action.action == "skip":
             report.skipped += 1
-            # Still apply status even for unchanged pages.
+            # Still apply full-width and status even for unchanged pages so that
+            # Confluence appearance resets (e.g. after manual edits) are corrected.
+            if full_width and action.page_id and not action.is_folder:
+                try:
+                    client.set_page_full_width(action.page_id)
+                except Exception as exc:
+                    print(f"  [warn] could not set full-width on page {action.page_id!r}: {exc}")
             if action.page_id and action.confluence_status and not action.is_folder:
                 try:
                     print(
