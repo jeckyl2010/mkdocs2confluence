@@ -1338,6 +1338,34 @@ class TestExecutePublishNonFatal:
         assert report.created == 1
         assert report.errors == []
 
+    def test_set_page_full_width_called_after_status_on_skip(self, tmp_path: Path) -> None:
+        """On skip actions, set_page_full_width must be called after set_page_status.
+
+        Regression test: Confluence's state PUT resets content-appearance-published,
+        so full-width must always be the last post-process write.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+        page = _make_page_node("P", tmp_path, docs_dir)
+        plan = [PageAction(node=page, title="P", action="skip", parent_id="ROOT",
+                           page_id="pid-skip", confluence_status="In Review")]
+        client = self._make_client()
+        client.set_page_full_width = MagicMock()
+        client.set_page_status = MagicMock()
+
+        execute_publish(plan, client, space_id="~42", docs_dir=docs_dir, full_width=True)
+
+        calls = [c[0] for c in client.mock_calls]
+        assert "set_page_full_width" in calls
+        assert "set_page_status" in calls
+        fw_idx = calls.index("set_page_full_width")
+        st_idx = calls.index("set_page_status")
+        assert fw_idx > st_idx, (
+            "set_page_full_width must be called after set_page_status on skip actions"
+        )
+
     def test_stamp_managed_after_fallback_create_is_non_fatal(self, tmp_path: Path) -> None:
         """stamp_managed after the update-fallback-to-create path is also non-fatal."""
         from mkdocs_to_confluence.publisher.client import ConfluenceError
@@ -1885,6 +1913,55 @@ class TestExecutePublishHelpers:
         # Must not raise
         _post_process_action(action, client, full_width=True,
                              docs_dir=tmp_path, report=report)
+
+    def test_post_full_width_called_after_status(self, tmp_path: Path) -> None:
+        """set_page_full_width must be called AFTER set_page_status.
+
+        Confluence's state PUT resets content-appearance-published, so
+        full-width must always be the last write.
+        """
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-9",
+                            confluence_status="In Review")
+        parent = MagicMock()
+        parent.set_page_full_width = MagicMock()
+        parent.set_page_status = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, parent, full_width=True,
+                             docs_dir=tmp_path, report=report,
+                             space_key="DS")
+
+        calls = [c[0] for c in parent.mock_calls]
+        fw_idx = calls.index("set_page_full_width")
+        st_idx = calls.index("set_page_status")
+        assert fw_idx > st_idx, (
+            "set_page_full_width must be called after set_page_status"
+        )
+
+    def test_post_full_width_called_after_labels(self, tmp_path: Path) -> None:
+        """set_page_full_width must be called AFTER set_page_labels."""
+        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+
+        node = _make_section_node("P", [])
+        action = PageAction(node=node, title="P", action="create",
+                            parent_id="ROOT", page_id="pid-10",
+                            labels=("foo",))
+        parent = MagicMock()
+        report = PublishReport()
+
+        _post_process_action(action, parent, full_width=True,
+                             docs_dir=tmp_path, report=report)
+
+        calls = [c[0] for c in parent.mock_calls]
+        fw_idx = calls.index("set_page_full_width")
+        lbl_idx = calls.index("set_page_labels")
+        assert fw_idx > lbl_idx, (
+            "set_page_full_width must be called after set_page_labels"
+        )
 
 
 # ── Quiet flag: stdout suppression ───────────────────────────────────────────
