@@ -435,17 +435,23 @@ class SourceFooter(IRNode):
     Emitted as a Confluence ``panel`` macro at the bottom of the page.
 
     Attributes:
-        edit_url:     URL to edit the source file (e.g. GitHub edit link).
-        history_url:  URL to the file's commit history.  ``None`` when it
-                      cannot be derived from ``edit_url``.
-        last_commit:  Human-readable last-commit summary from ``git log``,
-                      e.g. ``"abc1234 · Fix typo · Jane · 2 days ago"``.
-                      ``None`` when git is unavailable or the file is untracked.
+        edit_url:        URL to edit the source file (e.g. GitHub edit link).
+        history_url:     URL to the file's commit history.  ``None`` when it
+                         cannot be derived from ``edit_url``.
+        commit_sha:      Short commit hash (e.g. ``"abc1234"``).  ``None`` when
+                         git is unavailable or the file is untracked.
+        commit_url:      URL to the specific commit on the VCS host.  ``None``
+                         when the URL cannot be derived.
+        commit_summary:  Commit message, author, and relative date, e.g.
+                         ``"Fix typo · Jane · 2 days ago"``.  ``None`` when git
+                         is unavailable or the file is untracked.
     """
 
     edit_url: str
     history_url: str | None = None
-    last_commit: str | None = None
+    commit_sha: str | None = None
+    commit_url: str | None = None
+    commit_summary: str | None = None
 
 
 @dataclass(frozen=True)

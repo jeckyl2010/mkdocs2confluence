@@ -251,19 +251,38 @@ def _emit_front_matter(node: FrontMatter) -> str:
     return "".join(parts)
 
 
+def _xml_safe(text: str) -> str:
+    """HTML-escape *text* and encode non-ASCII as XML numeric character references.
+
+    Confluence storage format is XML; raw non-ASCII bytes (e.g. UTF-8 encoded ·)
+    can be misinterpreted as Latin-1 by some Confluence versions, producing artefacts
+    like ``Â·``.  Encoding everything outside ASCII as ``&#NNN;`` entities is safe
+    for all Confluence deployments.
+    """
+    return html.escape(text).encode("ascii", "xmlcharrefreplace").decode()
+
+
 def _emit_source_footer(node: SourceFooter) -> str:
-    """Emit a 'Page source' panel macro with edit/history links and last-commit info."""
+    """Emit a borderless panel macro with edit/history links and last-commit info."""
     edit_href = html.escape(node.edit_url)
     links = f'<a href="{edit_href}">Edit this page</a>'
     if node.history_url:
         hist_href = html.escape(node.history_url)
-        links += f' \u00b7 <a href="{hist_href}">View history</a>'
+        links += f' &#xB7; <a href="{hist_href}">View history</a>'
     body = f"<p>{links}</p>\n"
-    if node.last_commit:
-        body += f"<p><em>Last commit: {html.escape(node.last_commit)}</em></p>\n"
+    if node.commit_sha or node.commit_summary:
+        if node.commit_sha and node.commit_url:
+            sha_href = html.escape(node.commit_url)
+            sha_part = f'<a href="{sha_href}">{html.escape(node.commit_sha)}</a>'
+        elif node.commit_sha:
+            sha_part = html.escape(node.commit_sha)
+        else:
+            sha_part = ""
+        summary_part = _xml_safe(node.commit_summary) if node.commit_summary else ""
+        detail = " &#xB7; ".join(p for p in [sha_part, summary_part] if p)
+        body += f"<p><strong>Last commit:</strong> {detail}</p>\n"
     return (
         '<ac:structured-macro ac:name="panel">\n'
-        '  <ac:parameter ac:name="title">Page source</ac:parameter>\n'
         '  <ac:parameter ac:name="borderStyle">solid</ac:parameter>\n'
         "  <ac:rich-text-body>\n"
         f"    {body}"
