@@ -328,6 +328,7 @@ confluence:
 | `^^inserted^^` | `<u>` (pymdownx.caret insert) |
 | `` `inline code` `` | `<code>` |
 | `[text](url)` | `<a href="...">` |
+| `[text][label]` / `[text][]` with `[label]: url` | Resolved to inline link before parsing |
 | `https://bare-url` | `<a href="...">` (autolink) |
 | `[text](file.pdf)` | `<ac:link><ri:attachment .../>` (uploaded as attachment) |
 | `![alt](src)` | `<ac:image>` with `<ri:attachment>` (local) or `<ri:url>` (remote) |
@@ -392,6 +393,8 @@ When `repo_url` + `edit_uri` are set in `mkdocs.yml`, a **Page source** footer p
 - **Edit this page** — links to the source file in your VCS (GitHub/GitLab/etc.)
 - **View history** — links to the file's commit history (derived automatically for GitHub and GitLab URLs)
 - **Last commit** — short commit SHA (linked to that commit), message, author, and relative date from `git log` at publish time (omitted if git is unavailable or the file is untracked)
+
+The commit SHA and message are also written to the **Confluence version history** on every publish (`sha: message`), so the page history in Confluence stays in sync with your git log.
 
 ### Section index child pages
 
