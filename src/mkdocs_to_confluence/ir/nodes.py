@@ -429,6 +429,15 @@ class FrontMatter(IRNode):
 
 
 @dataclass(frozen=True)
+class ChildrenMacro(IRNode):
+    """Confluence Children Display macro listing direct child pages.
+
+    Appended to section index pages so readers see a live, auto-maintained
+    sub-page list.  Emitted as ``ac:structured-macro ac:name="children"``.
+    """
+
+
+@dataclass(frozen=True)
 class SourceFooter(IRNode):
     """Footer panel showing source-control links and last-commit info.
 

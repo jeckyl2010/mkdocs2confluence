@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Literal
 import yaml
 
 from mkdocs_to_confluence.emitter.xhtml import emit
-from mkdocs_to_confluence.ir.nodes import FrontMatter, SourceFooter
+from mkdocs_to_confluence.ir.nodes import ChildrenMacro, FrontMatter, SourceFooter
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import PageLoadError, load_page
@@ -139,6 +139,7 @@ def compile_page(
     config: MkDocsConfig,
     link_map: dict[str, str] | None = None,
     *,
+    is_section_index: bool = False,
     quiet: bool = False,
 ) -> tuple[str, list[Path], tuple[str, ...], str | None, str | None]:
     """Run the full compile pipeline for one page.
@@ -191,6 +192,8 @@ def compile_page(
     site_url = config.page_site_url(node.docs_path or "")
     if site_url:
         ir_nodes = attach_source_url(ir_nodes, "", site_url)
+    if is_section_index:
+        ir_nodes = ir_nodes + (ChildrenMacro(),)
     if edit_url:
         abs_path = str(config.docs_dir / (node.docs_path or ""))
         footer = build_source_footer(edit_url, abs_path)
@@ -283,7 +286,7 @@ def _plan_nodes(
                         print(f"  compiling  '{clean_title}'  (section index)")
                     try:
                         xhtml, attachments, labels, confluence_status, version_message = compile_page(
-                            index_child, config, link_map, quiet=quiet
+                            index_child, config, link_map, is_section_index=True, quiet=quiet
                         )
                         existing = client.find_page(space_id, clean_title)
                         xhtml_h = _xhtml_hash(xhtml)

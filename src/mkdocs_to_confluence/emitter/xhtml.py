@@ -27,6 +27,7 @@ from mkdocs_to_confluence.ir.nodes import (
     BlockQuote,
     BoldNode,
     BulletList,
+    ChildrenMacro,
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
@@ -198,6 +199,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_grid_cards(node)
     if isinstance(node, SourceFooter):
         return _emit_source_footer(node)
+    if isinstance(node, ChildrenMacro):
+        return _emit_children_macro()
     if isinstance(node, UnsupportedBlock):
         return _emit_unsupported(node)
     # Inline nodes at block level (shouldn't normally appear, but be safe)
@@ -260,6 +263,15 @@ def _xml_safe(text: str) -> str:
     for all Confluence deployments.
     """
     return html.escape(text).encode("ascii", "xmlcharrefreplace").decode()
+
+
+def _emit_children_macro() -> str:
+    """Emit the Confluence Children Display macro for section index pages."""
+    return (
+        '<ac:structured-macro ac:name="children">'
+        '<ac:parameter ac:name="depth">1</ac:parameter>'
+        "</ac:structured-macro>"
+    )
 
 
 def _emit_source_footer(node: SourceFooter) -> str:
