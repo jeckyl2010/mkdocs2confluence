@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Literal
 import yaml
 
 from mkdocs_to_confluence.emitter.xhtml import emit
-from mkdocs_to_confluence.ir.nodes import FrontMatter
+from mkdocs_to_confluence.ir.nodes import FrontMatter, SourceFooter
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import PageLoadError, load_page
@@ -75,6 +75,7 @@ class PageAction:
     attachments: list[Path] = field(default_factory=list)
     labels: tuple[str, ...] = field(default_factory=tuple)
     confluence_status: str | None = None
+    version_message: str | None = None  # git commit message for Confluence version history
     is_folder: bool = False        # True when this action creates a Confluence folder
     parent_is_folder: bool = False  # True when the parent content is a folder
     # Set after execution:
@@ -139,7 +140,7 @@ def compile_page(
     link_map: dict[str, str] | None = None,
     *,
     quiet: bool = False,
-) -> tuple[str, list[Path], tuple[str, ...], str | None]:
+) -> tuple[str, list[Path], tuple[str, ...], str | None, str | None]:
     """Run the full compile pipeline for one page.
 
     Returns
@@ -148,7 +149,7 @@ def compile_page(
         ``(xhtml_string, attachment_paths, labels, confluence_status)``
     """
     if node.source_path is None:
-        return "", [], (), None
+        return "", [], (), None, None
 
     raw = load_page(node)
 
@@ -195,17 +196,19 @@ def compile_page(
         footer = build_source_footer(edit_url, abs_path)
         ir_nodes = ir_nodes + (footer,)
 
-    # Extract labels and confluence_status from FrontMatter node.
+    # Extract labels, confluence_status, and version_message from IR nodes.
     labels: tuple[str, ...] = ()
     confluence_status: str | None = None
+    version_message: str | None = None
     for node_item in ir_nodes:
         if isinstance(node_item, FrontMatter):
             labels = node_item.labels
             confluence_status = node_item.confluence_status
-            break
+        if isinstance(node_item, SourceFooter) and node_item.commit_sha and node_item.commit_summary:
+            version_message = f"{node_item.commit_sha}: {node_item.commit_summary}"
 
     xhtml = emit(ir_nodes)
-    return xhtml, attachments, labels, confluence_status
+    return xhtml, attachments, labels, confluence_status, version_message
 
 
 def _xhtml_hash(xhtml: str) -> str:
@@ -279,7 +282,7 @@ def _plan_nodes(
                     if not quiet:
                         print(f"  compiling  '{clean_title}'  (section index)")
                     try:
-                        xhtml, attachments, labels, confluence_status = compile_page(
+                        xhtml, attachments, labels, confluence_status, version_message = compile_page(
                             index_child, config, link_map, quiet=quiet
                         )
                         existing = client.find_page(space_id, clean_title)
@@ -312,6 +315,7 @@ def _plan_nodes(
                             attachments=attachments,
                             labels=labels,
                             confluence_status=confluence_status,
+                            version_message=version_message,
                             page_id=str(existing["id"]) if existing is not None else None,
                             version=(
                                 existing["version"]["number"] if existing is not None else None
@@ -379,7 +383,9 @@ def _plan_nodes(
             if not quiet:
                 print(f"  compiling  '{clean_title}'")
             try:
-                xhtml, attachments, labels, confluence_status = compile_page(node, config, link_map, quiet=quiet)
+                xhtml, attachments, labels, confluence_status, version_message = compile_page(
+                    node, config, link_map, quiet=quiet
+                )
             except (PageLoadError, OSError) as exc:
                 if not quiet:
                     print(f"  skipping   '{clean_title}'  (error: {exc})")
@@ -419,6 +425,7 @@ def _plan_nodes(
                 attachments=attachments,
                 labels=labels,
                 confluence_status=confluence_status,
+                version_message=version_message,
                 page_id=str(existing["id"]) if existing is not None else None,
                 version=(
                     existing["version"]["number"] if existing is not None else None
@@ -588,6 +595,7 @@ def _execute_page_action(
                 action.xhtml or "",
                 action.version + 1,
                 parent_id=action.parent_id,
+                version_message=action.version_message,
             )
             report.updated += 1
         except ConfluenceError as upd_exc:

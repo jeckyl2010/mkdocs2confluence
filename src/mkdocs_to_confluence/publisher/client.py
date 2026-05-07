@@ -255,6 +255,7 @@ class ConfluenceClient:
         version: int,
         *,
         parent_id: str | None = None,
+        version_message: str | None = None,
     ) -> dict[str, Any]:
         """Update an existing page to a new version and return the page dict.
 
@@ -273,7 +274,7 @@ class ConfluenceClient:
             },
             "version": {
                 "number": version,
-                "message": "Updated by mk2conf",
+                "message": version_message or "Published by mk2conf",
                 "minorEdit": True,
             },
         }

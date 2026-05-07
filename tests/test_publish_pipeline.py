@@ -53,7 +53,7 @@ def test_compile_page_returns_xhtml(tmp_path: Path) -> None:
 
     node = _page_node("Index", md)
     config = _make_config(docs)
-    xhtml, attachments, labels, _ = compile_page(node, config)
+    xhtml, attachments, labels, _, _ = compile_page(node, config)
 
     assert "<h1>" in xhtml or "Hello" in xhtml
     assert attachments == []
@@ -68,7 +68,7 @@ def test_compile_page_with_ready_false_still_compiles(tmp_path: Path) -> None:
 
     node = _page_node("Draft", md)
     config = _make_config(docs)
-    xhtml, attachments, labels, _ = compile_page(node, config)
+    xhtml, attachments, labels, _, _ = compile_page(node, config)
     # Still compiles fine; plan_publish is the gatekeeper
     assert isinstance(xhtml, str)
 
@@ -78,7 +78,7 @@ def test_compile_page_with_source_path_none_returns_empty(tmp_path: Path) -> Non
     docs.mkdir()
     node = NavNode(title="Missing", docs_path="missing.md", source_path=None, level=0)
     config = _make_config(docs)
-    xhtml, attachments, labels, _ = compile_page(node, config)
+    xhtml, attachments, labels, _, _ = compile_page(node, config)
     assert xhtml == ""
     assert attachments == []
     assert labels == ()
@@ -179,7 +179,7 @@ def test_plan_publish_skips_when_content_unchanged(tmp_path: Path) -> None:
 
     # Compile once to get the real hash
     from mkdocs_to_confluence.publisher.pipeline import compile_page
-    xhtml, _, _, _ = compile_page(node, config)
+    xhtml, _, _, _, _ = compile_page(node, config)
     stored_hash = _xhtml_hash(xhtml)
 
     existing_page = {"id": "77", "version": {"number": 2}}
@@ -1672,7 +1672,7 @@ class TestExecutePublishHelpers:
 
         assert report.updated == 1
         client.update_page.assert_called_once_with(
-            "existing-9", "P", "<p/>", 4, parent_id="ROOT"
+            "existing-9", "P", "<p/>", 4, parent_id="ROOT", version_message=None
         )
         client.create_page.assert_not_called()
 
@@ -2036,7 +2036,7 @@ def test_compile_page_returns_confluence_status(tmp_path: Path) -> None:
 
     node = _page_node("My Page", md)
     config = _make_config(docs)
-    _, _, _, confluence_status = compile_page(node, config)
+    _, _, _, confluence_status, _ = compile_page(node, config)
 
     assert confluence_status == "in-progress"
 
@@ -2060,7 +2060,7 @@ def test_compile_page_returns_confluence_status_with_repo_url(tmp_path: Path) ->
         edit_uri="edit/main/docs/",
         nav=None,
     )
-    _, _, _, confluence_status = compile_page(node, config)
+    _, _, _, confluence_status, _ = compile_page(node, config)
 
     assert confluence_status == "in-progress"
 
@@ -2098,7 +2098,7 @@ def test_plan_publish_sets_confluence_status_on_skip(tmp_path: Path) -> None:
     config = _make_config(docs)
     conf_config = _make_conf_config()
 
-    xhtml, _, _, _ = compile_page(node, config)
+    xhtml, _, _, _, _ = compile_page(node, config)
     stored_hash = _xhtml_hash(xhtml)
 
     existing_page = {"id": "77", "version": {"number": 2}}
