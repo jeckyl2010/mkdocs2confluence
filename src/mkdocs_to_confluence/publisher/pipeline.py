@@ -169,6 +169,8 @@ def compile_page(
     preprocessed = expand_link_refs(preprocessed, link_defs)
     preprocessed = strip_link_defs(preprocessed)
     ir_nodes = parse(preprocessed)
+    if is_section_index:
+        ir_nodes = ir_nodes + (ChildrenMacro(),)
     ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
     ir_nodes, attachments = resolve_local_assets(
         ir_nodes,
@@ -192,8 +194,6 @@ def compile_page(
     site_url = config.page_site_url(node.docs_path or "")
     if site_url:
         ir_nodes = attach_source_url(ir_nodes, "", site_url)
-    if is_section_index:
-        ir_nodes = ir_nodes + (ChildrenMacro(),)
     if edit_url:
         abs_path = str(config.docs_dir / (node.docs_path or ""))
         footer = build_source_footer(edit_url, abs_path)
