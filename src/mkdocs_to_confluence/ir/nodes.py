@@ -413,9 +413,6 @@ class FrontMatter(IRNode):
                     front matter extractor.
         labels:     Confluence page labels derived from the ``tags:`` field.
                     Applied via the REST API at publish time (not in XHTML).
-        source_url: Optional URL to the source file in the version-control
-                    repository.  Rendered as a clickable link row ("Source")
-                    at the bottom of the Page Properties table.
         site_url:   Optional URL to the rendered page on the published MkDocs
                     site.  Rendered as a "Published Page" row in the table.
     """
@@ -424,12 +421,31 @@ class FrontMatter(IRNode):
     subtitle: str | None
     properties: tuple[tuple[str, str], ...]
     labels: tuple[str, ...]
-    source_url: str | None = None
     site_url: str | None = None
     confluence_status: str | None = None
 
 
 # ── Abbreviation footnotes ────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class SourceFooter(IRNode):
+    """Footer panel showing source-control links and last-commit info.
+
+    Emitted as a Confluence ``panel`` macro at the bottom of the page.
+
+    Attributes:
+        edit_url:     URL to edit the source file (e.g. GitHub edit link).
+        history_url:  URL to the file's commit history.  ``None`` when it
+                      cannot be derived from ``edit_url``.
+        last_commit:  Human-readable last-commit summary from ``git log``,
+                      e.g. ``"abc1234 · Fix typo · Jane · 2 days ago"``.
+                      ``None`` when git is unavailable or the file is untracked.
+    """
+
+    edit_url: str
+    history_url: str | None = None
+    last_commit: str | None = None
 
 
 @dataclass(frozen=True)

@@ -383,7 +383,15 @@ status: in-progress
 | `status` | Sets the Confluence page status badge — common values: `rough-draft`, `in-progress`, `ready-for-review` (space-specific values are also supported). Not shown in the properties table. |
 | *other fields* | Title-cased key, value stringified |
 
-If `repo_url` + `edit_uri` are set in `mkdocs.yml`, an **Edit Source** row links to the source file. If `site_url` is set, a **Published Page** row links to the rendered MkDocs site.
+If `site_url` is set in `mkdocs.yml`, a **Published Page** row links to the rendered MkDocs site.
+
+### Source footer
+
+When `repo_url` + `edit_uri` are set in `mkdocs.yml`, a **Page source** footer panel is appended to the bottom of each published page containing:
+
+- **Edit this page** — links to the source file in your VCS (GitHub/GitLab/etc.)
+- **View history** — links to the file's commit history (derived automatically for GitHub and GitLab URLs)
+- **Last commit** — short commit SHA, message, author, and relative date from `git log` at publish time (omitted if git is unavailable or the file is untracked)
 
 ### Abbreviation expansion
 

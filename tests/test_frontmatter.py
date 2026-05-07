@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mkdocs_to_confluence.emitter.xhtml import _source_link_label, emit
+from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.ir.nodes import FrontMatter
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 
@@ -194,70 +194,3 @@ def test_special_chars_escaped_in_properties():
     assert "&amp;" in xhtml
     assert "&lt;" in xhtml
     assert "O&#x27;Brien" in xhtml or "O&apos;Brien" in xhtml or "O&#39;" in xhtml or "O'" not in xhtml
-
-
-def test_source_url_renders_as_link_row():
-    fm = FrontMatter(
-        title=None,
-        subtitle=None,
-        properties=(),
-        labels=(),
-        source_url="https://github.com/org/repo/edit/main/docs/index.md",
-    )
-    xhtml = emit((fm,))
-    assert 'ac:name="details"' in xhtml
-    assert '<th>Source</th>' in xhtml
-    assert 'href="https://github.com/org/repo/edit/main/docs/index.md"' in xhtml
-
-
-def test_source_url_appears_after_other_properties():
-    fm = FrontMatter(
-        title=None,
-        subtitle=None,
-        properties=(("Version", "2.0"),),
-        labels=(),
-        source_url="https://example.com/edit",
-    )
-    xhtml = emit((fm,))
-    version_pos = xhtml.index("Version")
-    source_pos = xhtml.index("Source")
-    assert source_pos > version_pos, "Source row should appear after other properties"
-
-
-def test_source_url_alone_still_emits_details_macro():
-    """A page with no front matter but a source_url should show the table."""
-    fm = FrontMatter(title=None, subtitle=None, properties=(), labels=(), source_url="https://example.com/edit")
-    xhtml = emit((fm,))
-    assert 'ac:name="details"' in xhtml
-    assert '<th>Source</th>' in xhtml
-
-
-# --- _source_link_label ---
-
-def test_source_link_label_github():
-    assert _source_link_label("https://github.com/org/repo/edit/main/docs/page.md") == "Edit in GitHub ↗"
-
-
-def test_source_link_label_gitlab_dot_com():
-    assert _source_link_label("https://gitlab.com/org/repo/-/edit/main/docs/page.md") == "Edit in GitLab ↗"
-
-
-def test_source_link_label_self_hosted_gitlab():
-    assert _source_link_label("https://gitlab.mycompany.com/org/repo/-/edit/main/docs/page.md") == "Edit in GitLab ↗"
-
-
-def test_source_link_label_bitbucket():
-    assert _source_link_label("https://bitbucket.org/org/repo/src/main/docs/page.md") == "Edit in Bitbucket ↗"
-
-
-def test_source_link_label_unknown_host_fallback():
-    assert _source_link_label("https://example.com/edit") == "Edit source ↗"
-
-
-def test_source_link_label_renders_in_xhtml():
-    fm = FrontMatter(
-        title=None, subtitle=None, properties=(), labels=(),
-        source_url="https://github.com/org/repo/edit/main/docs/index.md",
-    )
-    xhtml = emit((fm,))
-    assert "Edit in GitHub" in xhtml

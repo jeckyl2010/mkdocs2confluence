@@ -49,6 +49,7 @@ from mkdocs_to_confluence.publisher.client import ConfluenceError
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.assets import _make_attachment_name, resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
+from mkdocs_to_confluence.transforms.footer import build_source_footer
 from mkdocs_to_confluence.transforms.internallinks import build_link_map, resolve_internal_links
 from mkdocs_to_confluence.transforms.mermaid import DEFAULT_KROKI_URL, render_mermaid_diagrams
 
@@ -187,8 +188,12 @@ def compile_page(
         ir_nodes = (front_matter,) + ir_nodes
     edit_url = config.page_edit_url(node.docs_path or "")
     site_url = config.page_site_url(node.docs_path or "")
-    if edit_url or site_url:
-        ir_nodes = attach_source_url(ir_nodes, edit_url or "", site_url)
+    if site_url:
+        ir_nodes = attach_source_url(ir_nodes, "", site_url)
+    if edit_url:
+        abs_path = str(config.docs_dir / (node.docs_path or ""))
+        footer = build_source_footer(edit_url, abs_path)
+        ir_nodes = ir_nodes + (footer,)
 
     # Extract labels and confluence_status from FrontMatter node.
     labels: tuple[str, ...] = ()

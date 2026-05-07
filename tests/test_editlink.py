@@ -1,4 +1,4 @@
-"""Tests for the edit-link / source-url attachment transform."""
+"""Tests for the edit-link / site-url attachment transform."""
 
 from __future__ import annotations
 
@@ -8,31 +8,29 @@ from mkdocs_to_confluence.transforms.editlink import attach_source_url
 # ── attach_source_url ─────────────────────────────────────────────────────────
 
 
-def test_source_url_added_to_existing_front_matter():
-    """source_url is set on an existing FrontMatter node."""
+def test_source_url_ignored_when_only_edit_url_provided():
+    """edit_url is now ignored; attach_source_url with no site_url returns nodes unchanged."""
     fm = FrontMatter(title="My Page", subtitle=None, properties=(), labels=())
     original = (fm, Paragraph(children=(TextNode(text="Hello"),)))
     result = attach_source_url(original, "https://github.com/org/repo/edit/main/docs/index.md")
-    assert isinstance(result[0], FrontMatter)
-    assert result[0].source_url == "https://github.com/org/repo/edit/main/docs/index.md"
-    assert result[1] is original[1]
+    assert result is original
 
 
 def test_existing_front_matter_fields_preserved():
-    """Attaching source_url does not lose other FrontMatter fields."""
+    """Attaching site_url does not lose other FrontMatter fields."""
     fm = FrontMatter(
         title="My Page",
         subtitle="A subtitle",
         properties=(("Version", "1.0"),),
         labels=("arch",),
     )
-    result = attach_source_url((fm,), "https://example.com/edit")
+    result = attach_source_url((fm,), "", site_url="https://site.io/page/")
     updated: FrontMatter = result[0]  # type: ignore[assignment]
     assert updated.title == "My Page"
     assert updated.subtitle == "A subtitle"
     assert updated.properties == (("Version", "1.0"),)
     assert updated.labels == ("arch",)
-    assert updated.source_url == "https://example.com/edit"
+    assert updated.site_url == "https://site.io/page/"
 
 
 def test_confluence_status_preserved_by_attach_source_url():
@@ -44,7 +42,7 @@ def test_confluence_status_preserved_by_attach_source_url():
         labels=("arch",),
         confluence_status="in-progress",
     )
-    result = attach_source_url((fm,), "https://example.com/edit")
+    result = attach_source_url((fm,), "", site_url="https://site.io/page/")
     updated: FrontMatter = result[0]  # type: ignore[assignment]
     assert updated.confluence_status == "in-progress"
 
@@ -52,20 +50,27 @@ def test_confluence_status_preserved_by_attach_source_url():
 def test_minimal_front_matter_created_when_none_present():
     """A minimal FrontMatter is prepended when the page has no front matter."""
     body = (Paragraph(children=(TextNode(text="Content"),)),)
-    result = attach_source_url(body, "https://example.com/edit")
+    result = attach_source_url(body, "", site_url="https://site.io/page/")
     assert len(result) == 2
     assert isinstance(result[0], FrontMatter)
-    assert result[0].source_url == "https://example.com/edit"
+    assert result[0].site_url == "https://site.io/page/"
     assert result[0].title is None
     assert result[0].properties == ()
     assert result[1] is body[0]
 
 
 def test_empty_nodes_gets_minimal_front_matter():
-    result = attach_source_url((), "https://example.com/edit")
+    result = attach_source_url((), "", site_url="https://site.io/")
     assert len(result) == 1
     assert isinstance(result[0], FrontMatter)
-    assert result[0].source_url == "https://example.com/edit"
+    assert result[0].site_url == "https://site.io/"
+
+
+def test_no_site_url_returns_nodes_unchanged():
+    """When site_url is absent, nodes are returned as-is (no FrontMatter injected)."""
+    body = (Paragraph(children=(TextNode(text="Content"),)),)
+    result = attach_source_url(body, "")
+    assert result is body
 
 
 # ── page_edit_url ─────────────────────────────────────────────────────────────
@@ -258,5 +263,4 @@ def test_site_url_attached_by_transform():
         (fm,), "https://github.com/edit", site_url="https://site.io/page/"
     )
     assert isinstance(result[0], FrontMatter)
-    assert result[0].source_url == "https://github.com/edit"
     assert result[0].site_url == "https://site.io/page/"

@@ -19,7 +19,6 @@ from __future__ import annotations
 import html
 from pathlib import Path
 from typing import Sequence
-from urllib.parse import urlparse
 
 from mkdocs_to_confluence.ir.nodes import (
     AbbrevFootnoteNode,
@@ -52,6 +51,7 @@ from mkdocs_to_confluence.ir.nodes import (
     RawHTML,
     RawInlineHtml,
     Section,
+    SourceFooter,
     StrikethroughNode,
     SubscriptNode,
     SuperscriptNode,
@@ -196,6 +196,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_abbrev_glossary_block(node)
     if isinstance(node, GridCards):
         return _emit_grid_cards(node)
+    if isinstance(node, SourceFooter):
+        return _emit_source_footer(node)
     if isinstance(node, UnsupportedBlock):
         return _emit_unsupported(node)
     # Inline nodes at block level (shouldn't normally appear, but be safe)
@@ -216,29 +218,6 @@ def _emit_section(node: Section) -> str:
     return heading + body
 
 
-def _source_link_label(url: str) -> str:
-    """Return a platform-aware label for the source edit link.
-
-    Detects GitHub, GitLab and Bitbucket from the URL hostname and returns
-    "Edit in <Platform> ↗".  Falls back to "Edit source ↗" for anything else.
-    Only the proven-safe ↗ arrow is used — no emoji that may render as ??? on
-    Confluence Cloud.
-    """
-    try:
-        hostname = urlparse(url).hostname or ""
-    except ValueError:
-        hostname = ""
-    if hostname == "github.com" or hostname.endswith(".github.com"):
-        platform = "GitHub"
-    elif hostname == "gitlab.com" or hostname.endswith(".gitlab.com") or "gitlab" in hostname:
-        platform = "GitLab"
-    elif hostname == "bitbucket.org" or hostname.endswith(".bitbucket.org"):
-        platform = "Bitbucket"
-    else:
-        return "Edit source \u2197"
-    return f"Edit in {platform} \u2197"
-
-
 def _emit_front_matter(node: FrontMatter) -> str:
     """Emit front matter as an optional subtitle paragraph + Page Properties macro."""
     parts: list[str] = []
@@ -246,20 +225,13 @@ def _emit_front_matter(node: FrontMatter) -> str:
     if node.subtitle:
         parts.append(f"<p><em>{html.escape(node.subtitle)}</em></p>\n")
 
-    has_table = node.properties or node.source_url or node.site_url
+    has_table = node.properties or node.site_url
     if has_table:
         rows = "".join(
             f"    <tr><th>{html.escape(display)}</th>"
             f"<td>{html.escape(value)}</td></tr>\n"
             for display, value in node.properties
         )
-        if node.source_url:
-            label = html.escape(_source_link_label(node.source_url))
-            href = html.escape(node.source_url)
-            rows += (
-                f'    <tr><th>Source</th>'
-                f'<td><a href="{href}">{label}</a></td></tr>\n'
-            )
         if node.site_url:
             href = html.escape(node.site_url)
             rows += (
@@ -277,6 +249,27 @@ def _emit_front_matter(node: FrontMatter) -> str:
         )
 
     return "".join(parts)
+
+
+def _emit_source_footer(node: SourceFooter) -> str:
+    """Emit a 'Page source' panel macro with edit/history links and last-commit info."""
+    edit_href = html.escape(node.edit_url)
+    links = f'<a href="{edit_href}">Edit this page</a>'
+    if node.history_url:
+        hist_href = html.escape(node.history_url)
+        links += f' \u00b7 <a href="{hist_href}">View history</a>'
+    body = f"<p>{links}</p>\n"
+    if node.last_commit:
+        body += f"<p><em>Last commit: {html.escape(node.last_commit)}</em></p>\n"
+    return (
+        '<ac:structured-macro ac:name="panel">\n'
+        '  <ac:parameter ac:name="title">Page source</ac:parameter>\n'
+        '  <ac:parameter ac:name="borderStyle">solid</ac:parameter>\n'
+        "  <ac:rich-text-body>\n"
+        f"    {body}"
+        "  </ac:rich-text-body>\n"
+        "</ac:structured-macro>\n"
+    )
 
 
 def _emit_paragraph(node: Paragraph) -> str:
