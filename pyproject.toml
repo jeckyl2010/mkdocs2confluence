@@ -73,6 +73,7 @@ select = ["E", "F", "I"]
 
 [tool.mypy]
 strict = true
+extra_checks = true
 python_version = "3.12"
 
 [[tool.mypy.overrides]]
