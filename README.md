@@ -353,6 +353,7 @@ confluence:
 | Content tabs `=== "Label"` | `expand` macros (one per tab) |
 | Details blocks `??? "title"` | `expand` macro |
 | Footnotes `[^1]` | Superscript anchor links + *Footnotes* section at page bottom |
+| In-page anchors `<a id="...">` / `<a name="...">` | Confluence `anchor` macro; same-page links `[text](#target)` resolve correctly |
 | Mermaid diagrams | PNG via Kroki, uploaded as attachment (`<ac:image ac:align="center">`) |
 | Internal links `[text](page.md)` | Native Confluence page link; `#fragment` anchors preserved |
 | `awesome-pages` nav (`.pages` files) | Fully supported |

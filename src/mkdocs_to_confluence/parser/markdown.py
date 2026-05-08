@@ -56,6 +56,7 @@ from typing import Union
 
 from mkdocs_to_confluence.ir.nodes import (
     Admonition,
+    AnchorNode,
     BlockQuote,
     BoldNode,
     BulletList,
@@ -980,6 +981,18 @@ def _scan_inline(text: str, fn_map: dict[str, int] | None = None) -> list[IRNode
                     nodes.append(InlineHtmlNode(tag=tag, children=tuple(inner)))
                     i = close_idx + len(close)
                     continue
+
+            # Anchor target: <a id="..."> / <a name="..."> (all forms)
+            anchor_m = re.match(
+                r'<a\s+(?:id|name)="([^"]+)"[^>]*/?>(?:\s*</a>)?',
+                text[i:],
+                re.IGNORECASE,
+            )
+            if anchor_m:
+                flush()
+                nodes.append(AnchorNode(name=anchor_m.group(1)))
+                i += len(anchor_m.group(0))
+                continue
 
             # Generic inline HTML with attributes (e.g. <span class="...">) — pass through verbatim
             generic_m = re.match(

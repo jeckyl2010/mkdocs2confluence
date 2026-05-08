@@ -13,6 +13,8 @@ from mkdocs_to_confluence.ir.document import Document, PageMeta, compute_sha
 from mkdocs_to_confluence.ir.nodes import (
     # Material extension nodes
     Admonition,
+    # Inline HTML nodes
+    AnchorNode,
     BlockQuote,
     BoldNode,
     # List nodes
@@ -31,7 +33,6 @@ from mkdocs_to_confluence.ir.nodes import (
     GridCards,
     HorizontalRule,
     ImageNode,
-    # Inline HTML nodes
     InlineHtmlNode,
     InsertNode,
     # Traversal utility
@@ -83,6 +84,7 @@ __all__ = [
     "LineBreakNode",
     "InlineHtmlNode",
     "RawInlineHtml",
+    "AnchorNode",
     "InsertNode",
     # Block
     "Section",

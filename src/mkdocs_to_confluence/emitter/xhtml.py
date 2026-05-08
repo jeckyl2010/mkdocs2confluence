@@ -24,6 +24,7 @@ from mkdocs_to_confluence.ir.nodes import (
     AbbrevFootnoteNode,
     AbbrevGlossaryBlock,
     Admonition,
+    AnchorNode,
     BlockQuote,
     BoldNode,
     BulletList,
@@ -685,6 +686,13 @@ def _emit_inline(node: IRNode) -> str:
         return f"{open_tag}{_emit_inlines(node.children)}{close_tag}"
     if isinstance(node, RawInlineHtml):
         return node.html_str
+    if isinstance(node, AnchorNode):
+        name = html.escape(node.name)
+        return (
+            f'<ac:structured-macro ac:name="anchor">'
+            f"<ac:parameter ac:name=\"\"><![CDATA[{name}]]></ac:parameter>"
+            f"</ac:structured-macro>"
+        )
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
 

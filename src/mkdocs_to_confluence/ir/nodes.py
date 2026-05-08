@@ -138,6 +138,17 @@ class RawInlineHtml(IRNode):
 
 
 @dataclass(frozen=True)
+class AnchorNode(IRNode):
+    """An in-page anchor target (``<a id="...">`` or ``<a name="...">``) in Markdown.
+
+    Emitted as a Confluence ``anchor`` macro so that same-page links
+    (e.g. ``[text](#target)``) resolve correctly in Confluence.
+    """
+
+    name: str
+
+
+@dataclass(frozen=True)
 class ImageNode(IRNode):
     """An image reference.
 

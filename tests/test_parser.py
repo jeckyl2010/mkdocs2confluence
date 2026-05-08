@@ -1343,3 +1343,41 @@ class TestGridCards:
         nodes = parse(md)
         gc = next(n for n in nodes if isinstance(n, GridCards))
         assert len(gc.items) == 3
+
+
+class TestAnchorNode:
+    def test_anchor_id_parsed(self) -> None:
+        from mkdocs_to_confluence.ir import AnchorNode
+        para = first(parse('Some text <a id="my-anchor"></a> more\n'), Paragraph)
+        assert any(isinstance(n, AnchorNode) and n.name == "my-anchor" for n in para.children)
+
+    def test_anchor_name_parsed(self) -> None:
+        from mkdocs_to_confluence.ir import AnchorNode
+        para = first(parse('Some text <a name="my-anchor"></a> more\n'), Paragraph)
+        assert any(isinstance(n, AnchorNode) and n.name == "my-anchor" for n in para.children)
+
+    def test_anchor_self_closing_parsed(self) -> None:
+        from mkdocs_to_confluence.ir import AnchorNode
+        para = first(parse('Before <a id="target"/> after\n'), Paragraph)
+        assert any(isinstance(n, AnchorNode) and n.name == "target" for n in para.children)
+
+    def test_anchor_open_only_parsed(self) -> None:
+        from mkdocs_to_confluence.ir import AnchorNode
+        para = first(parse('Before <a id="target"> after\n'), Paragraph)
+        assert any(isinstance(n, AnchorNode) and n.name == "target" for n in para.children)
+
+    def test_anchor_emitted_as_confluence_macro(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        nodes = parse('Go to <a id="section-1"></a> here\n')
+        xhtml = emit(nodes)
+        assert 'ac:structured-macro ac:name="anchor"' in xhtml
+        assert "section-1" in xhtml
+
+    def test_anchor_link_and_target_roundtrip(self) -> None:
+        """[Text](#target) link + <a id="target"> definition renders correctly."""
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        nodes = parse('[Jump](#section-1)\n\n<a id="section-1"></a>\n')
+        xhtml = emit(nodes)
+        assert 'href="#section-1"' in xhtml
+        assert 'ac:structured-macro ac:name="anchor"' in xhtml
+        assert "section-1" in xhtml
