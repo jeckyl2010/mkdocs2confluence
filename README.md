@@ -205,6 +205,8 @@ mk2conf publish [--config PATH] [--page PATH] [--section SECTION] [--dry-run] [-
 
 If Kroki is unreachable the run continues, falling back to the `code` macro for affected diagrams.
 
+**Automatic mermaid.ink fallback:** when using the public `kroki.io` service and a Mermaid diagram receives a 504 (gateway timeout), mk2conf automatically retries that diagram via [mermaid.ink](https://mermaid.ink) before giving up. No configuration needed — the fallback is transparent and only applies to Mermaid diagrams on the public service. Self-hosted Kroki instances never contact mermaid.ink, preserving network isolation.
+
 #### Styling from extra.css
 
 If `mkdocs.yml` lists `extra_css:` files, mk2conf reads them and applies a whitelisted set of CSS properties as inline `style="..."` attributes on Confluence output.

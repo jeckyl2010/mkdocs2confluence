@@ -10,17 +10,28 @@ of the Mermaid source so unchanged diagrams are never re-fetched.
 When Kroki is unavailable (network error, HTTP error, timeout, or bad response)
 each affected diagram is left unchanged so the emitter falls back to a fenced
 code block.  The rest of the pipeline continues unaffected.
+
+Fallback behaviour
+------------------
+When the public ``https://kroki.io`` service returns a 504 (gateway timeout)
+for a Mermaid diagram, mk2conf automatically retries via ``mermaid.ink`` before
+giving up.  This fallback does **not** apply to self-hosted Kroki instances
+(configured as ``kroki:<url>``) — those run in isolation and should not reach
+out to external services.
 """
 
 from __future__ import annotations
 
+import base64
 import dataclasses
 import hashlib
+import json
 import sys
 import threading
 import time
 import urllib.error
 import urllib.request
+import zlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import cast
@@ -30,7 +41,8 @@ from mkdocs_to_confluence.ir.treeutil import replace_nodes
 
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "mermaid"
 DEFAULT_KROKI_URL = "https://kroki.io"
-_TIMEOUT = 30  # seconds — fail fast when Kroki is down
+_MERMAID_INK_URL = "https://mermaid.ink"
+_TIMEOUT = 30  # seconds
 _MIN_PNG_BYTES = 67  # smallest valid PNG (1×1 px) is 67 bytes
 _CACHE_LOCK = threading.Lock()
 _MAX_WORKERS = 8
@@ -57,6 +69,21 @@ def _kroki_png(source: str, kroki_url: str) -> bytes:
         return cast(bytes, resp.read())
 
 
+def _mermaid_ink_png(source: str) -> bytes:
+    """Fetch a PNG rendering of *source* from mermaid.ink (GET, pako-encoded).
+
+    Encodes the diagram as ``{"code": source}`` compressed with zlib and
+    base64url-encoded — the pako format that mermaid.ink expects.
+    """
+    payload = json.dumps({"code": source, "mermaid": {"theme": "default"}}, separators=(",", ":"))
+    compressed = zlib.compress(payload.encode("utf-8"))
+    encoded = base64.urlsafe_b64encode(compressed).decode().rstrip("=")
+    url = f"{_MERMAID_INK_URL}/img/pako:{encoded}?type=png"
+    req = urllib.request.Request(url, headers={"User-Agent": "mk2conf/1.0"})
+    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310  # nosec B310
+        return cast(bytes, resp.read())
+
+
 def _cache_path(source: str) -> Path:
     digest = hashlib.sha256(source.encode()).hexdigest()
     return _CACHE_DIR / f"mermaid_{digest}.png"
@@ -71,6 +98,10 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
 
     Transient HTTP errors (429, 5xx) and network blips are retried up to
     ``_RETRY_ATTEMPTS`` times with exponential backoff.
+
+    When using the public kroki.io and all retries are exhausted due to 504s,
+    one final attempt is made via mermaid.ink before giving up.  Self-hosted
+    Kroki instances never fall back to mermaid.ink.
     """
     path = _cache_path(source)
     if path.exists():
@@ -78,7 +109,10 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
             print("        rendering  mermaid diagram (cached)")
         return path
 
+    use_public_kroki = kroki_url.rstrip("/") == DEFAULT_KROKI_URL.rstrip("/")
     last_exc: Exception | None = None
+    last_was_504 = False
+
     for attempt in range(_RETRY_ATTEMPTS):
         if attempt > 0:
             delay = _RETRY_BACKOFF * (2 ** (attempt - 1))
@@ -96,17 +130,34 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
         except urllib.error.HTTPError as exc:
             if exc.code in _RETRYABLE_HTTP:
                 last_exc = exc
+                last_was_504 = exc.code == 504
                 continue  # retry
             _warn(f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason} — falling back to code block")
             return None
         except urllib.error.URLError as exc:
             last_exc = exc
+            last_was_504 = False
             continue  # retry — network blip
         except (OSError, ValueError) as exc:
             _warn(f"mermaid diagram: {exc} — falling back to code block")
             return None
 
-    # All retries exhausted
+    # All Kroki retries exhausted — try mermaid.ink if on public kroki.io and last error was 504.
+    if use_public_kroki and last_was_504:
+        try:
+            _warn("mermaid diagram: kroki.io unavailable (504), trying mermaid.ink as fallback")
+            png = _mermaid_ink_png(source)
+            if len(png) < _MIN_PNG_BYTES:
+                raise ValueError(f"mermaid.ink returned {len(png)} bytes (expected a valid PNG)")
+            with _CACHE_LOCK:
+                path.write_bytes(png)
+            if not quiet:
+                print("        rendering  mermaid diagram (via mermaid.ink fallback)")
+            return path
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, ValueError) as exc:
+            _warn(f"mermaid diagram: mermaid.ink fallback also failed ({exc}) — falling back to code block")
+            return None
+
     _warn(f"mermaid diagram: failed after {_RETRY_ATTEMPTS} attempts ({last_exc}) — falling back to code block")
     return None
 
@@ -125,7 +176,10 @@ def render_mermaid_diagrams(
     upload as page attachments.
 
     Diagrams that fail to render are left unchanged (code-block fallback).
-    The pipeline always produces valid output regardless of Kroki availability.
+    When using public kroki.io and a diagram fails with a 504, one automatic
+    retry via mermaid.ink is attempted before falling back to a code block.
+    Self-hosted Kroki instances never contact mermaid.ink.
+    The pipeline always produces valid output regardless of service availability.
     """
     try:
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
