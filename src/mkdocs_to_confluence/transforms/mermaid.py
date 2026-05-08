@@ -99,9 +99,10 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
     Transient HTTP errors (429, 5xx) and network blips are retried up to
     ``_RETRY_ATTEMPTS`` times with exponential backoff.
 
-    When using the public kroki.io and all retries are exhausted due to 504s,
-    one final attempt is made via mermaid.ink before giving up.  Self-hosted
-    Kroki instances never fall back to mermaid.ink.
+    When using the public kroki.io and all retries are exhausted due to kroki
+    being unreachable (504 or timeout), one final attempt is made via
+    mermaid.ink before giving up.  Self-hosted Kroki instances never fall back
+    to mermaid.ink.
     """
     path = _cache_path(source)
     if path.exists():
@@ -111,7 +112,7 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
 
     use_public_kroki = kroki_url.rstrip("/") == DEFAULT_KROKI_URL.rstrip("/")
     last_exc: Exception | None = None
-    last_was_504 = False
+    kroki_unavailable = False  # True when kroki is unreachable (504 or timeout)
 
     for attempt in range(_RETRY_ATTEMPTS):
         if attempt > 0:
@@ -130,22 +131,22 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
         except urllib.error.HTTPError as exc:
             if exc.code in _RETRYABLE_HTTP:
                 last_exc = exc
-                last_was_504 = exc.code == 504
+                kroki_unavailable = exc.code == 504
                 continue  # retry
             _warn(f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason} — falling back to code block")
             return None
         except urllib.error.URLError as exc:
             last_exc = exc
-            last_was_504 = False
+            kroki_unavailable = True  # timeout or connection refused — kroki unreachable
             continue  # retry — network blip
         except (OSError, ValueError) as exc:
             _warn(f"mermaid diagram: {exc} — falling back to code block")
             return None
 
-    # All Kroki retries exhausted — try mermaid.ink if on public kroki.io and last error was 504.
-    if use_public_kroki and last_was_504:
+    # All Kroki retries exhausted — try mermaid.ink if on public kroki.io and kroki was unreachable.
+    if use_public_kroki and kroki_unavailable:
         try:
-            _warn("mermaid diagram: kroki.io unavailable (504), trying mermaid.ink as fallback")
+            _warn("mermaid diagram: kroki.io unreachable, trying mermaid.ink as fallback")
             png = _mermaid_ink_png(source)
             if len(png) < _MIN_PNG_BYTES:
                 raise ValueError(f"mermaid.ink returned {len(png)} bytes (expected a valid PNG)")
