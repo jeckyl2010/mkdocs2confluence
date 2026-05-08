@@ -135,11 +135,13 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
                 continue  # retry
             _warn(f"mermaid diagram: Kroki returned HTTP {exc.code} {exc.reason} — falling back to code block")
             return None
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, OSError) as exc:
+            # URLError covers connection errors; OSError covers read-phase timeouts
+            # (socket.timeout is OSError but not URLError when raised by resp.read()).
             last_exc = exc
-            kroki_unavailable = True  # timeout or connection refused — kroki unreachable
+            kroki_unavailable = True
             continue  # retry — network blip
-        except (OSError, ValueError) as exc:
+        except ValueError as exc:
             _warn(f"mermaid diagram: {exc} — falling back to code block")
             return None
 

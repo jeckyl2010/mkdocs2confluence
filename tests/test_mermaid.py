@@ -398,7 +398,7 @@ def test_render_one_504_on_public_kroki_falls_back_to_mermaid_ink(tmp_path, caps
 
 
 def test_render_one_timeout_on_public_kroki_falls_back_to_mermaid_ink(tmp_path):
-    """Public kroki.io timeout → automatic fallback to mermaid.ink."""
+    """Public kroki.io URLError timeout → automatic fallback to mermaid.ink."""
     import urllib.error
 
     from mkdocs_to_confluence.transforms.mermaid import _render_one
@@ -407,6 +407,25 @@ def test_render_one_timeout_on_public_kroki_falls_back_to_mermaid_ink(tmp_path):
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
          patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
                side_effect=urllib.error.URLError("timed out")), \
+         patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
+               return_value=_FAKE_PNG) as mock_ink:
+        result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
+
+    assert result is not None
+    assert result.exists()
+    mock_ink.assert_called_once_with(_SAMPLE_SOURCE)
+
+
+def test_render_one_read_phase_timeout_falls_back_to_mermaid_ink(tmp_path):
+    """socket.timeout during resp.read() (OSError, not URLError) → fallback to mermaid.ink."""
+    import socket
+
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+               side_effect=socket.timeout("The read operation timed out")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
@@ -435,7 +454,7 @@ def test_render_one_504_on_self_hosted_kroki_does_not_fall_back(tmp_path):
 
 
 def test_render_one_timeout_on_self_hosted_kroki_does_not_fall_back(tmp_path):
-    """Self-hosted Kroki timeout → no mermaid.ink fallback (privacy isolation)."""
+    """Self-hosted Kroki URLError timeout → no mermaid.ink fallback (privacy isolation)."""
     import urllib.error
 
     from mkdocs_to_confluence.transforms.mermaid import _render_one
@@ -444,6 +463,24 @@ def test_render_one_timeout_on_self_hosted_kroki_does_not_fall_back(tmp_path):
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
          patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
                side_effect=urllib.error.URLError("timed out")), \
+         patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
+               return_value=_FAKE_PNG) as mock_ink:
+        result = _render_one(_SAMPLE_SOURCE, "https://my-internal-kroki.corp")
+
+    assert result is None
+    mock_ink.assert_not_called()
+
+
+def test_render_one_read_phase_timeout_self_hosted_does_not_fall_back(tmp_path):
+    """socket.timeout on self-hosted Kroki → no mermaid.ink fallback (privacy isolation)."""
+    import socket
+
+    from mkdocs_to_confluence.transforms.mermaid import _render_one
+
+    with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
+         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
+         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+               side_effect=socket.timeout("The read operation timed out")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
         result = _render_one(_SAMPLE_SOURCE, "https://my-internal-kroki.corp")
