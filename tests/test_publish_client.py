@@ -728,6 +728,37 @@ def test_find_folder_under_returns_none_when_not_found() -> None:
     assert result is None
 
 
+# ── resolve_inline_comment ─────────────────────────────────────────────────────
+
+
+def test_resolve_inline_comment_sends_get_then_put() -> None:
+    """resolve_inline_comment GETs the current comment, then PUTs with resolved=True and a version bump."""
+    existing = {
+        "id": "42",
+        "version": {"number": 3},
+        "body": {"storage": {"value": "<p>Original body</p>"}},
+        "resolved": False,
+    }
+    transport = _MockTransport(
+        _json_response(existing),  # GET → current state
+        _json_response({}),        # PUT → resolved
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.resolve_inline_comment("42")
+    assert len(transport.requests) == 2
+    get_req = transport.requests[0]
+    assert get_req.method == "GET"
+    assert "/inline-comments/42" in str(get_req.url)
+    put_req = transport.requests[1]
+    assert put_req.method == "PUT"
+    body = json.loads(put_req.content)
+    assert body["version"]["number"] == 4
+    assert body["resolved"] is True
+    assert body["body"]["value"] == "<p>Original body</p>"
+
+
 # ── find_folder_in_space ──────────────────────────────────────────────────────
 
 
@@ -786,3 +817,141 @@ def test_create_folder_returns_existing_on_400_duplicate() -> None:
         client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
         result = client.create_folder("42", "MySection")
     assert result["id"] == "77"
+
+
+def test_create_folder_with_parent_id() -> None:
+    """create_folder sends parentId in the payload when provided."""
+    payload = {"id": "99", "title": "Sub", "spaceId": "42"}
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        result = client.create_folder("42", "Sub", parent_id="77")
+    assert result["id"] == "99"
+    body = json.loads(transport.requests[0].content)
+    assert body["parentId"] == "77"
+
+
+# ── get_page_inline_comments ───────────────────────────────────────────────────
+
+
+def test_get_page_inline_comments_returns_comments() -> None:
+    payload = {
+        "results": [
+            {"id": "c1", "body": {"storage": {"value": "<p>Nice</p>"}}},
+            {"id": "c2", "body": {"storage": {"value": "<p>Fix this</p>"}}},
+        ],
+        "_links": {},
+    }
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        comments = client.get_page_inline_comments("42")
+    assert len(comments) == 2
+    assert comments[0]["id"] == "c1"
+    assert comments[1]["id"] == "c2"
+    req = transport.requests[0]
+    assert "/pages/42/inline-comments" in str(req.url)
+    assert "resolution-status=open" in str(req.url)
+
+
+def test_get_page_inline_comments_paginates() -> None:
+    page1 = {
+        "results": [{"id": "c1"}],
+        "_links": {"next": "/wiki/api/v2/pages/42/inline-comments?cursor=abc"},
+    }
+    page2 = {
+        "results": [{"id": "c2"}],
+        "_links": {},
+    }
+    transport = _MockTransport(_json_response(page1), _json_response(page2))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        comments = client.get_page_inline_comments("42")
+    assert len(comments) == 2
+    assert len(transport.requests) == 2
+
+
+# ── get_page_footer_comments ───────────────────────────────────────────────────
+
+
+def test_get_page_footer_comments_returns_comments() -> None:
+    payload = {
+        "results": [{"id": "f1", "body": {"storage": {"value": "<p>Footer note</p>"}}}],
+        "_links": {},
+    }
+    transport = _MockTransport(_json_response(payload))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        comments = client.get_page_footer_comments("42")
+    assert len(comments) == 1
+    assert comments[0]["id"] == "f1"
+    req = transport.requests[0]
+    assert "/pages/42/footer-comments" in str(req.url)
+
+
+def test_get_page_footer_comments_paginates() -> None:
+    page1 = {
+        "results": [{"id": "f1"}],
+        "_links": {"next": "/wiki/api/v2/pages/42/footer-comments?cursor=xyz"},
+    }
+    page2 = {
+        "results": [{"id": "f2"}],
+        "_links": {},
+    }
+    transport = _MockTransport(_json_response(page1), _json_response(page2))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        comments = client.get_page_footer_comments("42")
+    assert len(comments) == 2
+    assert len(transport.requests) == 2
+
+
+# ── add_comment_reply ──────────────────────────────────────────────────────────
+
+
+def test_add_comment_reply_posts_reply() -> None:
+    transport = _MockTransport(_json_response({"id": "reply-1"}))
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.add_comment_reply("42", "Thanks, fixed!")
+    req = transport.requests[0]
+    assert req.method == "POST"
+    assert "/content/42/child/comment" in str(req.url)
+    body = json.loads(req.content)
+    assert body["type"] == "comment"
+    assert "<p>Thanks, fixed!</p>" in body["body"]["storage"]["value"]
+
+
+# ── resolve_footer_comment ─────────────────────────────────────────────────────
+
+
+def test_resolve_footer_comment_sends_get_then_put() -> None:
+    existing = {
+        "id": "99",
+        "version": {"number": 2},
+        "body": {"storage": {"value": "<p>Old footer</p>"}},
+        "resolved": False,
+    }
+    transport = _MockTransport(
+        _json_response(existing),  # GET
+        _json_response({}),        # PUT
+    )
+    config = _make_config()
+    with ConfluenceClient(config) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        client.resolve_footer_comment("99")
+    assert len(transport.requests) == 2
+    get_req = transport.requests[0]
+    assert "/footer-comments/99" in str(get_req.url)
+    put_req = transport.requests[1]
+    assert put_req.method == "PUT"
+    body = json.loads(put_req.content)
+    assert body["version"]["number"] == 3
+    assert body["resolved"] is True
+    assert body["body"]["value"] == "<p>Old footer</p>"
