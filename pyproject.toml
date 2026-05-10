@@ -53,6 +53,7 @@ dev = [
   "types-PyYAML",
   "bandit",
   "build",
+  "pre-commit",
 ]
 
 [project.scripts]

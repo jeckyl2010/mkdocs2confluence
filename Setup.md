@@ -32,6 +32,16 @@ mk2conf --help
 pytest
 ```
 
+## Install pre-commit hooks
+
+Run once after cloning (requires the dev environment to be active):
+
+```bash
+pre-commit install
+```
+
+This installs gitleaks (secret scanning), ruff (lint), mypy (type check), and vulture (dead code) as git pre-commit hooks. They run automatically on every `git commit`.
+
 ## Publish a GitHub release
 
 Bump the version in `pyproject.toml`, commit, tag, and push — GitHub Actions handles the rest:

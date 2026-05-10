@@ -1,0 +1,30 @@
+repos:
+  # Secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # Linting + import sorting (uses isolated env, no project deps needed)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  # Type checking (local: needs project deps like types-PyYAML)
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run --frozen mypy src --no-error-summary
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: vulture
+        name: vulture
+        entry: uv run --frozen vulture src --min-confidence 80
+        language: system
+        types: [python]
+        pass_filenames: false
