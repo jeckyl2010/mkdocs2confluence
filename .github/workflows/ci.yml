@@ -7,6 +7,8 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
