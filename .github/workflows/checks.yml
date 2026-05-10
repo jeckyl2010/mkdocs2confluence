@@ -1,0 +1,82 @@
+name: Checks
+
+on:
+  workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # gitleaks needs full history
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+
+      - name: Type check (mypy)
+        run: uv run mypy src
+
+      - name: Dead code (vulture)
+        run: uv run vulture src --min-confidence 80
+
+      - name: Security scan (bandit)
+        run: |
+          uv run bandit -r src -ll -q -f sarif -o bandit.sarif || true
+          if [ ! -f bandit.sarif ] || [ ! -s bandit.sarif ]; then
+            echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Bandit","rules":[]}},"results":[]}]}' > bandit.sarif
+          fi
+
+      - name: Upload Bandit results to Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
+
+      - name: Complexity report (radon)
+        continue-on-error: true
+        run: |
+          echo "## Cyclomatic Complexity (C and above)" >> "$GITHUB_STEP_SUMMARY"
+          uv run radon cc src -a -n C --md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dependency audit (pip-audit)
+        run: uv run pip-audit
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: junit.xml
+          report_type: test_results
+          fail_ci_if_error: false

@@ -6,8 +6,17 @@ on:
       - "v*"
 
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+    secrets: inherit
+    permissions:
+      security-events: write
+      contents: read
+
   release:
+    needs: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
 
@@ -16,37 +25,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
-
-      - name: Install dependencies
-        run: uv sync --all-extras
-
-      - name: Run tests
-        run: uv run pytest -q
-
-      - name: Lint (ruff)
-        run: uv run ruff check src tests
-
-      - name: Type check (mypy)
-        run: uv run mypy src
-
-      - name: Security scan (bandit)
-        run: uv run bandit -r src -ll -q
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
-          fail_ci_if_error: false
-
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v6
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: junit.xml
-          report_type: test_results
-          fail_ci_if_error: false
 
       - name: Build
         run: uv build -q
