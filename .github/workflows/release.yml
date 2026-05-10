@@ -19,7 +19,9 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-      id-token: write  # required for OIDC trusted publishing
+      id-token: write
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
 
     steps:
       - uses: actions/checkout@v6
@@ -30,6 +32,12 @@ jobs:
       - name: Build
         run: uv build -q
 
+      - name: Compute artifact hashes
+        id: hash
+        run: |
+          cd dist
+          echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -38,3 +46,14 @@ jobs:
 
       - name: Publish to PyPI
         run: uv publish
+
+  provenance:
+    needs: release
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: "${{ needs.release.outputs.hashes }}"
+      upload-assets: true
