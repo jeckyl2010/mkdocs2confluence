@@ -238,15 +238,20 @@ def plan_publish(
     *,
     space_id: str,
     quiet: bool = False,
+    full_nav_nodes: list[NavNode] | None = None,
 ) -> list[PageAction]:
     """Build a publish plan for the entire nav tree.
 
     Section nodes become native Confluence folders so the hierarchy is
     preserved visually.  The actual find-or-create for folders is deferred
     to execute time once parent folder IDs are known.
+
+    ``full_nav_nodes``, when provided, is used to build the link map so that
+    cross-section internal links resolve correctly even when publishing only a
+    subset of the nav (e.g. ``--section``).
     """
     actions: list[PageAction] = []
-    link_map = build_link_map(nav_nodes)
+    link_map = build_link_map(full_nav_nodes if full_nav_nodes is not None else nav_nodes)
     if not quiet:
         print("Planning...")
     _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, False, actions, link_map, quiet=quiet)
