@@ -1,5 +1,28 @@
-  [status] setting 'in-progress' on page '6315638872'...
-  [warn] set status body: {"statusCode":400,"message":"com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"status\" (class com.atlassian.confluence.api.model.content.ContentStateRestInput), not marked as ignorable (3 known properties: \"id\", \"name\", \"color\"])\n at [Source: (org.springf
-  [warn] could not set page status 'in-progress': set_page_status('6315638872', 'in-progress'): HTTP 400 — {"statusCode":400,"message":"com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field \"status\" (class com.atlassian.confluence.api.model.content.ContentStateRestInput), not marked as ignorable (3 known properties: \"id\", \"name\", \"color\"])\n at [Source: (org.springframework.web.util.ContentCachingRequestWrapper$ContentCachingInputStream); line: 1, column: 67] (thr
-Published:  0 created, 5 updated, 13 skipped
-Assets:     0 uploaded, 0 ski
+That is useful because the protocols, trust boundaries, and operational constraints are different. Keycloak gives us one consistent entry point without pretending those systems are the same thing.
+
+!!! note "Scope"
+    This page explains the value of **Keycloak** as a site-local front door running on the local **OpenShift** platform. It does not change the control boundaries described above.
+
+!!! info "Related document"
+    For the detailed runtime flow, see [Authentication Procedures – Hybrid Identity](../../proposals/2026/authentication-procedures.md).
+
+
+
+
+
+
+
+
+Use the baseline on its own for non-CCTV GDPR/AI use cases. Add the CCTV overlay only when surveillance, monitoring, recording, detection, alerting, search, or review are in scope.
+
+This also includes product-quality, defect-detection, and similar operational AI use cases where people may appear incidentally.
+
+Useful downstream aids:
+
+- [CCTV AI Vendor RFI Questionnaire](../cctv/vendor-rfi-questionnaire.md)
+
+
+---
+
+
+
