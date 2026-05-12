@@ -312,7 +312,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
     config = load_config(config_path)
     configure_styles(config.extra_styles)
 
-    nodes = resolve_nav(config)
+    all_nodes = resolve_nav(config)
 
     section_given = bool(getattr(args, "section", None))
     page_given = bool(args.page)
@@ -326,8 +326,9 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Resolve section subtree (both single-page and section-mode use this)
+    nodes = all_nodes
     if section_given:
-        section_node = find_section(nodes, args.section) or find_section_by_folder(nodes, args.section)
+        section_node = find_section(all_nodes, args.section) or find_section_by_folder(all_nodes, args.section)
         if section_node is None:
             print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
             sys.exit(1)
@@ -347,7 +348,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
             out_dir, index_name = _parse_out_path(args.out)
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        link_map = build_link_map(nodes)
+        link_map = build_link_map(all_nodes)
         page_link_map = {
             node.title: f"{Path(node.docs_path).stem}.html"
             for node in pages
@@ -479,11 +480,12 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    nav_nodes = resolve_nav(config)
+    all_nav_nodes = resolve_nav(config)
+    nav_nodes = all_nav_nodes
 
     # Section filter (--section takes precedence; --page is a secondary filter)
     if getattr(args, "section", None):
-        section_node = find_section(nav_nodes, args.section) or find_section_by_folder(nav_nodes, args.section)
+        section_node = find_section(all_nav_nodes, args.section) or find_section_by_folder(all_nav_nodes, args.section)
         if section_node is None:
             print(f"error: section '{args.section}' not found in nav.", file=sys.stderr)
             sys.exit(1)
@@ -529,7 +531,10 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            plan = plan_publish(nav_nodes, client, config, conf_config, space_id=space_id, quiet=args.quiet)
+            plan = plan_publish(
+                nav_nodes, client, config, conf_config,
+                space_id=space_id, quiet=args.quiet, full_nav_nodes=all_nav_nodes,
+            )
             # --prune is silently disabled for partial publishes (--page / --section)
             # because published_ids would only cover the subset, not the full nav.
             partial = bool(getattr(args, "page", None) or getattr(args, "section", None))

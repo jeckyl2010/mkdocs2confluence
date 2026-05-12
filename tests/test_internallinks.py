@@ -364,3 +364,61 @@ def test_unresolved_md_link_with_anchor_degrades_to_label():
     xhtml = emit((Paragraph(children=(link,)),))
     assert "Hello World" in xhtml
     assert "hello-worl.md" not in xhtml
+
+
+def test_link_inside_admonition_resolves():
+    """A relative .md link inside an admonition body must resolve to ac:link.
+
+    Regression: links inside admonitions were reported as showing raw label
+    text instead of Confluence hyperlinks when the target page was in a
+    different section (cross-section link).
+    """
+    from mkdocs_to_confluence.emitter.xhtml import emit
+    from mkdocs_to_confluence.parser.markdown import parse
+
+    nav = _make_nav([("proposals/2026/authentication-procedures.md", "Auth Procedures")])
+    link_map = build_link_map(nav)
+    current_path = "architecture/identity/keycloak.md"
+
+    md = '!!! info "Related document"\n    See [Auth Procedures](../../proposals/2026/authentication-procedures.md).\n'
+    nodes = parse(md)
+    resolved = resolve_internal_links(nodes, link_map, current_path)
+    xhtml = emit(resolved)
+
+    assert 'ri:content-title="Auth Procedures"' in xhtml
+    assert "authentication-procedures.md" not in xhtml
+
+
+def test_cross_section_link_resolves_when_full_nav_used():
+    """build_link_map must include all nav pages so cross-section links resolve.
+
+    The root cause of the admonition link bug: when publishing with --section,
+    the link_map was built from the section subtree only.  Cross-section targets
+    were missing and links degraded to label text.
+    """
+    from mkdocs_to_confluence.emitter.xhtml import emit
+    from mkdocs_to_confluence.parser.markdown import parse
+
+    # Two separate sections
+    full_nav = _make_nav([
+        ("section-a/page.md", "Page A"),
+        ("section-b/target.md", "Target Page"),
+    ])
+    section_a_nav = _make_nav([("section-a/page.md", "Page A")])
+
+    link_map_full = build_link_map(full_nav)
+    link_map_section_only = build_link_map(section_a_nav)
+
+    md = "See [Target Page](../section-b/target.md).\n"
+    nodes = parse(md)
+
+    # With full nav: link resolves
+    resolved_full = resolve_internal_links(nodes, link_map_full, "section-a/page.md")
+    xhtml_full = emit(resolved_full)
+    assert 'ri:content-title="Target Page"' in xhtml_full
+
+    # With section-only nav: link degrades to label text
+    resolved_section = resolve_internal_links(nodes, link_map_section_only, "section-a/page.md")
+    xhtml_section = emit(resolved_section)
+    assert "Target Page" in xhtml_section
+    assert "ri:content-title" not in xhtml_section
