@@ -1,28 +1,131 @@
-That is useful because the protocols, trust boundaries, and operational constraints are different. Keycloak gives us one consistent entry point without pretending those systems are the same thing.
+PS C:\Repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section examples
+mk2conf 0.10.2
+Planning...
+  compiling  'Examples'  (folder)
+  compiling  'IAM Test Cases'  (section index)
+  unchanged  'IAM Test Cases'  (content unchanged)
+  compiling  '01 Shared Android Tablet F1 Login'
+        rendering  mermaid diagram (cached)
+  unchanged  '01 Shared Android Tablet F1 Login'  (content unchanged)
+  compiling  '02 Shared iPad F1 Login'
+        rendering  mermaid diagram (cached)
+  unchanged  '02 Shared iPad F1 Login'  (content unchanged)
+  compiling  '03 Shared Android Phone F1 Login'
+  unchanged  '03 Shared Android Phone F1 Login'  (content unchanged)
+  compiling  '04 Shared iPhone F1 Login'
+  unchanged  '04 Shared iPhone F1 Login'  (content unchanged)
+  compiling  '05 Shared Device Nice To Have Features'
+  unchanged  '05 Shared Device Nice To Have Features'  (content unchanged)
+  compiling  'IAM Frontline License Model'
+  unchanged  'IAM Frontline License Model'  (content unchanged)
+  compiling  'IAM PoC Common Test Prerequisites'
+  unchanged  'IAM PoC Common Test Prerequisites'  (content unchanged)
+  compiling  'Shared Device Platform Comparison Note'
+  compiling  'Test Case Template'
+  unchanged  'Test Case Template'  (content unchanged)
 
-!!! note "Scope"
-    This page explains the value of **Keycloak** as a site-local front door running on the local **OpenShift** platform. It does not change the control boundaries described above.
+Publishing 2 page(s)...
+  [1/2] create  'Examples'
+  [status] setting 'in-progress' on page '6354796555'...
+  [status] ok
+  [status] setting 'in-progress' on page '6353846443'...
+  [status] ok
+  [status] setting 'in-progress' on page '6354305085'...
+  [status] ok
+  [status] setting 'in-progress' on page '6354469015'...
+  [status] ok
+  [status] setting 'draft' on page '6354763795'...
+  [status] ok
+  [2/2] update  'Shared Device Platform Comparison Note'
+Published:  0 created, 2 updated, 9 skipped
+Assets:     0 uploaded, 0 skipped
+Page map: 70 page(s) → .mk2conf-pages.json
+PS C:\Repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section examples
+mk2conf 0.10.2
+Planning...
+  compiling  'Examples'  (folder)
+  compiling  'IAM Test Cases'  (section index)
+  unchanged  'IAM Test Cases'  (content unchanged)
+  compiling  '01 Shared Android Tablet F1 Login'
+        rendering  mermaid diagram (cached)
+  compiling  '02 Shared iPad F1 Login'
+        rendering  mermaid diagram (cached)
+  compiling  '03 Shared Android Phone F1 Login'
+  compiling  '04 Shared iPhone F1 Login'
+  compiling  '05 Shared Device Nice To Have Features'
+  compiling  'IAM Frontline License Model'
+  unchanged  'IAM Frontline License Model'  (content unchanged)
+  compiling  'IAM PoC Common Test Prerequisites'
+  compiling  'Shared Device Platform Comparison Note'
+  compiling  'Test Case Template'
 
-!!! info "Related document"
-    For the detailed runtime flow, see [Authentication Procedures – Hybrid Identity](../../proposals/2026/authentication-procedures.md).
+Publishing 9 page(s)...
+  [1/9] create  'Examples'
+  [status] setting 'in-progress' on page '6354796555'...
+  [status] ok
+  [2/9] update  '01 Shared Android Tablet F1 Login'
+  [status] setting 'in-progress' on page '6353846443'...
+  [status] ok
+        skipping   mermaid_83b953f8a619a856777e33cd39c0fd82ececf5b0dacce299978e52fd6398dfde.png (unchanged)
+  [3/9] update  '02 Shared iPad F1 Login'
+  [status] setting 'in-progress' on page '6354305085'...
+  [status] ok
+        skipping   mermaid_4d4f7c6b1a6701e64e86a6e4f434a729fe5f38b0d1301d1e211306652f6cd8ff.png (unchanged)
+  [4/9] update  '03 Shared Android Phone F1 Login'
+  [5/9] update  '04 Shared iPhone F1 Login'
+  [6/9] update  '05 Shared Device Nice To Have Features'
+  [status] setting 'in-progress' on page '6354469015'...
+  [status] ok
+  [status] setting 'draft' on page '6354763795'...
+  [status] ok
+  [7/9] update  'IAM PoC Common Test Prerequisites'
+  [8/9] update  'Shared Device Platform Comparison Note'
+  [9/9] update  'Test Case Template'
+Published:  0 created, 9 updated, 2 skipped
+Assets:     0 uploaded, 2 skipped
+Page map: 70 page(s) → .mk2conf-pages.json
+PS C:\Repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section examples
+mk2conf 0.10.2
+Planning...
+  compiling  'Examples'  (folder)
+  compiling  'IAM Test Cases'  (section index)
+  unchanged  'IAM Test Cases'  (content unchanged)
+  compiling  '01 Shared Android Tablet F1 Login'
+        rendering  mermaid diagram (cached)
+  compiling  '02 Shared iPad F1 Login'
+        rendering  mermaid diagram (cached)
+  compiling  '03 Shared Android Phone F1 Login'
+  compiling  '04 Shared iPhone F1 Login'
+  compiling  '05 Shared Device Nice To Have Features'
+  compiling  'IAM Frontline License Model'
+  unchanged  'IAM Frontline License Model'  (content unchanged)
+  compiling  'IAM PoC Common Test Prerequisites'
+  compiling  'Shared Device Platform Comparison Note'
+  unchanged  'Shared Device Platform Comparison Note'  (content unchanged)
+  compiling  'Test Case Template'
 
-
-
-
-
-
-
-
-Use the baseline on its own for non-CCTV GDPR/AI use cases. Add the CCTV overlay only when surveillance, monitoring, recording, detection, alerting, search, or review are in scope.
-
-This also includes product-quality, defect-detection, and similar operational AI use cases where people may appear incidentally.
-
-Useful downstream aids:
-
-- [CCTV AI Vendor RFI Questionnaire](../cctv/vendor-rfi-questionnaire.md)
-
-
----
-
-
-
+Publishing 8 page(s)...
+  [1/8] create  'Examples'
+  [status] setting 'in-progress' on page '6354796555'...
+  [status] ok
+  [2/8] update  '01 Shared Android Tablet F1 Login'
+  [status] setting 'in-progress' on page '6353846443'...
+  [status] ok
+        skipping   mermaid_83b953f8a619a856777e33cd39c0fd82ececf5b0dacce299978e52fd6398dfde.png (unchanged)
+  [3/8] update  '02 Shared iPad F1 Login'
+  [status] setting 'in-progress' on page '6354305085'...
+  [status] ok
+        skipping   mermaid_4d4f7c6b1a6701e64e86a6e4f434a729fe5f38b0d1301d1e211306652f6cd8ff.png (unchanged)
+  [4/8] update  '03 Shared Android Phone F1 Login'
+  [5/8] update  '04 Shared iPhone F1 Login'
+  [6/8] update  '05 Shared Device Nice To Have Features'
+  [status] setting 'in-progress' on page '6354469015'...
+  [status] ok
+  [status] setting 'draft' on page '6354763795'...
+  [status] ok
+  [7/8] update  'IAM PoC Common Test Prerequisites'
+  [8/8] update  'Test Case Template'
+Published:  0 created, 8 updated, 3 skipped
+Assets:     0 uploaded, 2 skipped
+Page map: 70 page(s) → .mk2conf-pages.json
+PS C:\Repos\rockwool\docs>
