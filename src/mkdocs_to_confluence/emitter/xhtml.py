@@ -422,15 +422,19 @@ def _emit_task_item(item: ListItem) -> str:
 
 
 def _emit_list_item(item: ListItem) -> str:
-    if any(isinstance(c, _LIST_BLOCK_TYPES) for c in item.children):
-        # Loose list item: children are block nodes (e.g. nested list or paragraph).
-        inner = emit(item.children)
-        return f"  <li>{inner.strip()}</li>\n"
-    # Tight list item: children are inline nodes.  Confluence requires a <p>
-    # wrapper inside <li> for structured inline macros (e.g. <ac:link>) to
-    # render — without it they are silently stripped by the storage parser.
-    inner = _emit_inlines(item.children)
-    return f"  <li><p>{inner}</p></li>\n"
+    first_block = next(
+        (i for i, c in enumerate(item.children) if isinstance(c, _LIST_BLOCK_TYPES)), None
+    )
+    if first_block is None:
+        # All inline — standard tight rendering.
+        inner = _emit_inlines(item.children)
+        return f"  <li><p>{inner}</p></li>\n"
+    # Mixed: inline prefix (if any) wrapped in <p>, followed by block children.
+    parts: list[str] = []
+    if first_block > 0:
+        parts.append(f"<p>{_emit_inlines(item.children[:first_block])}</p>\n")
+    parts.append(emit(item.children[first_block:]))
+    return f"  <li>{''.join(parts).strip()}</li>\n"
 
 
 def _emit_table(node: Table) -> str:

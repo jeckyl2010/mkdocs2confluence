@@ -235,6 +235,32 @@ class TestListEmitters:
         assert "<ul>" in out
         assert "<ac:task-list>" not in out
 
+    def test_nested_bullet_list(self) -> None:
+        nested = BulletList(items=(ListItem((TextNode("child"),)),))
+        items = (ListItem((TextNode("parent"), nested)),)
+        out = emit((BulletList(items=items),))
+        assert out.count("<ul>") == 2
+        assert out.count("</ul>") == 2
+        assert "<p>parent</p>" in out
+        assert "<p>child</p>" in out
+
+    def test_nested_ordered_list(self) -> None:
+        nested = OrderedList(items=(ListItem((TextNode("sub"),)),))
+        items = (ListItem((TextNode("top"), nested)),)
+        out = emit((OrderedList(items=items),))
+        assert "<ol>" in out
+        assert "<ul>" not in out
+        assert "<p>top</p>" in out
+        assert "<p>sub</p>" in out
+
+    def test_nested_list_no_inline_prefix(self) -> None:
+        """A list item with only a nested sub-list (no inline text) renders cleanly."""
+        nested = BulletList(items=(ListItem((TextNode("only child"),)),))
+        items = (ListItem((nested,)),)
+        out = emit((BulletList(items=items),))
+        assert out.count("<ul>") == 2
+        assert "<p>only child</p>" in out
+
 
 class TestHorizontalRule:
     def test_hr(self) -> None:

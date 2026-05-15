@@ -158,6 +158,7 @@ class _BlockQuoteToken:
 class _ListItemData:
     text: str
     task: bool | None = None  # None=regular, True=checked, False=unchecked
+    sub_tokens: list[_Token] = field(default_factory=list)
 
 
 @dataclass
@@ -501,7 +502,8 @@ def _tokenize(text: str) -> list[_Token]:
                     task = task_m.group("state").lower() == "x"
                     item_text = task_m.group("rest")
                 i += 1
-                # Collect continuation lines (non-blank, non-list) into this item.
+                # Collect continuation and indented sub-list lines.
+                sub_lines: list[str] = []
                 while i < len(lines) and lines[i].strip():
                     cont = lines[i]
                     bullet_m = _BULLET_RE.match(cont)
@@ -510,9 +512,18 @@ def _tokenize(text: str) -> list[_Token]:
                         ordered_m2 and not ordered_m2.group("indent")
                     ):
                         break
-                    item_text = item_text.rstrip() + " " + cont.strip()
+                    if (bullet_m and bullet_m.group("indent")) or (
+                        ordered_m2 and ordered_m2.group("indent")
+                    ) or sub_lines:
+                        sub_lines.append(cont)
+                    else:
+                        item_text = item_text.rstrip() + " " + cont.strip()
                     i += 1
-                list_items.append(_ListItemData(text=item_text, task=task))
+                _sub: list[_Token] = []
+                if sub_lines:
+                    _ind = min(len(ln) - len(ln.lstrip()) for ln in sub_lines if ln.strip())
+                    _sub = _tokenize("\n".join(ln[_ind:] for ln in sub_lines))
+                list_items.append(_ListItemData(text=item_text, task=task, sub_tokens=_sub))
             tokens.append(_BulletListToken(items=list_items))
             continue
 
@@ -537,7 +548,8 @@ def _tokenize(text: str) -> list[_Token]:
                     break
                 item_text = om.group("text")
                 i += 1
-                # Collect continuation lines (non-blank, non-list) into this item.
+                # Collect continuation and indented sub-list lines.
+                sub_lines_ord: list[str] = []
                 while i < len(lines) and lines[i].strip():
                     cont = lines[i]
                     ordered_m3 = _ORDERED_RE.match(cont)
@@ -546,9 +558,18 @@ def _tokenize(text: str) -> list[_Token]:
                         bullet_m2 and not bullet_m2.group("indent")
                     ):
                         break
-                    item_text = item_text.rstrip() + " " + cont.strip()
+                    if (ordered_m3 and ordered_m3.group("indent")) or (
+                        bullet_m2 and bullet_m2.group("indent")
+                    ) or sub_lines_ord:
+                        sub_lines_ord.append(cont)
+                    else:
+                        item_text = item_text.rstrip() + " " + cont.strip()
                     i += 1
-                ord_items.append(_ListItemData(text=item_text))
+                _sub_ord: list[_Token] = []
+                if sub_lines_ord:
+                    _ind_ord = min(len(ln) - len(ln.lstrip()) for ln in sub_lines_ord if ln.strip())
+                    _sub_ord = _tokenize("\n".join(ln[_ind_ord:] for ln in sub_lines_ord))
+                ord_items.append(_ListItemData(text=item_text, sub_tokens=_sub_ord))
             tokens.append(_OrderedListToken(start=start, items=ord_items))
             continue
 
@@ -1030,6 +1051,32 @@ class _OpenSection:
     children: list[IRNode] = field(default_factory=list)
 
 
+def _build_sub_list_nodes(tokens: list[_Token], fn_map: dict[str, int] | None) -> tuple[IRNode, ...]:
+    """Recursively convert sub-list tokens (from indented continuation) to IR nodes."""
+    nodes: list[IRNode] = []
+    for token in tokens:
+        if isinstance(token, _BulletListToken):
+            items = tuple(
+                ListItem(
+                    children=_parse_inline(item.text, fn_map=fn_map)
+                    + _build_sub_list_nodes(item.sub_tokens, fn_map),
+                    task=item.task,
+                )
+                for item in token.items
+            )
+            nodes.append(BulletList(items=items))
+        elif isinstance(token, _OrderedListToken):
+            items = tuple(
+                ListItem(
+                    children=_parse_inline(item.text, fn_map=fn_map)
+                    + _build_sub_list_nodes(item.sub_tokens, fn_map),
+                )
+                for item in token.items
+            )
+            nodes.append(OrderedList(items=items, start=token.start))
+    return tuple(nodes)
+
+
 def _build_tree(
     tokens: list[_Token],
     fn_map: dict[str, int] | None = None,
@@ -1101,14 +1148,21 @@ def _build_tree(
 
         elif isinstance(token, _BulletListToken):
             items = tuple(
-                ListItem(children=_parse_inline(item.text, fn_map=_fn), task=item.task)
+                ListItem(
+                    children=_parse_inline(item.text, fn_map=_fn)
+                    + _build_sub_list_nodes(item.sub_tokens, _fn),
+                    task=item.task,
+                )
                 for item in token.items
             )
             _append_content(BulletList(items=items), stack, root)
 
         elif isinstance(token, _OrderedListToken):
             items = tuple(
-                ListItem(children=_parse_inline(item.text, fn_map=_fn))
+                ListItem(
+                    children=_parse_inline(item.text, fn_map=_fn)
+                    + _build_sub_list_nodes(item.sub_tokens, _fn),
+                )
                 for item in token.items
             )
             _append_content(OrderedList(items=items, start=token.start), stack, root)
