@@ -56,7 +56,7 @@ def _last_commit_info(abs_path: str) -> tuple[str, str] | None:
             [
                 "git", "log", "-1",
                 f"--format=%h{sep}%s{sep}%an{sep}%ad",
-                "--date=relative",
+                "--date=short",
                 "--",
                 abs_path,
             ],

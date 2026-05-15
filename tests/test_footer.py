@@ -60,14 +60,14 @@ def test_last_commit_info_returns_sha_and_summary(tmp_path):
     fake_file = str(tmp_path / "docs" / "page.md")
     sep = "\x1f"
     with patch("mkdocs_to_confluence.transforms.footer.subprocess.run") as mock_run:
-        mock_run.return_value.stdout = f"abc1234{sep}Fix typo{sep}Jane{sep}2 days ago\n"
+        mock_run.return_value.stdout = f"abc1234{sep}Fix typo{sep}Jane{sep}2024-01-15\n"
         result = _last_commit_info(fake_file)
     assert result is not None
     sha, summary = result
     assert sha == "abc1234"
     assert "Fix typo" in summary
     assert "Jane" in summary
-    assert "2 days ago" in summary
+    assert "2024-01-15" in summary
 
 
 def test_last_commit_info_returns_none_when_empty(tmp_path):
@@ -121,7 +121,7 @@ def test_emit_footer_contains_edit_link():
         history_url="https://github.com/org/repo/commits/main/docs/page.md",
         commit_sha="abc1234",
         commit_url="https://github.com/org/repo/commit/abc1234",
-        commit_summary="Fix typo · Jane · 2 days ago",
+        commit_summary="Fix typo · Jane · 2024-01-15",
     )
     out = emit((footer,))
     assert "Edit this page" in out
@@ -199,7 +199,7 @@ def test_emit_footer_non_ascii_encoded_as_entity():
         history_url=None,
         commit_sha=None,
         commit_url=None,
-        commit_summary="Fix caf\u00e9 · \u00c5ngstr\u00f6m · 2 days ago",
+        commit_summary="Fix caf\u00e9 · \u00c5ngstr\u00f6m · 2024-01-15",
     )
     out = emit((footer,))
     assert "caf\u00e9" not in out
