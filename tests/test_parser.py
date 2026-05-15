@@ -1021,6 +1021,49 @@ class TestListParsing:
         )
         assert "Continuation" in item_text or "First point" in item_text
 
+    def test_nested_bullet_list(self) -> None:
+        md = "- item 1\n  - nested 1\n  - nested 2\n- item 2\n"
+        nodes = parse(md)
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        assert len(bl.items) == 2
+        # First item must have a nested BulletList as a child.
+        nested = next((c for c in bl.items[0].children if isinstance(c, BulletList)), None)
+        assert nested is not None, "expected nested BulletList in first item"
+        assert len(nested.items) == 2
+        assert nested.items[0].children[0].text == "nested 1"  # type: ignore[union-attr]
+        assert nested.items[1].children[0].text == "nested 2"  # type: ignore[union-attr]
+
+    def test_nested_ordered_list(self) -> None:
+        md = "1. first\n   1. sub one\n   2. sub two\n2. second\n"
+        nodes = parse(md)
+        ol = first(nodes, OrderedList)
+        assert isinstance(ol, OrderedList)
+        nested = next((c for c in ol.items[0].children if isinstance(c, OrderedList)), None)
+        assert nested is not None, "expected nested OrderedList in first item"
+        assert len(nested.items) == 2
+
+    def test_deeply_nested_bullet_list(self) -> None:
+        md = "- a\n  - b\n    - c\n"
+        nodes = parse(md)
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        level2 = next((c for c in bl.items[0].children if isinstance(c, BulletList)), None)
+        assert level2 is not None
+        level3 = next((c for c in level2.items[0].children if isinstance(c, BulletList)), None)
+        assert level3 is not None
+        assert level3.items[0].children[0].text == "c"  # type: ignore[union-attr]
+
+    def test_mixed_nested_list(self) -> None:
+        """Bullet list item containing an ordered sub-list."""
+        md = "- item\n  1. sub one\n  2. sub two\n"
+        nodes = parse(md)
+        bl = first(nodes, BulletList)
+        assert isinstance(bl, BulletList)
+        nested_ol = next((c for c in bl.items[0].children if isinstance(c, OrderedList)), None)
+        assert nested_ol is not None
+        assert len(nested_ol.items) == 2
+
 
 # ── Definition list parsing ───────────────────────────────────────────────────
 
