@@ -14,7 +14,7 @@
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jeckyl2010/mkdocs2confluence/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jeckyl2010/mkdocs2confluence)
 
-A Python CLI tool that compiles MkDocs-flavoured Markdown into native Confluence storage XHTML and publishes it directly to Confluence Cloud. It is a **compiler/transpiler**, not an HTML converter — every construct maps to its native Confluence equivalent, so pages look and behave like hand-authored Confluence content.
+A Python CLI tool that compiles MkDocs-flavoured Markdown into **native Confluence storage XHTML** and publishes it directly to Confluence Cloud. It is a **compiler/transpiler**, not an HTML converter — every construct maps to its native Confluence equivalent, so pages look and behave like hand-authored Confluence content.
 
 It also bridges the gap between Confluence reviewers and developers: the `sync-comments` command turns open Confluence page comments into GitHub pull request review threads, and auto-resolves them in Confluence when the PR is merged.
 
@@ -32,20 +32,6 @@ pip install mkdocs2confluence
 pipx install mkdocs2confluence
 ```
 
-To use the `mk2conf pdf` subcommand, install the optional PDF extra:
-
-```bash
-pip install "mkdocs2confluence[pdf]"
-```
-
-WeasyPrint requires system libraries (Pango, Cairo) — install them for your platform:
-
-| Platform | Command |
-|---|---|
-| macOS | `brew install pango` |
-| Ubuntu / Debian | `apt install libpango-1.0-0 libpangoft2-1.0-0` |
-| Windows 11 | `choco install gtk-runtime` — or download the [GTK3 runtime installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer) and add its `bin\` folder to your `PATH` |
-
 **From source** (see [Setup.md](Setup.md)):
 
 ```bash
@@ -53,9 +39,11 @@ git clone https://github.com/jeckyl2010/mkdocs2confluence.git
 cd mkdocs2confluence && uv sync
 ```
 
-### GitHub Actions
+---
 
-Add `mk2conf` to any CI/CD pipeline with the official action. Store your Confluence API token as a repository secret (`CONFLUENCE_API_TOKEN`) and add a workflow step:
+## GitHub Actions
+
+Publish docs automatically on every push — no local install needed:
 
 ```yaml
 - name: Publish docs to Confluence
@@ -64,7 +52,7 @@ Add `mk2conf` to any CI/CD pipeline with the official action. Store your Conflue
     token: ${{ secrets.CONFLUENCE_API_TOKEN }}
 ```
 
-**Full example** — publish on every push to `main`:
+**Full workflow** — triggers on changes to `docs/` or `mkdocs.yml`:
 
 ```yaml
 name: Publish docs
@@ -79,53 +67,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Publish docs to Confluence
-        uses: jeckyl2010/mkdocs2confluence@v1
+      - uses: jeckyl2010/mkdocs2confluence@v1
         with:
           token: ${{ secrets.CONFLUENCE_API_TOKEN }}
-          prune: 'true'   # remove pages deleted from nav
+          prune: 'true'
 ```
 
-**All inputs:**
-
-| Input | Required | Default | Description |
-|---|---|---|---|
-| `token` | ✅ | — | Confluence API token |
-| `config` | | `mkdocs.yml` | Path to mkdocs.yml |
-| `version` | | latest | Pin a specific `mk2conf` version (e.g. `"0.10.3"`) |
-| `dry-run` | | `false` | Print sync plan without publishing |
-| `section` | | — | Publish only a nav section (e.g. `"Guide/Setup"`) |
-| `page` | | — | Publish only a single page (e.g. `"guide/setup.md"`) |
-| `prune` | | `false` | Delete managed pages removed from nav |
-| `quiet` | | `false` | Suppress per-item progress output |
+Available inputs: `token` (required), `config`, `version`, `dry-run`, `section`, `page`, `prune`, `quiet`. See [docs/commands.md](docs/commands.md) for details.
 
 ---
 
 ## Quick start
 
 ```bash
-# Inspect the Confluence storage XHTML for a page
-mk2conf preview --page index.md
-
-# Open a live browser preview — rebuilds on every file save
+# Preview a page locally (no Confluence API calls)
 mk2conf preview --page index.md --watch
-mk2conf preview --section Guide --watch
 
-# Dry-run: see what would be published without touching Confluence
+# Dry-run: see what would be published
 mk2conf publish --dry-run
 
-# Publish all nav pages to Confluence
+# Publish all nav pages
 mk2conf publish
 
-# Export a nav section to a stand-alone PDF document
+# Export a section to PDF
 mk2conf pdf --section Guide --out guide.pdf
 
-# Sync open Confluence comments to GitHub review PRs
+# Sync Confluence comments to GitHub PR review threads
 mk2conf sync-comments
-
-# Resolve Confluence comments when their review PRs are merged
-mk2conf sync-comments --check-merges
 ```
 
 ---
@@ -145,328 +113,26 @@ confluence:
   full_width: true                   # default: true
 ```
 
-The `confluence:` block is also accepted under `extra:` (MkDocs strict-mode compatible):
+The `confluence:` block is also accepted under `extra:` for MkDocs strict-mode compatibility. The API token is read from `token:` in `mkdocs.yml`, then `CONFLUENCE_API_TOKEN`, then `MK2CONF_TOKEN`.
 
-```yaml
-extra:
-  confluence:
-    base_url: https://yourorg.atlassian.net
-    space_key: TECH
-    ...
-```
-
-The API token is read from (in priority order):
-
-1. `token:` in `mkdocs.yml` — typically via `!ENV CONFLUENCE_API_TOKEN`
-2. `CONFLUENCE_API_TOKEN` environment variable
-3. `MK2CONF_TOKEN` environment variable
-
-### Additional fields for `sync-comments`
-
-```yaml
-confluence:
-  # ... base fields above ...
-  github_repo: owner/repo        # required for sync-comments
-  github_token: !ENV GITHUB_TOKEN  # falls back to GITHUB_TOKEN env var
-  github_base_branch: main       # default: main
-```
-
----
-
-## Your first publish
-
-Once you have added the `confluence:` block (see above), this is all you need to get from zero to a live Confluence page:
+**Your first publish:**
 
 ```bash
-# 1. Set your API token (add this to your shell profile or CI secrets)
 export CONFLUENCE_API_TOKEN=your_api_token_here
-
-# 2. Preview one page locally to verify the output before touching Confluence
-mk2conf preview --page docs/index.md --watch
-
-# 3. Dry-run to see exactly what would be created or updated
-mk2conf publish --dry-run
-
-# 4. Publish
-mk2conf publish
-```
-
-That is it. mk2conf reads `mkdocs.yml` in the current directory, compiles every page listed in `nav:`, mirrors the hierarchy under `parent_page_id`, and skips any page that has not changed since the last run.
-
----
-
-## Commands
-
-### `mk2conf preview`
-
-Compile and inspect output locally — no Confluence API calls. Mermaid diagrams are rendered via Kroki unless `mermaid_render: none` is set.
-
-```
-mk2conf preview [--config PATH] --page PATH [--out FILE] [--html] [--watch]
-mk2conf preview [--config PATH] --section SECTION [--out FILE] [--watch]
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
-| `--page PATH` | *(required unless --section)* | Relative path to the Markdown file |
-| `--section SECTION` | *(none)* | Nav section title to render, slash-separated for nested sections (e.g. `Guide` or `Guide/Setup`). Renders all pages in that subtree as a browseable HTML index. |
-| `--out FILE` | stdout | Write output to a file or directory |
-| `--html` | off | Render macros as styled browser-viewable HTML |
-| `--watch` | off | Serve on `http://localhost:8765` and auto-rebuild on file changes. Implies `--html`. `Ctrl+C` to stop. |
-
-`--html` is for local review only — the actual Confluence storage XHTML is the `--html`-free output.
-
----
-
-### `mk2conf publish`
-
-Compile all pages in `nav:` and publish to Confluence Cloud.
-
-```
-mk2conf publish [--config PATH] [--page PATH] [--section SECTION] [--dry-run] [--report FILE] [--prune]
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
-| `--page PATH` | *(all nav pages)* | Publish a single page only |
-| `--section SECTION` | *(whole nav)* | Publish only a nav subtree, slash-separated for nested sections (e.g. `Guide` or `Guide/Setup`) |
-| `--dry-run` | off | Print the publish plan; no Confluence API writes |
-| `--report FILE` | *(none)* | Write a JSON publish report |
-| `--prune` | off | Delete managed pages no longer in `nav:`. Only pages stamped by mk2conf are eligible — manually-created Confluence pages are never touched. Ignored on partial (`--page` / `--section`) runs. |
-
-#### Publish behaviour
-
-- **Only `nav:` pages are published** — pages absent from the nav are never touched (natural draft gate).
-- Pages with `ready: false` in front matter are skipped, even if listed in `nav:`.
-- Section nodes (nav groups without a page) become empty parent pages, mirroring the nav hierarchy.
-- Local assets are uploaded as Confluence page attachments automatically.
-- **Unchanged pages are skipped** — a `sha256` hash of the compiled output is stored as a hidden page property; pages with identical content since the last run produce no version bump and no notification.
-
-#### Mermaid rendering
-
-| `mermaid_render` | Behaviour |
-|---|---|
-| `kroki` *(default)* | Render via `https://kroki.io`. PNGs cached in `~/.cache/mk2conf/mermaid/`. |
-| `kroki:https://your-kroki` | Render via a self-hosted Kroki instance. |
-| `none` | Fall back to a `code` macro labelled `mermaid`. |
-
-If Kroki is unreachable the run continues, falling back to the `code` macro for affected diagrams.
-
-**Automatic mermaid.ink fallback:** when using the public `kroki.io` service and a Mermaid diagram receives a 504 (gateway timeout), mk2conf automatically retries that diagram via [mermaid.ink](https://mermaid.ink) before giving up. No configuration needed — the fallback is transparent and only applies to Mermaid diagrams on the public service. Self-hosted Kroki instances never contact mermaid.ink, preserving network isolation.
-
-#### Styling from extra.css
-
-If `mkdocs.yml` lists `extra_css:` files, mk2conf reads them and applies a whitelisted set of CSS properties as inline `style="..."` attributes on Confluence output.
-
-| Selector | Applied to |
-|---|---|
-| `th`, `thead th` | Table header cells |
-| `td` | Table body cells |
-| `h1` – `h6` | Headings |
-| `code` (not `pre code`) | Inline code spans |
-
-Supported properties: `background-color`, `color`, `font-weight`, `font-style`, `font-size`, `text-align`, `border`. CSS custom properties (`var(--name)`) are resolved automatically, including chained variables and `var(--name, fallback)` syntax.
-
-Complex Material theme overrides (compound selectors, `color-mix()`, `@media`, `:has()`) are silently skipped. For best results, maintain a small dedicated overrides file:
-
-```css
-/* confluence-overrides.css */
-:root { --primary: #d20014; }
-th  { background-color: var(--primary); color: white; font-weight: 600; }
-h1, h2, h3 { color: var(--primary); }
-code { background-color: #f5f5f5; }
-```
-
-```yaml
-extra_css:
-  - stylesheets/extra.css                   # full Material theme
-  - stylesheets/confluence-overrides.css    # simple Confluence-targeted styles
+mk2conf preview --page docs/index.md --watch   # verify output locally
+mk2conf publish --dry-run                       # check the plan
+mk2conf publish                                 # go live
 ```
 
 ---
 
-### `mk2conf pdf`
+## Documentation
 
-Export a nav section or single page to a stand-alone, printer-ready PDF document. Requires `pip install "mkdocs2confluence[pdf]"`.
-
-```
-mk2conf pdf [--config PATH] (--section SECTION | --page PATH) [--out FILE] [--author TEXT] [--doc-version TEXT] [--quiet]
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
-| `--section SECTION` | *(required unless --page)* | Export a nav subtree by section title |
-| `--page PATH` | *(required unless --section)* | Export a single page |
-| `--out FILE` | `<section-or-page>.pdf` | Output PDF path |
-| `--author TEXT` | *(none)* | Author name printed on the cover page |
-| `--doc-version TEXT` | *(none)* | Document version printed on the cover page |
-| `--quiet` | off | Suppress progress output |
-
-The PDF includes a **cover page**, **table of contents** with page numbers, and one chapter per nav page with automatic page breaks. Code blocks avoid mid-block splits; Mermaid diagrams appear as embedded PNGs (same Kroki-rendered images used for Confluence).
-
----
-
-### `mk2conf sync-comments`
-
-Bridge Confluence page/inline comments to GitHub pull request review threads. Non-technical reviewers comment in Confluence; developers address feedback on a GitHub feature branch; Confluence comments are auto-resolved when the PR is merged.
-
-```
-mk2conf sync-comments [--config PATH] [--check-merges] [--force] [--dry-run] [--quiet]
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--config PATH` | `./mkdocs.yml` | Path to `mkdocs.yml` |
-| `--check-merges` | off | Check tracked PRs for merges and auto-resolve Confluence comments |
-| `--force` | off | Re-sync pages that already have an open review PR |
-| `--dry-run` | off | Print what would be synced without making any API calls |
-| `--quiet` | off | Suppress progress output |
-
-**Required config** (add to the `confluence:` block in `mkdocs.yml`):
-
-```yaml
-confluence:
-  # ... base fields ...
-  github_repo: owner/repo            # required for sync-comments
-  github_token: !ENV GITHUB_TOKEN    # falls back to GITHUB_TOKEN env var
-  github_base_branch: main           # default: main
-```
-
-**Workflow:**
-
-1. Run `mk2conf publish` (full or partial) — writes/merges `.mk2conf-pages.json` mapping source files to Confluence page IDs. Every publish run merges into this file, so partial `--page` / `--section` runs and multiple configs in the same repo all accumulate correctly.
-2. Run `mk2conf sync-comments` — for each page with open Confluence comments, creates a `mk2conf/review/{slug}` branch and PR, then posts each comment as a GitHub review thread. Inline comments with a text selection are anchored to the matching source line; page-level comments fall back to file-level review threads. Every thread body includes a **View in Confluence** deep-link that opens Confluence focused on the exact comment.
-3. Developer addresses feedback on the branch, pushes changes, and merges the PR.
-4. Run `mk2conf sync-comments --check-merges` — detects merged PRs, adds a resolution reply to each Confluence comment with the commit info, and marks the comments as resolved.
-
-**State files** (add to `.gitignore`):
-
-| File | Purpose |
+| | |
 |---|---|
-| `.mk2conf-pages.json` | Source path → Confluence page ID map, merged after each `publish` run |
-| `.mk2conf-sync-state.json` | Tracks open/merged review PRs and their associated comment IDs |
-
----
-
-## Supported Markdown features
-
-### Block elements
-
-| Feature | Confluence output |
-|---|---|
-| ATX headings `#` – `######` | `<h1>` – `<h6>` |
-| Paragraphs | `<p>` |
-| Fenced code blocks | `code` macro with language, title, and line numbers |
-| Bullet lists | `<ul>/<li>` |
-| Ordered lists | `<ol>/<li>` |
-| Task lists `- [x]` / `- [ ]` | Native `<ac:task-list>` / `<ac:task>` macros |
-| Tables (GFM pipe syntax) | `<table>` with header and column alignment |
-| Blockquotes | `<blockquote>` |
-| Horizontal rules `---` | `<hr/>` |
-
-### Inline elements
-
-| Feature | Confluence output |
-|---|---|
-| `**bold**` / `__bold__` | `<strong>` |
-| `*italic*` | `<em>` |
-| `~~strikethrough~~` | `<s>` |
-| `~subscript~` | `<sub>` (pymdownx.tilde) |
-| `^superscript^` | `<sup>` (pymdownx.caret) |
-| `^^inserted^^` | `<u>` (pymdownx.caret insert) |
-| `` `inline code` `` | `<code>` |
-| `[text](url)` | `<a href="...">` |
-| `[text][label]` / `[text][]` with `[label]: url` | Resolved to inline link before parsing |
-| `https://bare-url` | `<a href="...">` (autolink) |
-| `[text](file.pdf)` | `<ac:link><ri:attachment .../>` (uploaded as attachment) |
-| `![alt](src)` | `<ac:image>` with `<ri:attachment>` (local) or `<ri:url>` (remote) |
-| `![alt](src){ width="400" }` | `<ac:image ac:width="400">` — also supports `height` and `align` |
-| `<br>` / `<br/>` / trailing `\` | `<br />` |
-| `<sub>` / `<sup>` / `<u>` / `<small>` | Direct XHTML passthrough |
-| `<mark>text</mark>` | `<span style="background-color: yellow;">` |
-| `<kbd>text</kbd>` | `<code>` |
-| `++ctrl+alt+del++` | `<code>Ctrl</code>+<code>Alt</code>+<code>Del</code>` (pymdownx.keys) |
-| `<s>text</s>` / `<del>text</del>` | `<span style="text-decoration: line-through;">` |
-
-### MkDocs / Material extensions
-
-| Feature | Confluence output |
-|---|---|
-| `--8<--` file includes | Resolved before parsing |
-| Admonitions `!!! type "title"` | `info` / `tip` / `warning` / `note` macro |
-| Danger admonitions (`danger`, `error`, `bug`) | Red `panel` macro with 🚨 prefix |
-| Collapsible admonitions `??? type` | `expand` macro |
-| Content tabs `=== "Label"` | `expand` macros (one per tab) |
-| Details blocks `??? "title"` | `expand` macro |
-| Footnotes `[^1]` | Superscript anchor links + *Footnotes* section at page bottom |
-| In-page anchors `<a id="...">` / `<a name="...">` | Confluence `anchor` macro; same-page links `[text](#target)` resolve correctly |
-| Mermaid diagrams | PNG via Kroki, uploaded as attachment (`<ac:image ac:align="center">`) |
-| Internal links `[text](page.md)` | Native Confluence page link; `#fragment` anchors preserved |
-| `awesome-pages` nav (`.pages` files) | Fully supported |
-| Edit link banner | `info` macro linking back to source in GitHub/GitLab |
-| Grid cards `<div class="grid cards" markdown>` | Native `ac:layout` multi-column sections (auto-detects 1/2/3 columns from card count) |
-
-### YAML front matter → Page Properties
-
-A YAML front matter block is converted to a Confluence **Page Properties** macro, making it queryable via the Page Properties Report macro.
-
-```yaml
----
-title: "Architecture Proposal – IAM"
-subtitle: "Hybrid Identity Hub"
-documentId: AP-IAM-2026
-version: "0.1"
-lastUpdated: 2026-01-12
-author: "Anders Hybertz"
-tags: [architecture, iam]
-ready: true
-status: in-progress
----
-```
-
-| Field | Notes |
-|---|---|
-| `title` | Used as the Confluence page title on publish |
-| `subtitle` | Rendered as italic lead paragraph above the properties table |
-| `tags` | Also applied as Confluence page labels |
-| `ready` | `true` → ✅ Ready · `false` → 📝 Draft (skips publish) |
-| `status` | Sets the Confluence page status badge — common values: `rough-draft`, `in-progress`, `ready-for-review` (space-specific values are also supported). Not shown in the properties table. |
-| *other fields* | Title-cased key, value stringified |
-
-If `site_url` is set in `mkdocs.yml`, a **Published Page** row links to the rendered MkDocs site.
-
-### Source footer
-
-When `repo_url` + `edit_uri` are set in `mkdocs.yml`, a **Page source** footer panel is appended to the bottom of each published page containing:
-
-- **Edit this page** — links to the source file in your VCS (GitHub/GitLab/etc.)
-- **View history** — links to the file's commit history (derived automatically for GitHub and GitLab URLs)
-- **Last commit** — short commit SHA (linked to that commit), message, author, and relative date from `git log` at publish time (omitted if git is unavailable or the file is untracked)
-
-The commit SHA and message are also written to the **Confluence version history** on every publish (`sha: message`), so the page history in Confluence stays in sync with your git log.
-
-### Section index child pages
-
-When a MkDocs navigation section has an `index.md`, the published Confluence page automatically includes the native **Children Display macro** below the page content. This renders a live, auto-maintained list of all direct child pages — no manual curation needed. The macro is injected by default on every section index page.
-
-### Abbreviation expansion
-
-MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline superscript anchor links. The **first occurrence** of each abbreviation in body text gets a superscript number (`API¹`) that links to a numbered glossary appended at the bottom of the page. Subsequent occurrences are left as plain text. Abbreviations that only appear in headings or other non-expandable contexts are included in the glossary as plain numbered entries (no inline back-link). Uses only native Confluence storage format — no plugins required.
-
----
-
-## Known limitations
-
-| Feature | Behaviour |
-|---|---|
-| **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro colours. `danger`, `error`, `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
-| **Abbreviation tooltips** | No native tooltip support. First occurrence gets a superscript anchor link (`API¹`); all definitions collected in a numbered glossary at the bottom of the page. No plugins required. |
-| **Page ordering** | Confluence sorts child pages alphabetically; the v2 REST API has no write endpoint for ordering. |
-| **Code language aliases** | Short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
-| **Unrecognised blocks** | Preserved as a visible `warning` macro — no content is silently lost. |
+| [docs/commands.md](docs/commands.md) | Full flag reference for all four commands |
+| [docs/features.md](docs/features.md) | Supported Markdown / Material features and known limitations |
+| [Setup.md](Setup.md) | Development environment setup |
 
 ---
 
@@ -474,20 +140,16 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline su
 
 ![Architecture](https://raw.githubusercontent.com/jeckyl2010/mkdocs2confluence/main/docs/architecture.png)
 
-Each stage is a separate Python module under `src/mkdocs_to_confluence/`. The **plan** phase makes all API read calls (find existing pages); the **execute** phase makes all write calls, ensuring parent pages always exist before their children.
-
-The `sync/` package is a self-contained pipeline for the `sync-comments` command: it fetches Confluence comments, anchors them to source lines, posts them as GitHub review threads via GraphQL, and resolves them on PR merge. The `ReviewPlatformClient` Protocol keeps GitHub-specific code isolated so future GitLab or Azure DevOps adapters slot in without touching the core.
+Pipeline stages: **loader → preprocess → IR → transforms → emitter → publisher**. The plan phase makes all API read calls; the execute phase makes all write calls in nav order so parent pages always exist before their children.
 
 ---
 
 ## Development
 
-See [Setup.md](Setup.md) for environment setup.
-
 ```bash
-uv run pytest -q                        # run tests
-uv run ruff check src tests             # lint
-uv run vulture src --min-confidence 80  # dead code check
-uv run mypy src                         # type-check
-uv run bandit -r src -ll                # security scan
+uv run pytest -q
+uv run ruff check src tests
+uv run mypy src
+uv run vulture src --min-confidence 80
 ```
+
