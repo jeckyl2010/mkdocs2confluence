@@ -1,0 +1,65 @@
+name: 'MkDocs to Confluence'
+description: 'Compile MkDocs / Zensical docs and publish them to Confluence Cloud'
+author: 'Anders Hybertz'
+
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+
+inputs:
+  token:
+    description: 'Confluence API token (maps to CONFLUENCE_API_TOKEN)'
+    required: true
+  config:
+    description: 'Path to mkdocs.yml'
+    required: false
+    default: 'mkdocs.yml'
+  version:
+    description: 'mk2conf version to install (e.g. "0.10.3"). Defaults to latest on PyPI.'
+    required: false
+    default: ''
+  dry-run:
+    description: 'Compute the sync plan and print it without touching Confluence'
+    required: false
+    default: 'false'
+  section:
+    description: 'Publish only this nav section (slash-separated, e.g. "Guide" or "Guide/Setup")'
+    required: false
+    default: ''
+  page:
+    description: 'Publish only this single page (relative path, e.g. "guide/setup.md")'
+    required: false
+    default: ''
+  prune:
+    description: 'Delete managed Confluence pages no longer present in the MkDocs nav'
+    required: false
+    default: 'false'
+  quiet:
+    description: 'Suppress per-item progress output; only show final summary and warnings'
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install mk2conf
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          pip install "mkdocs2confluence==${{ inputs.version }}"
+        else
+          pip install mkdocs2confluence
+        fi
+
+    - name: Publish to Confluence
+      shell: bash
+      env:
+        CONFLUENCE_API_TOKEN: ${{ inputs.token }}
+      run: |
+        ARGS="--config ${{ inputs.config }}"
+        [[ "${{ inputs.dry-run }}" == "true" ]]  && ARGS="$ARGS --dry-run"
+        [[ -n "${{ inputs.section }}" ]]          && ARGS="$ARGS --section '${{ inputs.section }}'"
+        [[ -n "${{ inputs.page }}" ]]             && ARGS="$ARGS --page '${{ inputs.page }}'"
+        [[ "${{ inputs.prune }}" == "true" ]]     && ARGS="$ARGS --prune"
+        [[ "${{ inputs.quiet }}" == "true" ]]     && ARGS="$ARGS --quiet"
+        eval mk2conf publish $ARGS

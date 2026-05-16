@@ -53,6 +53,53 @@ git clone https://github.com/jeckyl2010/mkdocs2confluence.git
 cd mkdocs2confluence && uv sync
 ```
 
+### GitHub Actions
+
+Add `mk2conf` to any CI/CD pipeline with the official action. Store your Confluence API token as a repository secret (`CONFLUENCE_API_TOKEN`) and add a workflow step:
+
+```yaml
+- name: Publish docs to Confluence
+  uses: jeckyl2010/mkdocs2confluence@v1
+  with:
+    token: ${{ secrets.CONFLUENCE_API_TOKEN }}
+```
+
+**Full example** — publish on every push to `main`:
+
+```yaml
+name: Publish docs
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'mkdocs.yml']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish docs to Confluence
+        uses: jeckyl2010/mkdocs2confluence@v1
+        with:
+          token: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          prune: 'true'   # remove pages deleted from nav
+```
+
+**All inputs:**
+
+| Input | Required | Default | Description |
+|---|---|---|---|
+| `token` | ✅ | — | Confluence API token |
+| `config` | | `mkdocs.yml` | Path to mkdocs.yml |
+| `version` | | latest | Pin a specific `mk2conf` version (e.g. `"0.10.3"`) |
+| `dry-run` | | `false` | Print sync plan without publishing |
+| `section` | | — | Publish only a nav section (e.g. `"Guide/Setup"`) |
+| `page` | | — | Publish only a single page (e.g. `"guide/setup.md"`) |
+| `prune` | | `false` | Delete managed pages removed from nav |
+| `quiet` | | `false` | Suppress per-item progress output |
+
 ---
 
 ## Quick start
