@@ -1,0 +1,51 @@
+{
+  "name": "copilot-auto",
+  "encoder_type": "openai",
+  "encoder_name": "text-embedding-3-small",
+  "routes": [
+    {
+      "name": "local-coder",
+      "utterances": [
+        "fix this unit test",
+        "write helper function",
+        "small refactor",
+        "update documentation",
+        "explain this file"
+      ],
+      "description": "Small coding, documentation, unit test and local file tasks"
+    },
+    {
+      "name": "repo-analysis",
+      "utterances": [
+        "review repository",
+        "analyze folder",
+        "multi-file change",
+        "parser renderer",
+        "review fixtures",
+        "compare generated Confluence storage format"
+      ],
+      "description": "Repository-scale analysis and multi-file implementation work"
+    },
+    {
+      "name": "senior-review",
+      "utterances": [
+        "challenge architecture",
+        "review design",
+        "tradeoff analysis",
+        "senior review",
+        "assess architectural flaws"
+      ],
+      "description": "Senior architecture and design review"
+    },
+    {
+      "name": "gpt-review",
+      "utterances": [
+        "final review",
+        "release validation",
+        "check for subtle bugs",
+        "review before publishing"
+      ],
+      "description": "Final validation and release-quality review"
+    }
+  ]
+}

@@ -35,19 +35,49 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
       timeout: 240
 
+  - model_name: safe-default
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      api_key: os.environ/OPENAI_API_KEY
+      timeout: 180
+
+  - model_name: github-default
+    litellm_params:
+      model: github/gpt-5.4-medium
+      api_key: os.environ/GITHUB_TOKEN
+      timeout: 180
+
+  - model_name: local-embeddings
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_base: http://192.168.64.1:8000/v1
+      api_key: dummy
+      timeout: 60
+
+  - model_name: copilot-auto
+    litellm_params:
+      model: auto_router/copilot-auto
+      auto_router_config_path: /app/copilot_auto_router.json
+      auto_router_default_model: local-coder
+      auto_router_embedding_model: local-embeddings
+      timeout: 240
+
 router_settings:
   routing_strategy: simple-shuffle
 
   fallbacks:
     - local-coder:
         - repo-analysis
+        - github-default
     - repo-analysis:
         - senior-review
         - gpt-review
+        - github-default
     - senior-review:
         - gpt-review
+        - github-default
     - gpt-review:
-        - senior-review
+        - github-default
 
 litellm_settings:
   drop_params: true
@@ -66,3 +96,4 @@ litellm_settings:
 general_settings:
   max_budget: 25
   master_key: os.environ/LITELLM_MASTER_KEY
+

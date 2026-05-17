@@ -30,10 +30,21 @@ container run \
   --publish 127.0.0.1:4000:4000 \
   --env-file .env \
   --volume "$PWD/litellm_config.yaml:/app/config.yaml:ro" \
+  --volume "$PWD/copilot_auto_router.json:/app/copilot_auto_router.json:ro" \
   ghcr.io/berriai/litellm-non_root:1.85.0 \
   --config /app/config.yaml \
   --host 0.0.0.0 \
   --port 4000
+```
+
+```bash
+export COPILOT_PROVIDER_TYPE=openai
+export COPILOT_PROVIDER_BASE_URL=http://localhost:4000/v1
+export COPILOT_PROVIDER_API_KEY=1234
+export COPILOT_MODEL=local-coder
+export COPILOT_PROVIDER_MAX_PROMPT_TOKENS=32768
+export COPILOT_PROVIDER_MAX_OUTPUT_TOKENS=8192
+export COPILOT_MODEL=copilot-auto
 ```
 
 LiteLLM endpoint:
