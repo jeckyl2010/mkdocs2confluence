@@ -37,3 +37,4 @@ junit.xml
 # mk2conf runtime state
 .mk2conf-pages.json
 .mk2conf-sync-state.json
+.env

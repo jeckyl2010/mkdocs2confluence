@@ -1,0 +1,68 @@
+# litellm_config.yaml
+# Local-first LiteLLM setup for mkdocs2confluence
+# Default: local oMLX/Qwen
+# Escalation: DeepSeek
+# Final review: Claude/GPT
+# Cache: Redis
+
+model_list:
+  - model_name: local-coder
+    litellm_params:
+      model: openai/qwen-coder
+      api_base: http://192.168.64.1:8000/v1
+      api_key: dummy
+      timeout: 120
+    model_info:
+      mode: chat
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+  - model_name: repo-analysis
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+      timeout: 180
+
+  - model_name: senior-review
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 240
+
+  - model_name: gpt-review
+    litellm_params:
+      model: openai/gpt-5.4
+      api_key: os.environ/OPENAI_API_KEY
+      timeout: 240
+
+router_settings:
+  routing_strategy: simple-shuffle
+
+  fallbacks:
+    - local-coder:
+        - repo-analysis
+    - repo-analysis:
+        - senior-review
+        - gpt-review
+    - senior-review:
+        - gpt-review
+    - gpt-review:
+        - senior-review
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  turn_off_message_logging: true
+  request_timeout: 240
+  num_retries: 2
+
+  cache: false
+  cache_params:
+    type: redis
+    host: host.docker.internal
+    port: 6379
+    ttl: 1800
+
+general_settings:
+  max_budget: 25
+  master_key: os.environ/LITELLM_MASTER_KEY
