@@ -10,6 +10,7 @@ import pytest
 
 from mkdocs_to_confluence.loader.config import ConfluenceConfig
 from mkdocs_to_confluence.publisher.client import ConfluenceClient, ConfluenceError
+from mkdocs_to_confluence.publisher.http_retry import http_request_with_retry
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -974,10 +975,10 @@ def test_request_retries_on_429_then_succeeds(
         _rate_limit_response(),     # attempt 0 → 429
         _json_response({"id": "1"}),  # attempt 1 → 200
     )
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
-        resp = client._request(lambda: client._http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op")
+    with httpx.Client(transport=transport) as http:
+        resp = http_request_with_retry(
+            lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op"
+        )
     assert resp.status_code == 200
     assert len(transport.requests) == 2
     out = capsys.readouterr().out
@@ -992,10 +993,10 @@ def test_request_respects_retry_after_header(monkeypatch: pytest.MonkeyPatch) ->
         _rate_limit_response(retry_after="5"),
         _json_response({}),
     )
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
-        client._request(lambda: client._http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op")
+    with httpx.Client(transport=transport) as http:
+        http_request_with_retry(
+            lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op"
+        )
     assert sleeps == [5.0]
 
 
@@ -1006,10 +1007,10 @@ def test_request_caps_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
         _rate_limit_response(retry_after="9999"),  # absurd value
         _json_response({}),
     )
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
-        client._request(lambda: client._http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op")
+    with httpx.Client(transport=transport) as http:
+        http_request_with_retry(
+            lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op"
+        )
     assert sleeps == [60.0]
 
 
@@ -1021,10 +1022,10 @@ def test_request_uses_backoff_without_retry_after(monkeypatch: pytest.MonkeyPatc
         _rate_limit_response(),  # no Retry-After
         _json_response({}),
     )
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
-        client._request(lambda: client._http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op")
+    with httpx.Client(transport=transport) as http:
+        http_request_with_retry(
+            lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op"
+        )
     assert len(sleeps) == 1
     assert sleeps[0] == 1.0  # 2^0 + 0.0 jitter
 
@@ -1037,11 +1038,11 @@ def test_request_raises_after_max_retries(monkeypatch: pytest.MonkeyPatch) -> No
         _rate_limit_response(),
         _rate_limit_response(),  # 4 total = 1 + 3 retries
     )
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+    with httpx.Client(transport=transport) as http:
         with pytest.raises(ConfluenceError, match="rate-limited after 3 retries"):
-            client._request(lambda: client._http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op")
+            http_request_with_retry(
+                lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op"
+            )
     assert len(transport.requests) == 4
 
 
@@ -1052,10 +1053,10 @@ def test_request_prints_warning_each_retry(monkeypatch: pytest.MonkeyPatch, caps
         _rate_limit_response(),
         _json_response({}),
     )
-    config = _make_config()
-    with ConfluenceClient(config) as client:
-        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
-        client._request(lambda: client._http.get("https://example.atlassian.net/wiki/api/v2/test"), "my_op")
+    with httpx.Client(transport=transport) as http:
+        http_request_with_retry(
+            lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "my_op"
+        )
     out = capsys.readouterr().out
     assert out.count("rate-limited") == 2
     assert "attempt 1/3" in out

@@ -7,9 +7,6 @@ Authentication is HTTP Basic with email + API token.
 from __future__ import annotations
 
 import base64
-import random
-import time
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
@@ -17,9 +14,10 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from mkdocs_to_confluence.loader.config import ConfluenceConfig
+from mkdocs_to_confluence.publisher.http_retry import ConfluenceError, http_request_with_retry
 
-_MAX_RETRIES = 3
-_RETRY_AFTER_CAP = 60.0  # seconds — cap Retry-After to avoid indefinite stalls
+# Re-export so existing callers (`from publisher.client import ConfluenceError`) keep working.
+__all__ = ["ConfluenceClient", "ConfluenceError"]
 
 
 def _extract_cursor(next_url: str) -> str:
@@ -27,10 +25,6 @@ def _extract_cursor(next_url: str) -> str:
     qs = parse_qs(urlparse(next_url).query)
     cursors = qs.get("cursor", [])
     return cursors[0] if cursors else ""
-
-
-class ConfluenceError(RuntimeError):
-    """Raised when the Confluence API returns an unexpected response."""
 
 
 class ConfluenceClient:
@@ -91,35 +85,6 @@ class ConfluenceClient:
             raise ConfluenceError(
                 f"{context}: HTTP {response.status_code} — {response.text[:400]}"
             )
-
-    def _request(self, fn: Callable[[], httpx.Response], context: str) -> httpx.Response:
-        """Call *fn* and retry up to ``_MAX_RETRIES`` times on HTTP 429.
-
-        Respects the ``Retry-After`` response header (capped at
-        ``_RETRY_AFTER_CAP`` seconds).  Falls back to exponential backoff with
-        jitter when the header is absent or invalid.  Prints a warning on each
-        retry.  Raises :class:`ConfluenceError` if all retries are exhausted.
-        """
-        for attempt in range(_MAX_RETRIES + 1):
-            resp = fn()
-            if resp.status_code != 429:
-                return resp
-            if attempt == _MAX_RETRIES:
-                raise ConfluenceError(
-                    f"{context}: rate-limited after {_MAX_RETRIES} retries — giving up"
-                )
-            header = resp.headers.get("Retry-After", "")
-            try:
-                wait = min(float(header), _RETRY_AFTER_CAP)
-            except ValueError:
-                wait = min(2.0 ** attempt + random.uniform(0.0, 1.0), _RETRY_AFTER_CAP)
-            print(
-                f"  ⚠ rate-limited ({context}) — retrying in {wait:.1f}s"
-                f" (attempt {attempt + 1}/{_MAX_RETRIES})",
-                flush=True,
-            )
-            time.sleep(wait)
-        raise ConfluenceError(f"{context}: rate-limited")  # unreachable
 
     # ── Space ──────────────────────────────────────────────────────────────────
 
@@ -228,7 +193,10 @@ class ConfluenceClient:
         payload: dict[str, Any] = {"spaceId": space_id, "title": title}
         if parent_id is not None:
             payload["parentId"] = parent_id
-        resp = self._request(lambda: self._http.post(self._v2("/folders"), json=payload), f"create_folder({title!r})")
+        resp = http_request_with_retry(
+            lambda: self._http.post(self._v2("/folders"), json=payload),
+            f"create_folder({title!r})",
+        )
         if resp.status_code == 400:
             body = resp.text
             if "folder exists with the same title" in body.lower() or "same title" in body.lower():
@@ -278,7 +246,10 @@ class ConfluenceClient:
         if parent_id is not None:
             payload["parentId"] = parent_id
 
-        resp = self._request(lambda: self._http.post(self._v2("/pages"), json=payload), f"create_page({title!r})")
+        resp = http_request_with_retry(
+            lambda: self._http.post(self._v2("/pages"), json=payload),
+            f"create_page({title!r})",
+        )
         self._raise_for_status(resp, f"create_page({title!r})")
         return resp.json()  # type: ignore[no-any-return]
 
@@ -315,7 +286,7 @@ class ConfluenceClient:
         }
         if parent_id is not None:
             payload["parentId"] = parent_id
-        resp = self._request(
+        resp = http_request_with_retry(
             lambda: self._http.put(self._v2(f"/pages/{page_id}"), json=payload),
             f"update_page({page_id!r})",
         )
@@ -335,7 +306,7 @@ class ConfluenceClient:
 
         if get_resp.status_code == 200:
             current_version = get_resp.json().get("version", {}).get("number", 1)
-            self._request(
+            http_request_with_retry(
                 lambda: self._http.put(
                     prop_url,
                     json={"key": key, "value": "full-width", "version": {"number": current_version + 1}},
@@ -343,7 +314,7 @@ class ConfluenceClient:
                 "set_page_full_width",
             )
         else:
-            self._request(
+            http_request_with_retry(
                 lambda: self._http.post(
                     self._v1(f"/content/{page_id}/property"),
                     json={"key": key, "value": "full-width", "version": {"number": 1}},
@@ -376,7 +347,7 @@ class ConfluenceClient:
         get_resp = self._http.get(prop_url)
         if get_resp.status_code == 200:
             current_version = get_resp.json().get("version", {}).get("number", 1)
-            self._request(
+            http_request_with_retry(
                 lambda: self._http.put(
                     prop_url,
                     json={"key": key, "value": hash_str, "version": {"number": current_version + 1}},
@@ -384,7 +355,7 @@ class ConfluenceClient:
                 "set_content_hash",
             )
         else:
-            self._request(
+            http_request_with_retry(
                 lambda: self._http.post(
                     self._v1(f"/content/{page_id}/property"),
                     json={"key": key, "value": hash_str, "version": {"number": 1}},
@@ -406,7 +377,7 @@ class ConfluenceClient:
             for lbl in existing_resp.json().get("results", []):
                 name = lbl.get("name", "")
                 if name:
-                    self._request(
+                    http_request_with_retry(
                         lambda: self._http.delete(label_url, params={"name": name}),
                         f"set_page_labels({page_id!r})",
                     )
@@ -414,7 +385,10 @@ class ConfluenceClient:
         # Apply new labels (if any)
         if labels:
             payload = [{"prefix": "global", "name": lbl} for lbl in labels]
-            resp = self._request(lambda: self._http.post(label_url, json=payload), f"set_page_labels({page_id!r})")
+            resp = http_request_with_retry(
+                lambda: self._http.post(label_url, json=payload),
+                f"set_page_labels({page_id!r})",
+            )
             self._raise_for_status(resp, f"set_page_labels({page_id!r})")
 
     def set_page_status(self, page_id: str, status_key: str, space_key: str | None = None) -> None:
@@ -461,7 +435,7 @@ class ConfluenceClient:
 
         # `status` query param tells the API which page version to target (current vs draft).
         url = self._v1(f"/content/{page_id}/state")
-        resp = self._request(
+        resp = http_request_with_retry(
             lambda: self._http.put(url, json=body, params={"status": "current"}),
             f"set_page_status({page_id!r}, {status_key!r})",
         )
@@ -533,7 +507,7 @@ class ConfluenceClient:
         else:
             url = self._v1(f"/content/{page_id}/child/attachment")
 
-        resp = self._request(
+        resp = http_request_with_retry(
             lambda: self._http.post(
                 url,
                 files={"file": (filename, content)},
@@ -559,7 +533,7 @@ class ConfluenceClient:
         get_resp = self._http.get(url)
         if get_resp.status_code == 200:
             return  # already stamped
-        self._request(
+        http_request_with_retry(
             lambda: self._http.post(
                 self._v2(f"/pages/{page_id}/properties"),
                 json={"key": "mk2conf-managed", "value": True},
@@ -599,7 +573,10 @@ class ConfluenceClient:
 
     def delete_page(self, page_id: str) -> None:
         """Permanently delete *page_id* from Confluence."""
-        resp = self._request(lambda: self._http.delete(self._v2(f"/pages/{page_id}")), f"delete_page({page_id!r})")
+        resp = http_request_with_retry(
+            lambda: self._http.delete(self._v2(f"/pages/{page_id}")),
+            f"delete_page({page_id!r})",
+        )
         self._raise_for_status(resp, f"delete_page({page_id!r})")
 
     # ── Comments ───────────────────────────────────────────────────────────────
@@ -641,7 +618,7 @@ class ConfluenceClient:
     def add_comment_reply(self, comment_id: str, reply_text: str) -> None:
         """Post a reply to *comment_id* using the v1 content API."""
         url = self._v1(f"/content/{comment_id}/child/comment")
-        resp = self._request(lambda: self._http.post(url, json={
+        resp = http_request_with_retry(lambda: self._http.post(url, json={
             "type": "comment",
             "body": {
                 "storage": {
@@ -660,7 +637,7 @@ class ConfluenceClient:
         data = get_resp.json()
         version = data.get("version", {}).get("number", 1)
         body_value = data.get("body", {}).get("storage", {}).get("value", "")
-        resp = self._request(lambda: self._http.put(url, json={
+        resp = http_request_with_retry(lambda: self._http.put(url, json={
             "version": {"number": version + 1},
             "resolved": True,
             "body": {"representation": "storage", "value": body_value},
@@ -675,7 +652,7 @@ class ConfluenceClient:
         data = get_resp.json()
         version = data.get("version", {}).get("number", 1)
         body_value = data.get("body", {}).get("storage", {}).get("value", "")
-        resp = self._request(lambda: self._http.put(url, json={
+        resp = http_request_with_retry(lambda: self._http.put(url, json={
             "version": {"number": version + 1},
             "resolved": True,
             "body": {"representation": "storage", "value": body_value},
