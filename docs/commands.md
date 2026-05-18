@@ -48,7 +48,38 @@ mk2conf publish [--config PATH] [--page PATH] [--section SECTION] [--dry-run] [-
 - Local assets are uploaded as Confluence page attachments automatically.
 - **Unchanged pages are skipped** — a `sha256` hash of the compiled output is stored as a hidden page property; identical content produces no version bump and no notification.
 
-### Mermaid rendering
+### Confluence connection
+
+| Field | Required | Description |
+|---|---|---|
+| `base_url` | ✅ | Your Atlassian Cloud URL, e.g. `https://yourorg.atlassian.net`. Must use **HTTPS**. |
+| `email` | ✅ | The email address tied to your Confluence API token. |
+| `token` | ✅ | Confluence API token. Use `!ENV VAR_NAME` to avoid committing secrets. |
+| `space_key` | ✅* | Target space key, e.g. `TECH`. Required unless `parent_page_id` is set. |
+| `parent_page_id` | ✅* | Root parent page ID. Required unless `space_key` is set. |
+| `full_width` | *(true)* | Apply full-width layout to every published page. |
+| `allow_any_host` | *(false)* | Set `true` for self-hosted Confluence — see below. |
+
+#### Self-hosted Confluence (`allow_any_host`)
+
+By default mk2conf only allows `*.atlassian.net` as the `base_url` host. This prevents a compromised or attacker-influenced `mkdocs.yml` from redirecting Confluence credentials to an arbitrary host.
+
+If you are publishing to a **self-hosted Confluence** instance, add `allow_any_host: true` to your `confluence:` block:
+
+```yaml
+confluence:
+  base_url: https://confluence.internal.example.com
+  space_key: TECH
+  email: user@example.com
+  token: !ENV CONFLUENCE_API_TOKEN
+  allow_any_host: true
+```
+
+> **Security note:** setting `allow_any_host: true` means mk2conf will send your Confluence credentials to whatever host `base_url` points to. Ensure the value is not influenced by untrusted repository content (e.g. open PRs from forks) when running in CI.
+
+---
+
+
 
 | `mermaid_render` | Behaviour |
 |---|---|
