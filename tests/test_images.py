@@ -318,3 +318,44 @@ def test_resolve_local_assets_skips_bare_word_link(tmp_path: Path) -> None:
     nodes = _wrap(link)
     _, attachments = resolve_local_assets(nodes, page_path=page_path, docs_dir=docs_dir)
     assert attachments == []
+
+
+# ── Security: asset path-traversal containment (CWE-22) ──────────────────────
+
+
+def test_resolve_asset_path_rejects_dotdot_escape(tmp_path: Path) -> None:
+    """An asset path that resolves outside docs_dir must return None."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("top-secret", encoding="utf-8")
+    page_dir = docs_dir
+    result = _resolve_asset_path("../secret.txt", page_dir, docs_dir)
+    assert result is None
+
+
+def test_resolve_asset_path_rejects_absolute_escape(tmp_path: Path) -> None:
+    """An absolute-looking path that resolves outside docs_dir must return None."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    outside = tmp_path / "outside.png"
+    outside.write_bytes(b"PNG")
+    page_dir = docs_dir
+    # Craft a relative path that resolves to outside via page_dir
+    result = _resolve_asset_path("../outside.png", page_dir, docs_dir)
+    assert result is None
+
+
+def test_resolve_local_assets_image_outside_docs_dir_is_skipped(tmp_path: Path) -> None:
+    """An image with a ../escape path must not be added as an attachment."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    secret = tmp_path / "secret.png"
+    secret.write_bytes(b"PNG")
+    page_path = docs_dir / "index.md"
+    img = ImageNode(src="../secret.png", alt="leaked")
+    nodes = _wrap(img)
+    updated, attachments = resolve_local_assets(nodes, page_path=page_path, docs_dir=docs_dir)
+    assert attachments == []
+    # src must be unchanged (treated as unresolved)
+    assert updated[0].children[0].src == "../secret.png"  # type: ignore[attr-defined]

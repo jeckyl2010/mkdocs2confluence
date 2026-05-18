@@ -33,6 +33,7 @@ class ConfluenceConfig:
     github_repo: str | None = None          # "owner/repo" — required for sync-comments
     github_token: str | None = None         # GitHub PAT (falls back to GITHUB_TOKEN env var)
     github_base_branch: str = "main"        # base branch for review PRs
+    allow_any_host: bool = False  # set True to allow non-Atlassian Cloud base_url hosts
 
 
 @dataclass(frozen=True)
@@ -209,6 +210,29 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         if not isinstance(base_url, str) or not base_url.strip():
             raise ConfigError("mkdocs.yml: 'confluence.base_url' is required and must be a non-empty string.")
 
+        # Security: require HTTPS so credentials are never sent in plaintext.
+        parsed_url = urlparse(base_url.strip())
+        if parsed_url.scheme != "https":
+            raise ConfigError(
+                "mkdocs.yml: 'confluence.base_url' must use HTTPS (got "
+                f"{parsed_url.scheme!r}). Plain HTTP would transmit credentials in "
+                "cleartext."
+            )
+
+        allow_any_host = bool(raw_conf.get("allow_any_host", False))
+
+        # Security: guard against a repo-controlled base_url redirecting credentials
+        # to an attacker host.  Non-Atlassian Cloud hosts require an explicit opt-in.
+        host = parsed_url.hostname or ""
+        _is_atlassian = host == "atlassian.net" or host.endswith(".atlassian.net")
+        if not _is_atlassian and not allow_any_host:
+            raise ConfigError(
+                f"mkdocs.yml: 'confluence.base_url' host {host!r} is not an "
+                "Atlassian Cloud domain (*.atlassian.net). If you are using a "
+                "self-hosted Confluence instance, add 'allow_any_host: true' under "
+                "the 'confluence:' block to acknowledge this."
+            )
+
         space_key: str | None = raw_conf.get("space_key") or None
         if space_key:
             space_key = space_key.strip() or None
@@ -248,6 +272,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             github_token=(str(raw_conf["github_token"]) if raw_conf.get("github_token")
                           else os.environ.get("GITHUB_TOKEN") or None),
             github_base_branch=str(raw_conf.get("github_base_branch", "main")),
+            allow_any_host=allow_any_host,
         )
 
     # --- extra_css (optional) ---

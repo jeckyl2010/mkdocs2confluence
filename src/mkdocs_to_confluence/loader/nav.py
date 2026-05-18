@@ -220,7 +220,14 @@ def _traverse(nav: list[Any], docs_dir: Path, level: int, nav_file: str = ".page
         elif isinstance(value, str):
             # Could be a page file or a directory reference (awesome-pages style)
             target = (docs_dir / value).resolve()
-            if target.is_dir():
+            docs_root = docs_dir.resolve()
+            if not target.is_relative_to(docs_root):
+                warnings.warn(
+                    f"Nav page '{title}' resolves outside docs_dir ('{target}') — "
+                    "it will be omitted from the resolved nav.",
+                    stacklevel=4,
+                )
+            elif target.is_dir():
                 children = _resolve_nav_dir(target, docs_dir, level + 1, nav_file)
                 nodes.append(
                     NavNode(

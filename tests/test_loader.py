@@ -692,3 +692,73 @@ class TestCLI:
 
         with pytest.raises((SystemExit, FileNotFoundError)):
             main(["publish"])
+
+
+# ---------------------------------------------------------------------------
+# Security: nav path-traversal containment (CWE-22)
+# ---------------------------------------------------------------------------
+
+
+class TestNavPathTraversalContainment:
+    """Nav entries that escape docs_dir must be rejected with a warning."""
+
+    def _make_yml(self, tmp_path: Path, nav_entry: str) -> Path:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        yml = tmp_path / "mkdocs.yml"
+        yml.write_text(
+            textwrap.dedent(f"""\
+                site_name: Security Test
+                nav:
+                  - Secret: {nav_entry}
+            """),
+            encoding="utf-8",
+        )
+        return yml
+
+    def test_dotdot_path_is_rejected_with_warning(self, tmp_path: Path) -> None:
+        secret = tmp_path / "secret.txt"
+        secret.write_text("top-secret", encoding="utf-8")
+        yml = self._make_yml(tmp_path, "../secret.txt")
+        config = load_config(yml)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            nodes = resolve_nav(config)
+        # Node must NOT be added (or if added, source_path must be None)
+        page_nodes = [n for n in nodes if n.docs_path is not None]
+        for node in page_nodes:
+            assert node.source_path is None or not str(node.source_path).endswith("secret.txt")
+        assert any("docs_dir" in str(w.message) or "omitted" in str(w.message) for w in caught)
+
+    def test_dotdot_path_source_path_not_set(self, tmp_path: Path) -> None:
+        """Even when the external file exists, source_path must not point outside docs_dir."""
+        secret = tmp_path / "outside.md"
+        secret.write_text("# Outside", encoding="utf-8")
+        yml = self._make_yml(tmp_path, "../outside.md")
+        config = load_config(yml)
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            nodes = resolve_nav(config)
+        for node in [n for n in nodes if n.docs_path is not None]:
+            if node.source_path is not None:
+                assert node.source_path.is_relative_to(config.docs_dir)
+
+    def test_normal_page_within_docs_dir_accepted(self, tmp_path: Path) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        page = docs / "index.md"
+        page.write_text("# Index", encoding="utf-8")
+        yml = tmp_path / "mkdocs.yml"
+        yml.write_text(
+            textwrap.dedent("""\
+                site_name: Test
+                nav:
+                  - Home: index.md
+            """),
+            encoding="utf-8",
+        )
+        config = load_config(yml)
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            nodes = resolve_nav(config)
+        assert nodes[0].source_path == page.resolve()

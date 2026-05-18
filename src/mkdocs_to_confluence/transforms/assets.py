@@ -134,12 +134,13 @@ def _resolve_asset_path(src: str, page_dir: Path, docs_dir: Path) -> Path | None
     """Try to find *src* relative to *page_dir* then *docs_dir*.
 
     Returns the resolved absolute path, or ``None`` when the file cannot be
-    found in either location.
+    found in either location or escapes ``docs_dir``.
     """
+    docs_root = docs_dir.resolve()
     candidate = (page_dir / src).resolve()
-    if candidate.exists():
+    if candidate.exists() and candidate.is_relative_to(docs_root):
         return candidate
     candidate = (docs_dir / src).resolve()
-    if candidate.exists():
+    if candidate.exists() and candidate.is_relative_to(docs_root):
         return candidate
     return None

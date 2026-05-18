@@ -466,3 +466,74 @@ def test_extra_css_list_is_processed(tmp_path: Path) -> None:
     # extra_styles is None when parsed styles are empty (no admonition overrides)
     # but the code path must execute without error
     assert config is not None
+
+
+# ── Security: base_url SSRF containment (CWE-918) ────────────────────────────
+
+
+def test_base_url_http_rejected(tmp_path: Path) -> None:
+    """Plain HTTP base_url must be rejected — credentials would be sent in cleartext."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: http://example.atlassian.net
+  space_key: TECH
+  email: user@example.com
+  token: tok
+""",
+    )
+    with pytest.raises(ConfigError, match="HTTPS"):
+        load_config(config_file)
+
+
+def test_base_url_non_atlassian_rejected_without_override(tmp_path: Path) -> None:
+    """A non-Atlassian host must be rejected unless allow_any_host: true is set."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://attacker.example.com
+  space_key: TECH
+  email: user@example.com
+  token: tok
+""",
+    )
+    with pytest.raises(ConfigError, match="atlassian.net"):
+        load_config(config_file)
+
+
+def test_base_url_non_atlassian_accepted_with_allow_any_host(tmp_path: Path) -> None:
+    """allow_any_host: true permits self-hosted Confluence."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://confluence.internal.example.com
+  space_key: TECH
+  email: user@example.com
+  token: tok
+  allow_any_host: true
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.base_url == "https://confluence.internal.example.com"
+    assert config.confluence.allow_any_host is True
+
+
+def test_base_url_atlassian_net_accepted(tmp_path: Path) -> None:
+    """Standard *.atlassian.net hosts must pass validation without any override."""
+    config_file = _write_mkdocs(
+        tmp_path,
+        extra="""
+confluence:
+  base_url: https://myorg.atlassian.net
+  space_key: TECH
+  email: user@example.com
+  token: tok
+""",
+    )
+    config = load_config(config_file)
+    assert config.confluence is not None
+    assert config.confluence.allow_any_host is False
