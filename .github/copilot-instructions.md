@@ -45,44 +45,16 @@ You are building a Python CLI tool (`mk2conf`) that compiles MkDocs-flavoured Ma
 
 - Every feature addition or removal **must** include a README update
 - Check `README.md` before closing any task that changes user-facing functionality (flags, commands, supported features, known limitations)
-- Keep `CLAUDE.md` and `.github/copilot-instructions.md` in sync — when updating one, always update both in the same task
+- `.github/copilot-instructions.md` is the single source of truth — `CLAUDE.md` is a pointer to it
 
 ## Commit messages
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`, `perf:`
 - Subject line under 72 characters, imperative mood, no trailing period
 
-## Pre-release checklist
+## Release
 
-Run all four checks before tagging a release. All must pass:
-
-```bash
-uv run pytest -q                        # tests
-uv run ruff check src tests             # lint (use --fix to auto-correct import sort)
-uv run mypy src                         # type-check
-uv run vulture src --min-confidence 80  # dead code
-```
-
-**Release order** (never tag before the branch push is confirmed):
-
-```bash
-# 1. Bump version in pyproject.toml
-git add pyproject.toml
-git commit -m "chore: bump version to vX.Y.Z"
-
-# 2. Push to main first — confirm it landed
-git push origin main
-
-# 3. Only then tag and push (push exits 0 = confirmed)
-git tag vX.Y.Z
-git push origin vX.Y.Z
-
-# 4. Create the GitHub release — notes: bullet-point summary of commits since last tag
-uv build -q
-gh release create vX.Y.Z dist/mkdocs_to_confluence-X.Y.Z* \
-  --title "vX.Y.Z" \
-  --notes "$(git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --oneline --no-merges | sed 's/^/- /')"
-```
+Use the `/release` skill (`.github/skills/release/SKILL.md`). It contains the full pre-release checklist and release order. The key invariant: **always push main and confirm before tagging.**
 
 ## Working principles (Karpathy's 4 rules)
 
@@ -160,22 +132,9 @@ For multi-step tasks, state a brief plan — numbered steps, one line each, 3–
 
 ## Developer tooling
 
-### Pre-commit hooks
-
-Configured via `.pre-commit-config.yaml`: gitleaks (secret scan), ruff (lint), mypy (type check), vulture (dead code). Run once after cloning:
-
-```bash
-uv pip install -e ".[dev]"
-pre-commit install
-```
-
-### Graphify (Copilot CLI skill)
-
-Installed via `uvx --from graphifyy graphify copilot install` into `~/.copilot/skills/graphify/`. Run `/graphify .` from within the Copilot CLI when requested to build a queryable knowledge graph (`graphify-out/graph.html`, `GRAPH_REPORT.md`, `graph.json`). The `graphify-out/` directory is git-ignored — regenerate as needed.
-
-### Context7 (MCP server)
-
-Configured in `~/.copilot/mcp-config.json`. Available automatically in all Copilot CLI sessions via `/mcp`. Provides live, version-accurate documentation for external libraries (MkDocs, Confluence REST API, Python-Markdown) — prevents hallucinated or outdated API details.
+- **Setup:** See `Setup.md` for environment setup and pre-commit hook installation.
+- **Graphify:** Run `/graphify .` in Copilot CLI to build a knowledge graph of the codebase (`graphify-out/` is git-ignored).
+- **Context7:** MCP server available via `/mcp` — use it to fetch live API docs before implementing any external API call.
 
 ## External inspiration
 
