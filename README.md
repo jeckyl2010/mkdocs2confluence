@@ -140,7 +140,13 @@ mk2conf publish                                 # go live
 
 ![Architecture](https://raw.githubusercontent.com/jeckyl2010/mkdocs2confluence/main/docs/architecture.png)
 
-Pipeline stages: **loader → preprocess → IR → transforms → emitter → publisher**. The plan phase makes all API read calls; the execute phase makes all write calls in nav order so parent pages always exist before their children.
+Pipeline stages: **loader → preprocess → IR → transforms → emitter → publisher**.
+
+The publisher is split into two phases:
+- `planner.py` builds a nav-ordered publish plan, compiles pages, and makes the read-side API calls needed to decide create vs update vs skip.
+- `executor.py` applies that plan, performs the write-side API calls, uploads attachments, and wires parent/child relationships in nav order so parent pages always exist before their children.
+
+`publisher/pipeline.py` remains a compatibility facade that re-exports the public publish surface used by the CLI and tests.
 
 ---
 

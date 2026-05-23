@@ -38,8 +38,7 @@ You are building a Python CLI tool (`mk2conf`) that compiles MkDocs-flavoured Ma
 - Always check official API documentation (via Context7 MCP or web) before implementing any external API call
 - Never guess parameter formats, encoding schemes, or endpoint behaviour
 - **Confluence REST API:** Prefer the v2 API (`/wiki/api/v2/`) for any given task. Fall back to v1 (`/wiki/rest/api/`) only if the v2 API does not support what you need
-- Use `GET /spaces/{id}/pages?title=` to look up a page by title — `spaceId` is not a valid query param on `/pages`
-- **Kroki:** Use `POST /mermaid/png` with `Content-Type: text/plain` — never GET (URL length limits are easily exceeded and corporate proxies block Python urllib GET requests)
+- See `.github/instructions/publisher.instructions.md` for endpoint-level details (page lookup, Kroki)
 
 ## Documentation rules
 

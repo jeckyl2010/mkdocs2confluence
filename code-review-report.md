@@ -1,4 +1,17 @@
 # Code Review Report
+
+> Current-state note (2026-05-23)
+>
+> This file is a historical review artifact, not a live architecture spec.
+> The primary report below covers the `sync-comments` work reviewed on 2026-05-06.
+>
+> Since that review:
+> - the publisher internals have been split into `publisher/planner.py` and `publisher/executor.py`
+> - `publisher/pipeline.py` now serves as a compatibility facade for the publish API surface used by the CLI and tests
+> - the previously noted redundant pagination URL reassignment in `publisher/client.py` has been removed
+>
+> Read the dated sections below as point-in-time assessment, not as a statement of the current publisher design.
+
 **Scope**: v0.8.0–v0.8.3 — `sync-comments` feature (Confluence→GitHub PR bridge)
 **Language**: Python 3.12+
 **Review Date**: 2026-05-06
