@@ -34,6 +34,7 @@ class ConfluenceConfig:
     github_token: str | None = None         # GitHub PAT (falls back to GITHUB_TOKEN env var)
     github_base_branch: str = "main"        # base branch for review PRs
     allow_any_host: bool = False  # set True to allow non-Atlassian Cloud base_url hosts
+    changelog_file: str | None = None  # path relative to docs_dir; None means disabled
 
 
 @dataclass(frozen=True)
@@ -259,6 +260,22 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         if not token:
             token = os.environ.get("MK2CONF_TOKEN", "")
 
+        # changelog (optional) — path relative to docs_dir
+        changelog_file: str | None = None
+        raw_changelog = raw_conf.get("changelog")
+        if raw_changelog is not None:
+            cl_str = str(raw_changelog).strip()
+            if cl_str:
+                candidate = (docs_dir / cl_str).resolve()
+                try:
+                    candidate.relative_to(docs_dir)
+                except ValueError:
+                    raise ConfigError(
+                        f"mkdocs.yml: 'confluence.changelog' path {cl_str!r} "
+                        "escapes docs_dir. The path must be relative to the docs directory."
+                    )
+                changelog_file = cl_str
+
         confluence = ConfluenceConfig(
             base_url=base_url.rstrip("/"),
             space_key=space_key,
@@ -273,6 +290,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
                           else os.environ.get("GITHUB_TOKEN") or None),
             github_base_branch=str(raw_conf.get("github_base_branch", "main")),
             allow_any_host=allow_any_host,
+            changelog_file=changelog_file,
         )
 
     # --- extra_css (optional) ---
