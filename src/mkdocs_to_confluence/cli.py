@@ -272,10 +272,11 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Detected targets (all installed when no --tool given):\n"
-            "  hermes   ~/.hermes/skills/tooling/mkdocs-changelog/SKILL.md\n"
-            "  claude   .claude/commands/changelog.md  (frontmatter stripped)\n"
-            "  copilot  .github/instructions/mk2conf-changelog.instructions.md\n"
-            "  cursor   .cursor/rules/mk2conf-changelog.mdc\n"
+            "  hermes        ~/.hermes/skills/tooling/mkdocs-changelog/SKILL.md\n"
+            "  github-skills .github/skills/tooling/mkdocs-changelog/SKILL.md\n"
+            "  claude        .claude/commands/changelog.md  (frontmatter stripped)\n"
+            "  copilot       .github/instructions/mk2conf-changelog.instructions.md\n"
+            "  cursor        .cursor/rules/mk2conf-changelog.mdc\n"
             "\n"
             "Examples:\n"
             "  mk2conf install-skill\n"
@@ -287,8 +288,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--tool",
         metavar="NAME",
         default=None,
-        choices=["hermes", "claude", "copilot", "cursor"],
-        help="Install only to a specific tool (hermes, claude, copilot, cursor).",
+        choices=["hermes", "github-skills", "claude", "copilot", "cursor"],
+        help="Install only to a specific tool (hermes, github-skills, claude, copilot, cursor).",
     )
 
     return parser
@@ -527,6 +528,8 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             sys.exit(1)
         nav_nodes = [node]
 
+    partial = bool(getattr(args, "page", None) or getattr(args, "section", None))
+
     if args.dry_run:
         # When a section is given, show what node was matched so the user can
         # verify the section resolved correctly (section vs. leaf page).
@@ -541,8 +544,11 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         print(f"Dry run: would publish {len(pages)} page(s) to {conf_config.base_url}")
         for page in pages:
             print(f"  {page.docs_path} → '{page.title}'")
-        if conf_config.changelog_file:
-            print(f"  {conf_config.changelog_file} → 'What's New'  (changelog, top-level)")
+        if conf_config.changelog_file and not partial:
+            from mkdocs_to_confluence.publisher.changelog import _extract_title
+            cl_path = config.docs_dir / conf_config.changelog_file
+            cl_title = _extract_title(cl_path) or "What's New"
+            print(f"  {conf_config.changelog_file} → '{cl_title}'  (changelog, top-level)")
         return
 
     from mkdocs_to_confluence.publisher.changelog import publish_changelog
@@ -566,9 +572,6 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                 nav_nodes, client, config, conf_config,
                 space_id=space_id, quiet=args.quiet, full_nav_nodes=all_nav_nodes,
             )
-            # --prune is silently disabled for partial publishes (--page / --section)
-            # because published_ids would only cover the subset, not the full nav.
-            partial = bool(getattr(args, "page", None) or getattr(args, "section", None))
             report = execute_publish(
                 plan, client, dry_run=False, space_id=space_id,
                 space_key=conf_config.space_key,

@@ -12,7 +12,7 @@ from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.publisher.changelog import publish_changelog
 
 
-def _conf(tmp_path: Path, changelog: str | None = "CHANGELOG.md") -> ConfluenceConfig:
+def _conf(changelog: str | None = "CHANGELOG.md") -> ConfluenceConfig:
     return ConfluenceConfig(
         base_url="https://example.atlassian.net",
         email="user@example.com",
@@ -44,7 +44,7 @@ def _make_client(*, existing_id: str | None = None, stored_hash: str = "") -> Ma
 
 
 def test_publish_changelog_skipped_when_no_file_configured(tmp_path: Path) -> None:
-    conf = _conf(tmp_path, changelog=None)
+    conf = _conf(changelog=None)
     config = _config(tmp_path)
     client = _make_client()
     publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
@@ -53,7 +53,7 @@ def test_publish_changelog_skipped_when_no_file_configured(tmp_path: Path) -> No
 
 def test_publish_changelog_warns_when_file_missing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (tmp_path / "docs").mkdir()
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
     client = _make_client()
     publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
@@ -66,7 +66,7 @@ def test_publish_changelog_skips_unchanged_content(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nSome change.\n", encoding="utf-8")
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
@@ -83,7 +83,7 @@ def test_publish_changelog_creates_new_page(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nNew content.\n", encoding="utf-8")
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
@@ -94,13 +94,14 @@ def test_publish_changelog_creates_new_page(tmp_path: Path) -> None:
     client.create_page.assert_called_once()
     call_kwargs = client.create_page.call_args
     assert call_kwargs.kwargs.get("parent_id") is None  # no parent_page_id set
+    client.stamp_managed.assert_not_called()  # must never be stamped — prune must not touch it
 
 
 def test_publish_changelog_updates_existing_page(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nUpdated.\n", encoding="utf-8")
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
@@ -112,6 +113,7 @@ def test_publish_changelog_updates_existing_page(tmp_path: Path) -> None:
     args = client.update_page.call_args
     assert args.args[0] == "77"   # page_id
     assert args.args[3] == 4      # version + 1
+    client.stamp_managed.assert_not_called()  # must never be stamped — prune must not touch it
 
 
 def test_publish_changelog_uses_parent_page_id_when_set(tmp_path: Path) -> None:
@@ -144,7 +146,7 @@ def test_publish_changelog_uses_title_from_front_matter(tmp_path: Path) -> None:
         "---\ntitle: Release Notes\n---\n\n## 2026-05-25\n\nContent.\n",
         encoding="utf-8",
     )
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
@@ -160,7 +162,7 @@ def test_publish_changelog_defaults_title_to_whats_new(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nContent.\n", encoding="utf-8")
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
@@ -178,7 +180,7 @@ def test_publish_changelog_uploads_attachments(tmp_path: Path) -> None:
     (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nContent.\n", encoding="utf-8")
     attachment = docs / "img.png"
     attachment.write_bytes(b"\x89PNG")
-    conf = _conf(tmp_path)
+    conf = _conf()
     config = _config(tmp_path)
 
     with (
