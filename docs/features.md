@@ -113,6 +113,23 @@ On every full `mk2conf publish` run the changelog file is compiled and published
 
 The changelog file is a plain Markdown file committed alongside your docs. Content is entirely up to you — mk2conf publishes whatever is there, the same way it publishes any other page.
 
+### AI skill — drafting changelog entries
+
+Run `mk2conf install-skill` once to install the bundled `mkdocs-changelog` skill into every detected AI tool (Claude Code, Copilot, Cursor, Hermes). Once installed, invoke it from your AI assistant while working on your docs:
+
+1. It finds the last commit that touched `CHANGELOG.md` as the baseline.
+2. It diffs all doc changes in `docs/` since that baseline.
+3. It decides whether any change is **MAJOR** — a new top-level area, a significant deletion, or a fundamental definition change. Typos, formatting, and small additions do not qualify.
+4. If MAJOR: drafts a dated Keep-a-Changelog entry and prepends it to `CHANGELOG.md` for you to review before committing.
+5. If not MAJOR: explains why and exits without touching any file.
+
+You always commit and publish manually — the skill never commits or calls the Confluence API.
+
+```bash
+mk2conf install-skill              # auto-detect and install to all found tools
+mk2conf install-skill --tool claude
+```
+
 ## Source footer
 
 When `repo_url` + `edit_uri` are set in `mkdocs.yml`, a **Page source** footer panel is appended containing:
