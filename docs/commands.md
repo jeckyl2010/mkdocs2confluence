@@ -193,3 +193,46 @@ confluence:
 |---|---|
 | `.mk2conf-pages.json` | Source path → Confluence page ID map |
 | `.mk2conf-sync-state.json` | Tracks open/merged review PRs and associated comment IDs |
+
+---
+
+## `mk2conf install-skill`
+
+Install the bundled `mkdocs-changelog` AI skill into every detected AI tool directory in the current project. Supports Hermes, Claude Code, GitHub Copilot, and Cursor out of the box.
+
+```
+mk2conf install-skill [--tool NAME]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--tool NAME` | *(auto-detect all)* | Install only to a specific tool: `hermes`, `github-skills`, `claude`, `copilot`, `cursor` |
+
+### Auto-detected targets
+
+| Marker detected | Installs to | Notes |
+|---|---|---|
+| `~/.hermes/` | `~/.hermes/skills/tooling/mkdocs-changelog/SKILL.md` | User-level; always checked |
+| `.github/skills/` | `.github/skills/tooling/mkdocs-changelog/SKILL.md` | Full SKILL.md with frontmatter |
+| `.claude/` | `.claude/commands/changelog.md` | YAML frontmatter stripped for Claude Code |
+| `.github/copilot-instructions.md` | `.github/instructions/mk2conf-changelog.instructions.md` | Detected by the marker file |
+| `.cursor/` | `.cursor/rules/mk2conf-changelog.mdc` | Body only |
+| *(none found)* | `.mk2conf/changelog-skill.md` | Fallback with printed guidance |
+
+All detected targets are installed in one run — not just the first match.
+
+### What the skill does
+
+Once installed, invoke it from your AI assistant (e.g. `/changelog` in Claude Code) while working on your docs. The skill:
+
+1. Finds the last commit that touched `CHANGELOG.md` — this is the baseline.
+2. Diffs all doc changes since that baseline.
+3. Decides whether any change qualifies as **MAJOR** (new top-level area, significant deletion, fundamental definition change — not typos or formatting).
+4. If MAJOR: drafts a dated entry and prepends it to `CHANGELOG.md` for you to review and commit.
+5. If not MAJOR: explains why and exits without touching any file.
+
+```bash
+mk2conf install-skill              # install to all detected tools
+mk2conf install-skill --tool claude
+mk2conf install-skill --tool hermes
+```

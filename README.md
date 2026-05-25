@@ -131,6 +131,8 @@ confluence:
 - Partial runs (`--page` / `--section`) skip the changelog page, consistent with other publish behaviour.
 - Omit the key, or set it to an empty string, to disable the feature entirely.
 
+Run `mk2conf install-skill` once after setting `changelog:` to install the changelog AI skill into your AI tool (Claude Code, Copilot, Cursor, Hermes). The skill analyses git changes to your docs since the last `CHANGELOG.md` commit and drafts an entry when the changes qualify as significant.
+
 **Your first publish:**
 
 ```bash
@@ -146,7 +148,7 @@ mk2conf publish                                 # go live
 
 | | |
 |---|---|
-| [docs/commands.md](docs/commands.md) | Full flag reference for all four commands |
+| [docs/commands.md](docs/commands.md) | Full flag reference for all five commands |
 | [docs/features.md](docs/features.md) | Supported Markdown / Material features and known limitations |
 | [Setup.md](Setup.md) | Development environment setup |
 
