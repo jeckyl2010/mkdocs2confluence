@@ -46,11 +46,15 @@ def test_changelog_null_gives_none(tmp_path: Path) -> None:
 
 
 def test_changelog_valid_path_stored(tmp_path: Path) -> None:
-    (tmp_path / "docs").mkdir(exist_ok=True)
-    (tmp_path / "docs" / "CHANGELOG.md").write_text("# Log\n", encoding="utf-8")
     cfg = load_config(_write_mkdocs(tmp_path, _BASE + "  changelog: CHANGELOG.md\n"))
     assert cfg.confluence is not None
     assert cfg.confluence.changelog_file == "CHANGELOG.md"
+
+
+def test_changelog_subdirectory_path_stored(tmp_path: Path) -> None:
+    cfg = load_config(_write_mkdocs(tmp_path, _BASE + "  changelog: releases/CHANGELOG.md\n"))
+    assert cfg.confluence is not None
+    assert cfg.confluence.changelog_file == "releases/CHANGELOG.md"
 
 
 def test_changelog_path_escaping_docs_dir_raises(tmp_path: Path) -> None:
