@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -70,7 +71,6 @@ def test_publish_changelog_skips_unchanged_content(tmp_path: Path) -> None:
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
         mock_compile.return_value = ("compiled-xhtml", [], (), None, None)
-        import hashlib
         expected_hash = hashlib.sha256(b"compiled-xhtml").hexdigest()
         client = _make_client(existing_id="42", stored_hash=expected_hash)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
@@ -170,3 +170,23 @@ def test_publish_changelog_defaults_title_to_whats_new(tmp_path: Path) -> None:
 
     call_kwargs = client.create_page.call_args
     assert call_kwargs.args[1] == "What's New"
+
+
+def test_publish_changelog_uploads_attachments(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nContent.\n", encoding="utf-8")
+    attachment = docs / "img.png"
+    attachment.write_bytes(b"\x89PNG")
+    conf = _conf(tmp_path)
+    config = _config(tmp_path)
+
+    with (
+        patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile,
+        patch("mkdocs_to_confluence.publisher.changelog._upload_assets") as mock_upload,
+    ):
+        mock_compile.return_value = ("xhtml", [attachment], (), None, None)
+        client = _make_client(existing_id=None)
+        publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
+
+    mock_upload.assert_called_once_with("999", [attachment], docs, client, quiet=True)

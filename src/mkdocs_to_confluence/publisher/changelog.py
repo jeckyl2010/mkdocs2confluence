@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 import sys
 from pathlib import Path
@@ -11,7 +10,8 @@ from typing import TYPE_CHECKING
 import yaml
 
 from mkdocs_to_confluence.loader.nav import NavNode
-from mkdocs_to_confluence.publisher.planner import compile_page
+from mkdocs_to_confluence.publisher.executor import _upload_assets
+from mkdocs_to_confluence.publisher.planner import _xhtml_hash, compile_page
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
@@ -76,7 +76,7 @@ def publish_changelog(
         node, config, quiet=quiet
     )
 
-    xhtml_hash = hashlib.sha256(xhtml.encode()).hexdigest()
+    xhtml_hash = _xhtml_hash(xhtml)
     existing = client.find_page(space_id, title)
 
     if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_hash:
@@ -103,6 +103,9 @@ def publish_changelog(
         )
         if not quiet:
             print(f"  updated    '{title}'  (changelog)")
+
+    if attachments:
+        _upload_assets(page_id, attachments, config.docs_dir, client, quiet=quiet)
 
     try:
         client.set_content_hash(page_id, xhtml_hash)
