@@ -16,7 +16,10 @@
 
 A Python CLI tool that compiles MkDocs-flavoured Markdown into **native Confluence storage XHTML** and publishes it directly to Confluence Cloud. It is a **compiler/transpiler**, not an HTML converter — every construct maps to its native Confluence equivalent, so pages look and behave like hand-authored Confluence content.
 
-It also bridges the gap between Confluence reviewers and developers: the `sync-comments` command turns open Confluence page comments into GitHub pull request review threads, and auto-resolves them in Confluence when the PR is merged.
+- **Publish** — compiles your full `nav:` tree and pushes only changed pages (SHA-256 skip, no unnecessary version bumps or notifications).
+- **What's New page** — designate a `CHANGELOG.md` with `confluence.changelog` and mk2conf publishes it as a pinned top-level page on every run, so Confluence readers always have one place to see what changed.
+- **AI changelog skill** — `mk2conf install-skill` installs a bundled AI skill into your editor (Claude Code, Copilot, Cursor, Hermes) that analyses git changes to your docs and drafts a dated entry in `CHANGELOG.md` when the changes are significant.
+- **Review bridge** — `sync-comments` turns open Confluence page comments into GitHub pull request review threads and auto-resolves them in Confluence when the PR is merged.
 
 > **Zensical compatible** — [Zensical](https://zensical.org/) is the modern successor to MkDocs + Material for MkDocs. Since it uses the same `mkdocs.yml` format and Python Markdown extensions, your Zensical project works with mk2conf today with no changes required.
 
@@ -86,11 +89,14 @@ mk2conf preview --page index.md --watch
 # Dry-run: see what would be published
 mk2conf publish --dry-run
 
-# Publish all nav pages
+# Publish all nav pages (and the changelog page if configured)
 mk2conf publish
 
 # Export a section to PDF
 mk2conf pdf --section Guide --out guide.pdf
+
+# Install the changelog AI skill into your editor
+mk2conf install-skill
 
 # Sync Confluence comments to GitHub PR review threads
 mk2conf sync-comments
