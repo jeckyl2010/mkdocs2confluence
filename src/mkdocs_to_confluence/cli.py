@@ -265,6 +265,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Suppress progress output.",
     )
 
+    # --- install-skill ---
+    is_ = sub.add_parser(
+        "install-skill",
+        help="Install the mkdocs-changelog AI skill into detected tool directories.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Detected targets (all installed when no --tool given):\n"
+            "  hermes   ~/.hermes/skills/tooling/mkdocs-changelog/SKILL.md\n"
+            "  claude   .claude/commands/changelog.md  (frontmatter stripped)\n"
+            "  copilot  .github/instructions/mk2conf-changelog.instructions.md\n"
+            "  cursor   .cursor/rules/mk2conf-changelog.mdc\n"
+            "\n"
+            "Examples:\n"
+            "  mk2conf install-skill\n"
+            "  mk2conf install-skill --tool claude\n"
+            "  mk2conf install-skill --tool hermes\n"
+        ),
+    )
+    is_.add_argument(
+        "--tool",
+        metavar="NAME",
+        default=None,
+        choices=["hermes", "claude", "copilot", "cursor"],
+        help="Install only to a specific tool (hermes, claude, copilot, cursor).",
+    )
+
     return parser
 
 
@@ -288,6 +314,8 @@ def main(argv: list[str] | None = None) -> None:
             _cmd_pdf(args)
         elif args.command == "sync-comments":
             _cmd_sync_comments(args)
+        elif args.command == "install-skill":
+            _cmd_install_skill(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -607,6 +635,30 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
     if report.errors:
         sys.exit(1)
+
+
+def _cmd_install_skill(args: argparse.Namespace) -> None:
+    from mkdocs_to_confluence.skill_installer import install_skill
+
+    installed = install_skill(tool=getattr(args, "tool", None))
+
+    if not installed:
+        print(
+            "No AI tool directories detected and no --tool specified.\n"
+            "Run with --tool to install to a specific tool, e.g.:\n"
+            "  mk2conf install-skill --tool claude",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    for tool_name, dest in installed:
+        print(f"  installed  [{tool_name}]  {dest}")
+
+    if any(name == "fallback" for name, _ in installed):
+        print(
+            "\nNo AI tool directories were detected. Skill written to .mk2conf/changelog-skill.md.\n"
+            "Copy its contents to your AI tool's custom instructions or skill directory.",
+        )
 
 
 def _cmd_pdf(args: argparse.Namespace) -> None:
