@@ -47,6 +47,7 @@ mk2conf publish [--config PATH] [--page PATH] [--section SECTION] [--dry-run] [-
 - Section nodes (nav groups without a page) become empty parent pages, mirroring the nav hierarchy.
 - Local assets are uploaded as Confluence page attachments automatically.
 - **Unchanged pages are skipped** — a `sha256` hash of the compiled output is stored as a hidden page property; identical content produces no version bump and no notification.
+- **Changelog page** — if `changelog:` is set in the `confluence:` block, mk2conf compiles and publishes that file as a top-level page on every full run. It is placed directly under the space root (or `parent_page_id`), regardless of `nav:`. `--prune` never deletes it. Partial runs (`--page` / `--section`) skip it.
 
 ### Confluence connection
 
@@ -58,6 +59,7 @@ mk2conf publish [--config PATH] [--page PATH] [--section SECTION] [--dry-run] [-
 | `space_key` | ✅* | Target space key, e.g. `TECH`. Required unless `parent_page_id` is set. |
 | `parent_page_id` | ✅* | Root parent page ID. Required unless `space_key` is set. |
 | `full_width` | *(true)* | Apply full-width layout to every published page. |
+| `changelog` | *(none)* | Path to a Markdown file (relative to `docs_dir`) to publish as a top-level "What's New" page on every full run. |
 | `allow_any_host` | *(false)* | Set `true` for self-hosted Confluence — see below. |
 
 #### Self-hosted Confluence (`allow_any_host`)

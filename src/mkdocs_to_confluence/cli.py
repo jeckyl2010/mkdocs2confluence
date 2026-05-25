@@ -513,8 +513,11 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         print(f"Dry run: would publish {len(pages)} page(s) to {conf_config.base_url}")
         for page in pages:
             print(f"  {page.docs_path} → '{page.title}'")
+        if conf_config.changelog_file:
+            print(f"  {conf_config.changelog_file} → 'What's New'  (changelog, top-level)")
         return
 
+    from mkdocs_to_confluence.publisher.changelog import publish_changelog
     from mkdocs_to_confluence.publisher.client import ConfluenceClient, ConfluenceError
     from mkdocs_to_confluence.publisher.pipeline import execute_publish, plan_publish
 
@@ -546,6 +549,13 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                 prune=getattr(args, "prune", False) and not partial,
                 quiet=args.quiet,
             )
+            # Changelog is a pinned top-level page — always publish on full runs,
+            # skip on partial runs (--page / --section) like all other publish behaviour.
+            if not partial:
+                publish_changelog(
+                    config, conf_config, client, space_id,
+                    space_key=conf_config.space_key, quiet=args.quiet,
+                )
     except ConfluenceError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)

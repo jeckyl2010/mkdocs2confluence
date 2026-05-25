@@ -85,6 +85,34 @@ status: in-progress
 
 If `site_url` is set in `mkdocs.yml`, a **Published Page** row links to the rendered MkDocs site.
 
+## Changelog / What's New page
+
+Set `changelog: CHANGELOG.md` (path relative to `docs_dir`) in the `confluence:` block to designate a Markdown file as a **pinned top-level page** in your Confluence space:
+
+```yaml
+confluence:
+  base_url: https://yourorg.atlassian.net
+  space_key: TECH
+  email: user@example.com
+  token: !ENV CONFLUENCE_API_TOKEN
+  changelog: CHANGELOG.md
+```
+
+On every full `mk2conf publish` run the changelog file is compiled and published at the top level of the space (or as a sibling of the root nav pages when `parent_page_id` is set). The page title comes from YAML front matter `title:`; it defaults to `"What's New"` if absent.
+
+**Behaviour at a glance:**
+
+| Aspect | Detail |
+|---|---|
+| Placement | Top-level page, not nested within the nav hierarchy |
+| Skip-unchanged | SHA-256 hash checked — unchanged content produces no API call and no Confluence notification |
+| `--prune` | Never deleted — the page is pinned, not nav-derived |
+| Partial runs | Skipped with `--page` / `--section` (consistent with existing partial-run behaviour) |
+| `--dry-run` | Listed alongside other pages in the plan output |
+| Disabled | Omit `changelog:` or set it to an empty string |
+
+The changelog file is a plain Markdown file committed alongside your docs. Content is entirely up to you — mk2conf publishes whatever is there, the same way it publishes any other page.
+
 ## Source footer
 
 When `repo_url` + `edit_uri` are set in `mkdocs.yml`, a **Page source** footer panel is appended containing:

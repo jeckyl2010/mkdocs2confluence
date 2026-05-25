@@ -111,9 +111,25 @@ confluence:
   parent_page_id: "123456"           # optional root page
   mermaid_render: kroki              # "kroki" (default) | "kroki:https://your-kroki" | "none"
   full_width: true                   # default: true
+  changelog: CHANGELOG.md           # optional: publish as a top-level "What's New" page
 ```
 
 The `confluence:` block is also accepted under `extra:` for MkDocs strict-mode compatibility. The API token is read from `token:` in `mkdocs.yml`, then `CONFLUENCE_API_TOKEN`, then `MK2CONF_TOKEN`.
+
+### Changelog / What's New page
+
+Set `changelog:` to a Markdown file path (relative to `docs_dir`) to have mk2conf publish it as a permanent top-level page on every full `mk2conf publish` run. The page title comes from YAML front matter `title:`; it defaults to `"What's New"` if absent.
+
+```yaml
+confluence:
+  changelog: CHANGELOG.md   # relative to docs_dir
+```
+
+- The page does **not** need to appear in `nav:` — it is always placed at the top level of the space (or under `parent_page_id` if set).
+- If it also appears in `nav:`, it is published once; no duplication.
+- `--prune` never deletes it — it is a pinned page, not a nav-derived page.
+- Partial runs (`--page` / `--section`) skip the changelog page, consistent with other publish behaviour.
+- Omit the key, or set it to an empty string, to disable the feature entirely.
 
 **Your first publish:**
 
