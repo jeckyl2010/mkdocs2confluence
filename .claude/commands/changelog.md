@@ -36,23 +36,31 @@ Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. 
 ```markdown
 ## YYYY-MM-DD — Brief title describing the major change
 
-One or two sentences summarising what fundamentally changed and why it matters to readers.
-
 ### Added
 - …
 
 ### Changed
 - …
 
+### Deprecated
+- …
+
 ### Removed
+- …
+
+### Fixed
+- …
+
+### Security
 - …
 ```
 
    Rules for the entry:
    - Date is today's date in `YYYY-MM-DD` format
-   - Sections (`Added`, `Changed`, `Removed`) are included only when non-empty
-   - No version numbers — dates only
    - Title is a brief, reader-facing description (not a git commit message)
+   - No version numbers — dates only
+   - **Include only sections that have actual content** — omit any empty section entirely
+   - Section meanings: `Added` (new content), `Changed` (updated content), `Deprecated` (content being phased out), `Removed` (deleted content), `Fixed` (corrected errors or misleading information), `Security` (security-related documentation updates)
 
    Prepend the entry above any existing entries in `CHANGELOG.md`. Do not commit — the user reviews, edits if needed, and commits manually.
 
@@ -60,7 +68,14 @@ One or two sentences summarising what fundamentally changed and why it matters t
 
 - **Do not draft an entry for every change.** The changelog is for readers who want to know what fundamentally changed, not a git log. When in doubt, do not draft.
 - **Do not commit.** Always leave the file for the user to review. The user runs `git add` and `git commit` themselves before publishing.
-- **If CHANGELOG.md does not exist yet**, create it with just the new entry (no header needed).
+- **If `CHANGELOG.md` does not exist yet**, create it with this header before the first entry:
+
+```markdown
+# Changelog
+
+All notable changes to this documentation are recorded here.
+The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+```
 
 ## Verification
 

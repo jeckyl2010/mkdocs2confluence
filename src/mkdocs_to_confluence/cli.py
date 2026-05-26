@@ -544,7 +544,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         print(f"Dry run: would publish {len(pages)} page(s) to {conf_config.base_url}")
         for page in pages:
             print(f"  {page.docs_path} → '{page.title}'")
-        if conf_config.changelog_file and not partial:
+        if conf_config.changelog_file:
             from mkdocs_to_confluence.publisher.changelog import _extract_title
             cl_path = config.docs_dir / conf_config.changelog_file
             cl_title = _extract_title(cl_path) or "What's New"
@@ -580,13 +580,12 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                 prune=getattr(args, "prune", False) and not partial,
                 quiet=args.quiet,
             )
-            # Changelog is a pinned top-level page — always publish on full runs,
-            # skip on partial runs (--page / --section) like all other publish behaviour.
-            if not partial:
-                publish_changelog(
-                    config, conf_config, client, space_id,
-                    space_key=conf_config.space_key, quiet=args.quiet,
-                )
+            # Changelog is a pinned top-level page independent of the nav —
+            # always publish it when it has updates, even on partial runs.
+            publish_changelog(
+                config, conf_config, client, space_id,
+                space_key=conf_config.space_key, quiet=args.quiet,
+            )
     except ConfluenceError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
