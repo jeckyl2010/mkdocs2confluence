@@ -689,7 +689,7 @@ wheels = [
 
 [[package]]
 name = "mkdocs2confluence"
-version = "0.13.0"
+version = "0.13.4"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
