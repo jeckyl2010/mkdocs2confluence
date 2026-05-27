@@ -139,7 +139,7 @@ def plan_publish(
     space_id: str,
     quiet: bool = False,
     full_nav_nodes: list[NavNode] | None = None,
-) -> list[PageAction]:
+) -> tuple[list[PageAction], dict[str, str]]:
     """Build a publish plan for the entire nav tree.
 
     Section nodes become native Confluence folders so the hierarchy is
@@ -155,7 +155,7 @@ def plan_publish(
     if not quiet:
         print("Planning...")
     _plan_nodes(nav_nodes, client, config, space_id, conf_config.parent_page_id, False, actions, link_map, quiet=quiet)
-    return actions
+    return actions, link_map
 
 
 def _plan_nodes(

@@ -568,7 +568,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            plan = plan_publish(
+            plan, link_map = plan_publish(
                 nav_nodes, client, config, conf_config,
                 space_id=space_id, quiet=args.quiet, full_nav_nodes=all_nav_nodes,
             )
@@ -582,10 +582,9 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             )
             # Changelog is a pinned top-level page independent of the nav —
             # always publish it when it has updates, even on partial runs.
-            cl_link_map = build_link_map(all_nav_nodes)
             publish_changelog(
                 config, conf_config, client, space_id,
-                link_map=cl_link_map,
+                link_map=link_map,
                 space_key=conf_config.space_key, quiet=args.quiet,
             )
     except ConfluenceError as exc:

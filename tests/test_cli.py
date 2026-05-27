@@ -251,7 +251,7 @@ class TestPageMap:
         mock_client.__exit__ = MagicMock(return_value=False)
         mock_client.get_space_id.return_value = "~SPACE"
         with patch("mkdocs_to_confluence.publisher.client.ConfluenceClient", return_value=mock_client), \
-             patch("mkdocs_to_confluence.publisher.pipeline.plan_publish", return_value=plan_actions), \
+             patch("mkdocs_to_confluence.publisher.pipeline.plan_publish", return_value=(plan_actions, {})), \
              patch("mkdocs_to_confluence.publisher.pipeline.execute_publish", return_value=MagicMock(
                  __str__=lambda s: "0 created",
                  errors=[],

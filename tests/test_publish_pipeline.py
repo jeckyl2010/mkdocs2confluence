@@ -98,7 +98,7 @@ def test_plan_publish_skips_ready_false(tmp_path: Path) -> None:
     conf_config = _make_conf_config()
 
     client = MagicMock()
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert len(plan) == 1
     assert plan[0].action == "skip"
@@ -117,7 +117,7 @@ def test_plan_publish_publishes_ready_true(tmp_path: Path) -> None:
     client = MagicMock()
     client.find_page.return_value = None  # page doesn't exist yet
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert len(plan) == 1
     assert plan[0].action == "create"
@@ -136,7 +136,7 @@ def test_plan_publish_publishes_no_ready_field(tmp_path: Path) -> None:
     client = MagicMock()
     client.find_page.return_value = None
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert len(plan) == 1
     assert plan[0].action == "create"
@@ -157,7 +157,7 @@ def test_plan_publish_update_when_page_exists(tmp_path: Path) -> None:
     client.find_page.return_value = existing_page
     client.get_content_hash.return_value = None  # no stored hash → must update
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert plan[0].action == "update"
     assert plan[0].page_id == "77"
@@ -187,7 +187,7 @@ def test_plan_publish_skips_when_content_unchanged(tmp_path: Path) -> None:
     client.find_page.return_value = existing_page
     client.get_content_hash.return_value = stored_hash
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert plan[0].action == "skip"
     assert plan[0].page_id == "77"
@@ -209,7 +209,7 @@ def test_plan_publish_updates_when_content_changed(tmp_path: Path) -> None:
     client.find_page.return_value = existing_page
     client.get_content_hash.return_value = "stale-hash-from-previous-run"
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert plan[0].action == "update"
 
@@ -256,7 +256,7 @@ def test_section_with_index_creates_page_not_folder(tmp_path: Path) -> None:
     client = MagicMock()
     client.find_page.return_value = None  # new page
 
-    plan = plan_publish([section], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([section], client, config, conf_config, space_id="42")
 
     # Should be: 1 section-page + 1 child page (no "Index" page)
     assert len(plan) == 2
@@ -282,7 +282,7 @@ def test_section_with_index_no_standalone_index_page(tmp_path: Path) -> None:
     client = MagicMock()
     client.find_page.return_value = None
 
-    plan = plan_publish([section], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([section], client, config, conf_config, space_id="42")
 
     titles = [a.title for a in plan]
     assert "Index" not in titles
@@ -302,7 +302,7 @@ def test_section_without_index_creates_folder(tmp_path: Path) -> None:
     client = MagicMock()
     client.find_page.return_value = None
 
-    plan = plan_publish([section], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([section], client, config, conf_config, space_id="42")
 
     section_action = plan[0]
     assert section_action.title == "Guide"
@@ -2079,7 +2079,7 @@ def test_plan_publish_sets_confluence_status_on_create(tmp_path: Path) -> None:
     client = MagicMock()
     client.find_page.return_value = None
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert plan[0].action == "create"
     assert plan[0].confluence_status == "in-progress"
@@ -2106,7 +2106,7 @@ def test_plan_publish_sets_confluence_status_on_skip(tmp_path: Path) -> None:
     client.find_page.return_value = existing_page
     client.get_content_hash.return_value = stored_hash
 
-    plan = plan_publish([node], client, config, conf_config, space_id="42")
+    plan, _ = plan_publish([node], client, config, conf_config, space_id="42")
 
     assert plan[0].action == "skip"
     assert plan[0].confluence_status == "in-progress"
