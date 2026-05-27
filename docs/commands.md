@@ -214,7 +214,7 @@ mk2conf install-skill [--tool NAME]
 |---|---|---|
 | `~/.hermes/` | `~/.hermes/skills/tooling/mkdocs-changelog/SKILL.md` | User-level; always checked |
 | `.github/skills/` | `.github/skills/tooling/mkdocs-changelog/SKILL.md` | Full SKILL.md with frontmatter |
-| `.claude/` | `.claude/commands/changelog.md` | YAML frontmatter stripped for Claude Code |
+| `.claude/` | `.claude/commands/mk2conf-changelog.md` | YAML frontmatter stripped for Claude Code |
 | `.github/copilot-instructions.md` | `.github/instructions/mk2conf-changelog.instructions.md` | Detected by the marker file |
 | `.cursor/` | `.cursor/rules/mk2conf-changelog.mdc` | Body only |
 | *(none found)* | `.mk2conf/changelog-skill.md` | Fallback with printed guidance |
@@ -223,7 +223,7 @@ All detected targets are installed in one run — not just the first match.
 
 ### What the skill does
 
-Once installed, invoke it from your AI assistant (e.g. `/changelog` in Claude Code) while working on your docs. The skill:
+Once installed, invoke it from your AI assistant (e.g. `/mk2conf-changelog` in Claude Code) while working on your docs. The skill:
 
 1. Finds the last commit that touched `CHANGELOG.md` — this is the baseline.
 2. Diffs all doc changes since that baseline.

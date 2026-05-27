@@ -66,7 +66,7 @@ def install_skill(
     if _want("claude"):
         claude_dir = project_dir / ".claude"
         if explicit or claude_dir.exists():
-            dest = claude_dir / "commands" / "changelog.md"
+            dest = claude_dir / "commands" / "mk2conf-changelog.md"
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(content_body, encoding="utf-8")
             installed.append(("claude", dest))

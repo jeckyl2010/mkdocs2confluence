@@ -45,7 +45,7 @@ def test_install_skill_claude(tmp_path: Path) -> None:
     assert len(installed) == 1
     name, dest = installed[0]
     assert name == "claude"
-    assert dest == tmp_path / ".claude" / "commands" / "changelog.md"
+    assert dest == tmp_path / ".claude" / "commands" / "mk2conf-changelog.md"
     content = dest.read_text(encoding="utf-8")
     # Frontmatter stripped for Claude Code
     assert "name: mkdocs-changelog" not in content
@@ -117,7 +117,7 @@ def test_install_skill_explicit_tool_ignores_detection(tmp_path: Path) -> None:
 
 def test_install_skill_overwrites_existing(tmp_path: Path) -> None:
     (tmp_path / ".claude").mkdir()
-    dest = tmp_path / ".claude" / "commands" / "changelog.md"
+    dest = tmp_path / ".claude" / "commands" / "mk2conf-changelog.md"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text("old content", encoding="utf-8")
 

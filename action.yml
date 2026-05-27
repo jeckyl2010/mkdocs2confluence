@@ -60,11 +60,17 @@ runs:
       shell: bash
       env:
         CONFLUENCE_API_TOKEN: ${{ inputs.token }}
+        INPUT_CONFIG:   ${{ inputs.config }}
+        INPUT_DRY_RUN:  ${{ inputs.dry-run }}
+        INPUT_SECTION:  ${{ inputs.section }}
+        INPUT_PAGE:     ${{ inputs.page }}
+        INPUT_PRUNE:    ${{ inputs.prune }}
+        INPUT_QUIET:    ${{ inputs.quiet }}
       run: |
-        ARGS="--config ${{ inputs.config }}"
-        [[ "${{ inputs.dry-run }}" == "true" ]]  && ARGS="$ARGS --dry-run"
-        [[ -n "${{ inputs.section }}" ]]          && ARGS="$ARGS --section '${{ inputs.section }}'"
-        [[ -n "${{ inputs.page }}" ]]             && ARGS="$ARGS --page '${{ inputs.page }}'"
-        [[ "${{ inputs.prune }}" == "true" ]]     && ARGS="$ARGS --prune"
-        [[ "${{ inputs.quiet }}" == "true" ]]     && ARGS="$ARGS --quiet"
-        eval mk2conf publish $ARGS
+        ARGS=(--config "$INPUT_CONFIG")
+        [[ "$INPUT_DRY_RUN" == "true" ]] && ARGS+=(--dry-run)
+        [[ -n "$INPUT_SECTION" ]]        && ARGS+=(--section "$INPUT_SECTION")
+        [[ -n "$INPUT_PAGE" ]]           && ARGS+=(--page "$INPUT_PAGE")
+        [[ "$INPUT_PRUNE" == "true" ]]   && ARGS+=(--prune)
+        [[ "$INPUT_QUIET" == "true" ]]   && ARGS+=(--quiet)
+        mk2conf publish "${ARGS[@]}"
