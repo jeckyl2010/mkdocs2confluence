@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import date
+from pathlib import Path
 
 
 def _run(args: list[str]) -> str:
@@ -69,8 +71,30 @@ def _commits_since(baseline: str) -> list[dict[str, str]]:
     return commits
 
 
-def _changed_files(baseline: str, docs_dir: str) -> dict[str, list[str]]:
-    """Return files changed in docs_dir since baseline, grouped by status."""
+def _extract_title(file_path: str) -> str | None:
+    """Return the first H1 heading from a markdown file, or None if unreadable."""
+    try:
+        text = Path(file_path).read_text(encoding="utf-8", errors="replace")
+        for line in text.splitlines():
+            m = re.match(r"^#\s+(.+)", line)
+            if m:
+                return m.group(1).strip()
+    except OSError:
+        pass
+    return None
+
+
+def _enrich(paths: list[str]) -> list[dict[str, str | None]]:
+    """Attach page titles to file paths. Non-.md files get title=None."""
+    result = []
+    for p in paths:
+        title = _extract_title(p) if p.endswith(".md") else None
+        result.append({"path": p, "title": title})
+    return result
+
+
+def _changed_files(baseline: str, docs_dir: str) -> dict[str, list[dict[str, str | None]]]:
+    """Return files changed in docs_dir since baseline, grouped by status, with titles."""
     raw = _run([
         "git", "diff", "--name-status", f"{baseline}..HEAD", "--", docs_dir,
     ])
@@ -78,7 +102,7 @@ def _changed_files(baseline: str, docs_dir: str) -> dict[str, list[str]]:
     modified: list[str] = []
     deleted: list[str] = []
     if not raw:
-        return {"added": added, "modified": modified, "deleted": deleted}
+        return {"added": _enrich(added), "modified": _enrich(modified), "deleted": _enrich(deleted)}
     for line in raw.splitlines():
         parts = line.split("\t", maxsplit=1)
         if len(parts) != 2:  # noqa: PLR2004
@@ -90,7 +114,7 @@ def _changed_files(baseline: str, docs_dir: str) -> dict[str, list[str]]:
             deleted.append(path)
         elif status.startswith("M") or status.startswith("R") or status.startswith("C"):
             modified.append(path)
-    return {"added": added, "modified": modified, "deleted": deleted}
+    return {"added": _enrich(added), "modified": _enrich(modified), "deleted": _enrich(deleted)}
 
 
 def _contributors(commits: list[dict[str, str]]) -> list[str]:

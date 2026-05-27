@@ -1,7 +1,7 @@
 ---
 name: mkdocs-changelog
 description: Analyse doc changes since the last CHANGELOG.md update and draft a major-change entry if the changes qualify.
-version: "1.3.0"
+version: "1.4.0"
 tags: [documentation, git, changelog, mkdocs, confluence]
 specificity: context-specific
 tool_agnostic: true
@@ -63,6 +63,30 @@ Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. 
 5. **If MAJOR** — draft an entry using the collapsible format below and prepend it to
    `CHANGELOG.md`. The previous latest entry (if any) must be converted from `???+` to `???`
    so only the new entry is expanded by default.
+
+## Linking to changed pages
+
+The `changes` object in the script JSON now includes `{"path": "...", "title": "..."}` for
+each file. Use this to link readers directly to the most relevant pages — but only where
+it adds value and reads naturally.
+
+Rules:
+
+- **Select, don't list.** Pick at most two or three files per entry — the ones a reader
+  would actually want to visit. Omit files that are supporting material (images, assets,
+  index stubs, nav-only pages).
+- **Weave into prose**, not as a separate list. Example:
+
+  Good: `Updated the [Configuration reference](configuration/index.md) to cover the new auth options.`
+  Bad: `Updated configuration/index.md. See also: getting-started.md, reference.md.`
+
+- **Use `title` as link text** when it reads naturally. Fall back to a short descriptive
+  phrase if the title is too long or too generic (e.g. "Overview", "Index").
+- **Paths are relative to `docs_dir`**, and `CHANGELOG.md` lives at the root of `docs_dir`.
+  A file at `docs/configuration/index.md` links as `configuration/index.md`.
+- **Deleted pages** — do not link to them. Name them in prose without a link.
+- **Skip linking entirely** if the change is a typo fix, formatting pass, or other
+  non-substantive update — linking draws attention and signals importance.
 
 ## Entry format
 
