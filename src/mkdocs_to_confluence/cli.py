@@ -582,8 +582,10 @@ def _cmd_publish(args: argparse.Namespace) -> None:
             )
             # Changelog is a pinned top-level page independent of the nav —
             # always publish it when it has updates, even on partial runs.
+            cl_link_map = build_link_map(all_nav_nodes)
             publish_changelog(
                 config, conf_config, client, space_id,
+                link_map=cl_link_map,
                 space_key=conf_config.space_key, quiet=args.quiet,
             )
     except ConfluenceError as exc:

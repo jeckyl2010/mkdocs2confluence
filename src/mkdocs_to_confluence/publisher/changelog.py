@@ -45,6 +45,7 @@ def publish_changelog(
     client: ConfluenceClient,
     space_id: str,
     *,
+    link_map: dict[str, str] | None = None,
     space_key: str | None = None,
     quiet: bool = False,
 ) -> None:
@@ -73,7 +74,7 @@ def publish_changelog(
         print(f"  compiling  '{title}'  (changelog)")
 
     xhtml, attachments, labels, confluence_status, version_message = compile_page(
-        node, config, quiet=quiet
+        node, config, link_map or {}, quiet=quiet
     )
 
     xhtml_hash = _xhtml_hash(xhtml)
