@@ -14,6 +14,21 @@ def _read_skill() -> str:
     return files("mkdocs_to_confluence").joinpath(f"skills/{_SKILL_NAME}/SKILL.md").read_text(encoding="utf-8")
 
 
+def _read_script() -> str:
+    from importlib.resources import files
+    return files("mkdocs_to_confluence").joinpath(
+        f"skills/{_SKILL_NAME}/scripts/changelog_data.py"
+    ).read_text(encoding="utf-8")
+
+
+def _install_script(project_dir: Path) -> Path:
+    """Write changelog_data.py to .mk2conf/scripts/ and return its path."""
+    dest = project_dir / ".mk2conf" / "scripts" / "changelog_data.py"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(_read_script(), encoding="utf-8")
+    return dest
+
+
 def _strip_front_matter(content: str) -> str:
     return _FRONT_MATTER_RE.sub("", content).lstrip("\n")
 
@@ -37,6 +52,10 @@ def install_skill(
 
     content_full = _read_skill()
     content_body = _strip_front_matter(content_full)
+
+    # Always install the data script to a fixed project-local path so every
+    # AI tool's skill file can reference it unconditionally.
+    _install_script(project_dir)
 
     installed: list[tuple[str, Path]] = []
     explicit = tool is not None

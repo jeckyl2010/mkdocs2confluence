@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs2confluence"
-version = "0.13.5"
+version = "0.13.6"
 description = "Publish MkDocs Material pages to Confluence Cloud — admonitions, Mermaid diagrams, tabs, page properties and more"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
@@ -68,7 +68,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"mkdocs_to_confluence" = ["skills/**/*.md"]
+"mkdocs_to_confluence" = ["skills/**/*.md", "skills/**/*.py"]
 
 [tool.ruff]
 line-length = 120

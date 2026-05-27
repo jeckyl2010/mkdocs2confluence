@@ -115,6 +115,17 @@ def test_install_skill_explicit_tool_ignores_detection(tmp_path: Path) -> None:
     assert dest.exists()
 
 
+def test_install_skill_copies_script(tmp_path: Path) -> None:
+    """The data script is always installed to .mk2conf/scripts/ regardless of tool."""
+    install_skill(project_dir=tmp_path, tool="claude")
+
+    script = tmp_path / ".mk2conf" / "scripts" / "changelog_data.py"
+    assert script.exists(), ".mk2conf/scripts/changelog_data.py should be created"
+    content = script.read_text(encoding="utf-8")
+    assert "changelog_data" in content
+    assert "import json" in content
+
+
 def test_install_skill_overwrites_existing(tmp_path: Path) -> None:
     (tmp_path / ".claude").mkdir()
     dest = tmp_path / ".claude" / "commands" / "mk2conf-changelog.md"
