@@ -341,7 +341,8 @@ def find_section_by_folder(nodes: list[NavNode], folder: str) -> NavNode | None:
 
     Returns ``None`` when no pages match.
     """
-    folder_prefix = folder.strip("/").lower() + "/"
+    folder_clean = folder.strip("/")
+    folder_prefix = folder_clean.lower() + "/"
     matched = [
         node
         for node in flat_pages(nodes)
@@ -350,8 +351,23 @@ def find_section_by_folder(nodes: list[NavNode], folder: str) -> NavNode | None:
     if not matched:
         return None
 
+    # Derive a human title from the folder name, consistent with how nav.py
+    # titles bare directories everywhere else in the loader.
+    derived_title = folder_clean.replace("-", " ").replace("_", " ").title()
+
+    # Prefer the title from an existing section node in the nav whose
+    # docs_path matches — that respects explicit nav: titles in mkdocs.yml.
+    for node in nodes:
+        if node.is_section and node.children:
+            first_child = next(
+                (c for c in flat_pages([node]) if c.docs_path), None
+            )
+            if first_child and first_child.docs_path and first_child.docs_path.lower().startswith(folder_prefix):
+                derived_title = node.title
+                break
+
     return NavNode(
-        title=folder.strip("/"),
+        title=derived_title,
         docs_path=None,
         source_path=None,
         level=0,

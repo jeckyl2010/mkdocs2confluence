@@ -629,6 +629,21 @@ class TestFindSectionByFolder:
         result = find_section_by_folder(_SECTION_NODES, "about")
         assert result is None
 
+    def test_title_from_nav_section(self) -> None:
+        """Title is taken from the matching nav section node, not the raw folder name."""
+        result = find_section_by_folder(_SECTION_NODES, "guide")
+        assert result is not None
+        assert result.title == "Guide"
+
+    def test_title_derived_from_hyphenated_folder_when_no_nav_match(self) -> None:
+        """When no nav section matches the folder, title is humanised from the folder name."""
+        nodes: list[NavNode] = [
+            NavNode(title="start-here", docs_path="start-here/index.md", source_path=None, level=0, children=()),
+        ]
+        result = find_section_by_folder(nodes, "start-here")
+        assert result is not None
+        assert result.title == "Start Here"
+
     def test_subfolder_matching(self) -> None:
         nodes: list[NavNode] = [
             NavNode(
