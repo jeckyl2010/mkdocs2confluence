@@ -1,7 +1,7 @@
 ---
 name: mkdocs-changelog
 description: Analyse doc changes since the last CHANGELOG.md update and draft a major-change entry if the changes qualify.
-version: "1.2.0"
+version: "1.3.0"
 tags: [documentation, git, changelog, mkdocs, confluence]
 specificity: context-specific
 tool_agnostic: true
@@ -22,14 +22,23 @@ Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. 
 
 1. **Extract git data** — run the bundled data script to get structured, deterministic input:
 
+   Normal update (since last CHANGELOG.md commit):
    ```
    python .mk2conf/scripts/changelog_data.py --docs-dir <docs_dir>
+   ```
+
+   Initial changelog (from a specific date):
+   ```
+   python .mk2conf/scripts/changelog_data.py --docs-dir <docs_dir> --since YYYY-MM-DD
    ```
 
    The script prints a JSON object to stdout. Use this as your sole source of truth for
    commits, changed files, and contributors. Do not run git commands yourself.
 
    If the script is missing, tell the user to run `mk2conf install-skill` first.
+
+   When `--since` is used, the JSON will contain `"mode": "since_date"`. Use this to
+   trigger the initial changelog flow described below.
 
 2. **Read the existing changelog** — read `<docs_dir>/CHANGELOG.md` for context on what
    was previously recorded.
@@ -108,6 +117,26 @@ If `CHANGELOG.md` does not exist yet, create it with this header before the firs
 All notable changes to this documentation are recorded here.
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ```
+
+## Initial changelog (--since DATE)
+
+When the script is run with `--since` and the JSON contains `"mode": "since_date"`,
+the user wants to bootstrap a CHANGELOG.md from scratch for a given time window.
+
+Different rules apply:
+
+- **Always draft** — the MAJOR threshold does not apply. This is a retrospective
+  summary, not an incremental gate.
+- **Group by theme**, not by individual commit. Synthesise the changed files and
+  commit subjects into meaningful categories.
+- **Date range in the title** — use the `since` value from the JSON as the start
+  and `date` as the end, e.g. `2026-05-01 → 2026-05-27`.
+- **If CHANGELOG.md already exists**, stop and ask the user whether they want to
+  prepend, append, or replace. Do not overwrite silently.
+- **If CHANGELOG.md does not exist**, create it with the standard header and the
+  entry as `???+`.
+
+Example title: `2026-05-01 → 2026-05-27 — Initial documentation release`
 
 ## Pitfalls
 

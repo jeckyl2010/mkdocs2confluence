@@ -37,6 +37,16 @@ def _baseline_commit(changelog_path: str) -> str | None:
     return sha or None
 
 
+def _commit_before_date(since_date: str) -> str | None:
+    """Return the SHA of the last commit strictly before since_date (YYYY-MM-DD), or None."""
+    sha = _run([
+        "git", "log", "--format=%H",
+        f"--before={since_date}",
+        "-1",
+    ])
+    return sha or None
+
+
 def _root_commit() -> str:
     """Return the SHA of the very first commit in the repo."""
     return _run(["git", "rev-list", "--max-parents=0", "HEAD"])
@@ -102,19 +112,39 @@ def main() -> None:
         default="docs",
         help="Path to the MkDocs docs directory, relative to project root (default: docs)",
     )
+    parser.add_argument(
+        "--since",
+        metavar="DATE",
+        default=None,
+        help=(
+            "Use the last commit before DATE (YYYY-MM-DD) as the baseline instead of the "
+            "last commit that touched CHANGELOG.md. Useful for creating an initial changelog."
+        ),
+    )
     args = parser.parse_args()
 
     docs_dir: str = args.docs_dir
     changelog_rel = f"{docs_dir}/CHANGELOG.md"
 
-    # Baseline: last commit touching CHANGELOG.md, or root commit if none
-    baseline = _baseline_commit(changelog_rel) or _root_commit()
-    if not baseline:
-        print(
-            "error: could not determine a baseline commit — is this a git repository?",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    # Baseline resolution — --since takes priority
+    if args.since:
+        baseline = _commit_before_date(args.since)
+        if not baseline:
+            print(
+                f"error: no commit found before {args.since}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        mode = "since_date"
+    else:
+        baseline = _baseline_commit(changelog_rel) or _root_commit()
+        if not baseline:
+            print(
+                "error: could not determine a baseline commit — is this a git repository?",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        mode = "changelog_commit"
 
     commits = _commits_since(baseline)
     changes = _changed_files(baseline, docs_dir)
@@ -122,6 +152,8 @@ def main() -> None:
 
     output = {
         "date": date.today().isoformat(),
+        "mode": mode,
+        "since": args.since,
         "baseline_commit": baseline,
         "commits": commits,
         "contributors": contributors,
