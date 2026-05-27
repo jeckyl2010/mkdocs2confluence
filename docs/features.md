@@ -115,15 +115,33 @@ The changelog file is a plain Markdown file committed alongside your docs. Conte
 
 ### AI skill — drafting changelog entries
 
-Run `mk2conf install-skill` once to install the bundled `mkdocs-changelog` skill into every detected AI tool (Claude Code, Copilot, Cursor, Hermes). Once installed, invoke it from your AI assistant while working on your docs:
+Run `mk2conf install-skill` once to install the bundled `mkdocs-changelog` skill into every detected AI tool (Claude Code, Copilot, Cursor, Hermes). Once installed, invoke it from your AI assistant while working on your docs.
 
-1. It finds the last commit that touched `CHANGELOG.md` as the baseline.
-2. It diffs all doc changes in `docs/` since that baseline.
-3. It decides whether any change is **MAJOR** — a new top-level area, a significant deletion, or a fundamental definition change. Typos, formatting, and small additions do not qualify.
-4. If MAJOR: drafts a dated Keep-a-Changelog entry and prepends it to `CHANGELOG.md` for you to review before committing.
+The skill ships with a self-contained Python script (`changelog_data.py`) installed to `.mk2conf/scripts/`. The script extracts structured data from git — no deps beyond the standard library — so the AI receives clean, deterministic input rather than raw commit noise.
+
+**Normal update** — run from the project root after making doc changes:
+
+```bash
+python .mk2conf/scripts/changelog_data.py --docs-dir docs
+```
+
+The skill then:
+
+1. Finds the last commit that touched `CHANGELOG.md` as the baseline.
+2. Diffs all doc changes in `docs/` since that baseline, including page titles resolved from H1 headings.
+3. Decides whether any change is **MAJOR** — a new top-level area, a significant deletion, or a fundamental definition change. Typos, formatting, and small additions do not qualify.
+4. If MAJOR: drafts a dated entry and prepends it to `CHANGELOG.md`. Entry text is prose, not a commit list. Where relevant, one or two key pages are linked naturally in the description — not appended as a list.
 5. If not MAJOR: explains why and exits without touching any file.
 
-You always commit and publish manually — the skill never commits or calls the Confluence API.
+**Initial changelog** — bootstrap from a date when `CHANGELOG.md` does not exist yet:
+
+```bash
+python .mk2conf/scripts/changelog_data.py --docs-dir docs --since 2026-05-01
+```
+
+The skill recognises `--since` mode and groups changes by theme across the date range instead of treating them as a single release.
+
+You always review, edit, and commit manually — the skill never commits or calls the Confluence API.
 
 ```bash
 mk2conf install-skill              # auto-detect and install to all found tools

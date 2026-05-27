@@ -18,7 +18,7 @@ A Python CLI tool that compiles MkDocs-flavoured Markdown into **native Confluen
 
 - **Publish** — compiles your full `nav:` tree and pushes only changed pages (SHA-256 skip, no unnecessary version bumps or notifications).
 - **What's New page** — designate a `CHANGELOG.md` with `confluence.changelog` and mk2conf publishes it as a pinned top-level page on every run, so Confluence readers always have one place to see what changed.
-- **AI changelog skill** — `mk2conf install-skill` installs a bundled AI skill into your editor (Claude Code, Copilot, Cursor, Hermes) that analyses git changes to your docs and drafts a dated entry in `CHANGELOG.md` when the changes are significant.
+- **AI changelog skill** — `mk2conf install-skill` installs a bundled AI skill into your editor (Claude Code, Copilot, Cursor, Hermes). It extracts git changes deterministically, decides whether they are significant, and drafts a dated entry in `CHANGELOG.md` — with selective links to the pages that carry the main changes. Bootstrap a project with `--since 2026-05-01` to generate the initial changelog from a date.
 - **Review bridge** — `sync-comments` turns open Confluence page comments into GitHub pull request review threads and auto-resolves them in Confluence when the PR is merged.
 
 > **Zensical compatible** — [Zensical](https://zensical.org/) is the modern successor to MkDocs + Material for MkDocs. Since it uses the same `mkdocs.yml` format and Python Markdown extensions, your Zensical project works with mk2conf today with no changes required.
