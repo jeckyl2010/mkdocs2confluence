@@ -250,12 +250,16 @@ def _post_process_action(
         except Exception:
             pass  # non-fatal
 
-    # Apply labels (tags) from front matter — non-fatal on failure.
+    # Apply labels (tags) from front matter — non-fatal on failure, but warn:
+    # labels are user-configured, so a silent failure would be confusing.
     if action.page_id and action.labels and not action.is_folder:
         try:
             client.set_page_labels(action.page_id, action.labels)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(
+                f"  [warn] could not set labels on page {action.page_id!r}: {exc}",
+                file=sys.stderr,
+            )
 
     _apply_page_presentation(
         action,

@@ -108,25 +108,35 @@ def publish_changelog(
     if attachments:
         _upload_assets(page_id, attachments, config.docs_dir, client, quiet=quiet)
 
+    # content hash is an internal optimization; if it fails the next run just
+    # re-publishes, so a failure is self-healing and stays silent.
     try:
         client.set_content_hash(page_id, xhtml_hash)
     except Exception:
-        pass
+        pass  # non-fatal
 
+    # labels / full-width / status are user-configured presentation. They must
+    # never fail an already-saved page (catch broadly so a transient network
+    # error can't abort the publish), but failures are warned so they aren't
+    # invisible — mirroring publisher/executor.py.
     if labels:
         try:
             client.set_page_labels(page_id, labels)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"  [warn] changelog: could not set labels: {exc}", file=sys.stderr)
 
     if conf_config.full_width:
         try:
             client.set_page_full_width(page_id)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"  [warn] changelog: could not set full-width: {exc}", file=sys.stderr)
 
     if confluence_status:
         try:
             client.set_page_status(page_id, confluence_status, space_key=space_key)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(
+                f"  [warn] changelog: could not set page status "
+                f"{confluence_status!r}: {exc}",
+                file=sys.stderr,
+            )

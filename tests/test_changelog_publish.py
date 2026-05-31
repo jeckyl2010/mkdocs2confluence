@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
-from mkdocs_to_confluence.publisher.changelog import publish_changelog
+from mkdocs_to_confluence.publisher.changelog import _extract_title, publish_changelog
 
 
 def _conf(changelog: str | None = "CHANGELOG.md") -> ConfluenceConfig:
@@ -192,3 +192,115 @@ def test_publish_changelog_uploads_attachments(tmp_path: Path) -> None:
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
     mock_upload.assert_called_once_with("999", [attachment], docs, client, quiet=True)
+
+
+def test_publish_changelog_update_path_applies_metadata(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Update path with labels + full_width + status; verifies every post-publish
+    metadata call fires and the non-quiet progress lines print."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nUpdated.\n", encoding="utf-8")
+    conf = _conf()  # full_width defaults to True
+    config = _config(tmp_path)
+
+    with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
+        mock_compile.return_value = ("xhtml-updated", [], ("release-notes",), "current", "v1.2.3")
+        client = _make_client(existing_id="77", stored_hash="old-hash")
+        publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
+
+    client.update_page.assert_called_once()
+    assert client.update_page.call_args.kwargs.get("version_message") == "v1.2.3"
+    client.set_content_hash.assert_called_once_with("77", client.set_content_hash.call_args.args[1])
+    client.set_page_labels.assert_called_once_with("77", ("release-notes",))
+    client.set_page_full_width.assert_called_once_with("77")
+    client.set_page_status.assert_called_once_with("77", "current", space_key="TECH")
+
+    out = capsys.readouterr().out
+    assert "compiling" in out
+    assert "updated" in out
+
+
+def test_publish_changelog_created_prints_when_not_quiet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nNew.\n", encoding="utf-8")
+    conf = _conf()
+    config = _config(tmp_path)
+
+    with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
+        mock_compile.return_value = ("xhtml-new", [], (), None, None)
+        client = _make_client(existing_id=None)
+        publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
+
+    assert "created" in capsys.readouterr().out
+
+
+def test_publish_changelog_unchanged_prints_when_not_quiet(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nSame.\n", encoding="utf-8")
+    conf = _conf()
+    config = _config(tmp_path)
+
+    with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
+        mock_compile.return_value = ("compiled-xhtml", [], (), None, None)
+        expected_hash = hashlib.sha256(b"compiled-xhtml").hexdigest()
+        client = _make_client(existing_id="42", stored_hash=expected_hash)
+        publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
+
+    assert "unchanged" in capsys.readouterr().out
+
+
+def test_publish_changelog_swallows_metadata_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Best-effort post-publish steps must never propagate; the page is already
+    saved. content_hash failure stays silent (self-healing); labels/full_width/
+    status failures warn so they aren't invisible."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "CHANGELOG.md").write_text("## 2026-05-25\n\nContent.\n", encoding="utf-8")
+    conf = _conf()  # full_width defaults to True
+    config = _config(tmp_path)
+
+    with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
+        mock_compile.return_value = ("xhtml", [], ("lbl",), "current", None)
+        client = _make_client(existing_id=None)
+        client.set_content_hash.side_effect = RuntimeError("hash boom")
+        client.set_page_labels.side_effect = RuntimeError("labels boom")
+        client.set_page_full_width.side_effect = RuntimeError("width boom")
+        client.set_page_status.side_effect = RuntimeError("status boom")
+
+        # Must not raise despite every metadata call failing.
+        publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
+
+    client.create_page.assert_called_once()
+
+    err = capsys.readouterr().err
+    assert "could not set labels" in err
+    assert "could not set full-width" in err
+    assert "could not set page status" in err
+    # content_hash failure is self-healing and must stay silent.
+    assert "hash boom" not in err
+
+
+def test_extract_title_returns_none_on_unreadable_file(tmp_path: Path) -> None:
+    assert _extract_title(tmp_path / "does-not-exist.md") is None
+
+
+def test_extract_title_returns_none_on_malformed_yaml(tmp_path: Path) -> None:
+    p = tmp_path / "c.md"
+    p.write_text("---\nfoo: [unclosed\n---\n\nbody\n", encoding="utf-8")
+    assert _extract_title(p) is None
+
+
+def test_extract_title_returns_none_when_front_matter_not_mapping(tmp_path: Path) -> None:
+    p = tmp_path / "c.md"
+    p.write_text("---\njust a scalar\n---\n\nbody\n", encoding="utf-8")
+    assert _extract_title(p) is None

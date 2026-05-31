@@ -1,16 +1,163 @@
 # Code Review Report
 
-> Current-state note (2026-05-23)
+> Current-state note (2026-05-29)
 >
-> This file is a historical review artifact, not a live architecture spec.
-> The primary report below covers the `sync-comments` work reviewed on 2026-05-06.
->
-> Since that review:
-> - the publisher internals have been split into `publisher/planner.py` and `publisher/executor.py`
-> - `publisher/pipeline.py` now serves as a compatibility facade for the publish API surface used by the CLI and tests
-> - the previously noted redundant pagination URL reassignment in `publisher/client.py` has been removed
->
-> Read the dated sections below as point-in-time assessment, not as a statement of the current publisher design.
+> This file is a running review log. The **primary report immediately below**
+> reflects the current state of the project at v0.13.12. Older dated sections
+> are point-in-time artifacts kept for history — do not read them as a
+> statement of the current design.
+
+---
+
+## Primary Report — Current State (v0.13.12)
+
+**Scope**: v0.12.1 → v0.13.12 — changelog/"What's New" page + AI skill installer + link-map refactor
+**Language**: Python 3.12+ (running on 3.14 venv)
+**Review Date**: 2026-05-29
+**Overall Decision**: **APPROVED** *(findings #1 and #2 remediated same day)*
+**Quality Score**: ~~90~~ → **98/100** *(post-remediation)*
+
+---
+
+### Summary
+
+Since the last review (sync-comments, 2026-05-06) the project gained two feature areas:
+
+1. **Standalone changelog page** — `publisher/changelog.py` compiles a designated
+   `docs/` markdown file into a dedicated "What's New" Confluence page, published
+   alongside the normal nav tree. Driven by a new `confluence.changelog` config key.
+2. **AI skill installer** — `skill_installer.py` + bundled `skills/mkdocs-changelog/`
+   distributes a `/mk2conf-changelog` skill into detected AI tool directories
+   (Hermes, Claude, Copilot, Cursor, `.github/skills`), with a fallback path.
+
+Supporting refactor: `build_link_map` is now built once in `plan_publish` and
+threaded into both page compilation and the changelog compiler, so changelog
+prose can link to changed pages naturally. `find_section_by_folder` was added to
+`loader/nav.py` to resolve a folder reference to a synthetic section node.
+
+- Modules reviewed: 56 source files (was 45 at sync-comments review)
+- New modules: `publisher/changelog.py`, `skill_installer.py`, `skills/mkdocs-changelog/scripts/changelog_data.py`
+- KEEP: all; DISCARD: 0; ESCALATE: 0
+- **All 3 carry-over debt items from the 2026-05-06 review are resolved** (see below)
+
+---
+
+### Technical Validation
+
+| Check | Result |
+|---|---|
+| `uv run mypy src` | **Success: no issues in 56 source files** ✅ |
+| `uv run pytest -q` | **1139 passed** in ~10s ✅ *(was 1132; +7 changelog tests added during remediation)* |
+| `uv run ruff check src tests` | **All checks passed** ✅ |
+| `uv run vulture src --min-confidence 80` | **Clean** ✅ |
+| `uv run bandit -r src` | 12 Low, 0 Medium*/High — all expected (5× B110 try/except/pass, subprocess/`random` in bundled data script). *Was 16 Low / 9× B110 before remediation — four swallow blocks now warn.* |
+
+\* one Medium-*confidence* Low-severity finding; no Medium/High *severity* issues.
+
+**Overall coverage: 92%** (4203 stmts, 345 missed). *(was 91% / 366 missed)*
+
+| New / touched module | Coverage | Notes |
+|---|---|---|
+| `publisher/changelog.py` | **100%** | Was 72% — closed during remediation (finding #1) |
+| `skill_installer.py` | 93% | `github-skills` branch (79–82) untested |
+| `transforms/internallinks.py` (`build_link_map`) | 98% | |
+| `loader/nav.py` (`find_section_by_folder`) | 95% | |
+| `publisher/planner.py` | 90% | |
+| `publisher/executor.py` | 97% | |
+| `publisher/pipeline.py` (facade) | 100% | |
+
+---
+
+### Detailed Review — KEEP Items
+
+| File | Item | Rationale |
+|---|---|---|
+| `loader/config.py` | `changelog` parsing (264–277) | **Correct path-escape guard**: resolves the candidate and `relative_to(docs_dir)`, raising `ConfigError` on traversal. This is the right defensive pattern for a user-supplied path. |
+| `publisher/changelog.py` | `publish_changelog` | Clean reuse of `compile_page`, `_xhtml_hash`, `_upload_assets`. Skips re-publish when content hash matches. Deliberately **does not stamp the page as managed** (93–94) so `--prune` never deletes it — a well-documented, correct design choice. |
+| `publisher/changelog.py` | `_extract_title` | Minimal, defensive YAML front-matter title extraction with `OSError`/`YAMLError`/non-dict guards; falls back to "What's New". |
+| `skill_installer.py` | `install_skill` | Readable per-tool detection. `explicit` (named tool) vs auto-detect (marker-exists) distinction is clear. Always writes the data script to a fixed `.mk2conf/scripts/` path so every tool's skill references it unconditionally. Fallback path when no markers found. |
+| `transforms/internallinks.py` | `build_link_map` | Built once in `plan_publish` and passed to callers (commit `aa83995`) — removes redundant per-page reconstruction. |
+| `loader/nav.py` | `find_section_by_folder` | Case-insensitive `folder/` prefix match over `flat_pages`; prefers an explicit nav `title:` when one matches, else humanises the folder name — consistent with how the loader titles bare directories elsewhere. |
+
+---
+
+### Carry-Over Debt — Status
+
+All three Low-severity items from the 2026-05-06 review are **fixed**:
+
+| Original item | Status |
+|---|---|
+| Bare `assert config.confluence is not None` (`sync/command.py:60`) | ✅ Now `raise RuntimeError(...)` at line 61 |
+| `page_title` field stored PR title (`sync/state.py:16`) | ✅ Renamed to `pr_title` (line 15) |
+| Redundant in-loop `url = self._v2(...)` in pagination (`client.py:557,575`) | ✅ Removed — `url` is now set once before the `while` loop |
+
+---
+
+### Findings
+
+**1. `publisher/changelog.py` coverage — RESOLVED (was 72%, now 100%)**
+Added 7 tests to `tests/test_changelog_publish.py`: an update-path test that drives
+labels + `full_width` + Confluence status with `quiet=False` (covers the metadata
+calls and progress prints), a swallow-and-continue test that makes every post-publish
+metadata call raise to prove failures don't propagate, non-quiet created/unchanged
+print tests, and three `_extract_title` guard tests (unreadable file, malformed YAML,
+non-mapping front matter). Suite now **1139 passed**, overall coverage **92%**.
+
+**2. Swallow-and-continue blocks (`except Exception: pass`) — RESOLVED**
+Originally `changelog.py` had four silent swallows plus four in `executor.py` (the
+9× B110 bandit signal), which hid unexpected errors behind best-effort metadata
+writes. Remediated to a warn-and-continue policy: `content_hash` stays silent (its
+failure self-heals — the next run re-publishes), while `labels` / `full_width` /
+`status` now print `  [warn] …: {exc}` to stderr and continue. `executor.py`'s
+previously-silent `labels` block was upgraded to match, so both modules are now
+consistent. The catch is intentionally kept broad so a transient network error
+cannot abort an already-saved page. B110 count dropped 9 → 5.
+
+**3. `skill_installer.py` `github-skills` branch untested (Negligible)**
+Lines 79–82 (the `.github/skills` install target) are not covered. Behaviourally
+identical to the other branches; low risk. Add one parametrised case if convenient.
+
+---
+
+### Quality Score Breakdown
+
+| Category | Score (initial → post-remediation) | Notes |
+|---|---|---|
+| Compilation / type check | 20/20 | mypy clean, 56 files |
+| Test discovery | 20/20 | 1139 pass, no errors |
+| Minimality | 19/20 | All new code maps to the two features; no speculative abstractions |
+| Coding principles | 27 → **30**/30 | Finding #2 resolved — swallow blocks now warn-and-continue |
+| Test quality | 8 → **9**/10 | Finding #1 resolved (`changelog.py` 100%); −1 remains for untested `github-skills` branch |
+| **Final Score** | ~~90~~ → **98/100** | |
+
+---
+
+### Technical Debt
+
+| File | Line | Type | Description |
+|---|---|---|---|
+| ~~`publisher/changelog.py`~~ | ~~73–132~~ | ~~`AIDEV-TEST`~~ | ~~Add an update-path test with labels + `full_width` + status.~~ **Resolved** — module at 100%, 7 tests added. |
+| ~~`publisher/changelog.py`~~ | ~~113,117,124,129~~ | ~~`AIDEV-REFACTOR`~~ | ~~Narrow `except Exception: pass` / log.~~ **Resolved** — labels/full_width/status now warn-and-continue (`[warn] …: {exc}` to stderr), content_hash stays silent (self-healing). `executor.py` labels block upgraded to warn for consistency. Catch kept broad so a transient network error can't abort an already-saved page. |
+| `skill_installer.py` | 79–82 | `AIDEV-TEST` | Cover the `github-skills` install target. |
+
+---
+
+### Recommendations
+
+1. ~~**Close the changelog coverage gap**~~ → **Done** — `changelog.py` at 100% (+7 tests).
+2. ~~**Tighten the swallow blocks**~~ → **Done** — warn-and-continue policy applied to `changelog.py` and `executor.py`.
+3. **Remaining (negligible)**: cover the `skill_installer.py` `github-skills` branch (lines 79–82) when convenient.
+4. No blocking issues. Branch is clean (one untracked `confluence_rovo_mockup.png` asset, not part of the package).
+
+---
+
+## Archived Reports
+
+*(point-in-time artifacts below — see the current-state note at the top)*
+
+---
+
+# Code Review Report (archived — sync-comments, 2026-05-06)
 
 **Scope**: v0.8.0–v0.8.3 — `sync-comments` feature (Confluence→GitHub PR bridge)
 **Language**: Python 3.12+
