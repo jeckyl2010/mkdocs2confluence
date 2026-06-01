@@ -339,6 +339,38 @@ class TestAwesomePagesNavFile:
         assert len(cctv.children) == 1
         assert cctv.children[0].title == "Vendor"
 
+    def test_directory_without_pages_recurses_into_subfolders(self, tmp_path: Path) -> None:
+        """A folder reached without a .pages file must still recurse into sub-folders.
+
+        Regression: pages in a nested sub-folder that lacked its own .pages file
+        were silently dropped from the nav (only direct .md children were picked
+        up).  Missing pages never reach the link map, so internal links to them
+        degraded to raw label text instead of Confluence page links.
+        """
+        yml = _make_pages_config(tmp_path)
+        docs = tmp_path / "docs"
+        (docs / "appendix" / "test").mkdir(parents=True)
+        # appendix has a direct page AND a sub-folder, but NO .pages file
+        (docs / "appendix" / "overview.md").write_text("# Overview", encoding="utf-8")
+        (docs / "appendix" / "test" / "this-is-a-test.md").write_text("# Test", encoding="utf-8")
+        # Root .pages references the appendix dir; no .pages inside appendix/ or test/
+        (docs / ".pages").write_text(
+            "nav:\n  - Appendix: appendix\n", encoding="utf-8"
+        )
+        config = load_config(yml)
+        nodes = resolve_nav(config)
+        assert len(nodes) == 1
+        appendix = nodes[0]
+        assert appendix.is_section
+        # Direct page + nested sub-section both present
+        overview = next((c for c in appendix.children if c.is_page), None)
+        test_section = next((c for c in appendix.children if c.is_section), None)
+        assert overview is not None and overview.title == "Overview"
+        assert test_section is not None and test_section.title == "Test"
+        assert len(test_section.children) == 1
+        nested = test_section.children[0]
+        assert nested.docs_path == "appendix/test/this-is-a-test.md"
+
     def test_custom_nav_file_name(self, tmp_path: Path) -> None:
         yml = _make_pages_config(tmp_path, nav_file=".nav")
         docs = tmp_path / "docs"

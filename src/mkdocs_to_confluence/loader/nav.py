@@ -170,18 +170,35 @@ def _resolve_nav_dir(dir_path: Path, docs_dir: Path, level: int, nav_file: str) 
     nav_entries = _read_nav_file(dir_path, nav_file)
     if nav_entries is not None:
         return _traverse_nav_dir(nav_entries, dir_path, docs_dir, level, nav_file)
-    # No nav_file — return .md files in this directory only (non-recursive)
+    # No nav_file — discover direct .md files, then recurse into sub-folders so
+    # that nested pages are not silently dropped (and so their internal-link
+    # targets reach the link map).  Sub-folders become nested sections.
     nodes: list[NavNode] = []
-    for md_file in sorted(dir_path.glob("*.md")):
-        docs_path = md_file.relative_to(docs_dir).as_posix()
-        nodes.append(
-            NavNode(
-                title=md_file.stem.replace("-", " ").replace("_", " ").title(),
-                docs_path=docs_path,
-                source_path=md_file,
-                level=level,
+    for entry in sorted(dir_path.iterdir(), key=lambda p: p.name):
+        if entry.is_file() and entry.suffix == ".md":
+            docs_path = entry.relative_to(docs_dir).as_posix()
+            nodes.append(
+                NavNode(
+                    title=entry.stem.replace("-", " ").replace("_", " ").title(),
+                    docs_path=docs_path,
+                    source_path=entry,
+                    level=level,
+                )
             )
-        )
+        elif entry.is_dir():
+            children = _resolve_nav_dir(entry, docs_dir, level + 1, nav_file)
+            if not children:
+                # Skip folders with no markdown content at any depth.
+                continue
+            nodes.append(
+                NavNode(
+                    title=entry.name.replace("-", " ").replace("_", " ").title(),
+                    docs_path=None,
+                    source_path=None,
+                    level=level,
+                    children=tuple(children),
+                )
+            )
     return nodes
 
 
