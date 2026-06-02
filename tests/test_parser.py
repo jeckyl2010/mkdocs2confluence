@@ -185,6 +185,39 @@ class TestHeadings:
         assert isinstance(section, Section)
         assert section.anchor == "hello-world"
 
+    def test_heading_explicit_id_default_none(self) -> None:
+        section = parse("## Plain heading\n")[0]
+        assert isinstance(section, Section)
+        assert section.explicit_anchor is None
+
+    def test_heading_explicit_id_extracted(self) -> None:
+        section = parse("## Test me { #test-me }\n")[0]
+        assert isinstance(section, Section)
+        assert section.explicit_anchor == "test-me"
+
+    def test_heading_explicit_id_stripped_from_title(self) -> None:
+        section = parse("## Test me { #test-me }\n")[0]
+        assert isinstance(section, Section)
+        assert section.title[0].text == "Test me"
+
+    def test_heading_explicit_id_colon_form(self) -> None:
+        section = parse("## Test me {: #test-me }\n")[0]
+        assert isinstance(section, Section)
+        assert section.explicit_anchor == "test-me"
+
+    def test_heading_explicit_id_no_inner_space(self) -> None:
+        section = parse("## Test me {#test-me}\n")[0]
+        assert isinstance(section, Section)
+        assert section.explicit_anchor == "test-me"
+        assert section.title[0].text == "Test me"
+
+    def test_heading_braces_without_id_kept_as_text(self) -> None:
+        # Braces that are not an attr-list id must remain literal heading text.
+        section = parse("## Config { json }\n")[0]
+        assert isinstance(section, Section)
+        assert section.explicit_anchor is None
+        assert section.title[0].text == "Config { json }"
+
     def test_multiple_top_level_headings(self) -> None:
         nodes = parse("# One\n## Two\n## Three\n")
         # One H1 containing two H2 sections
@@ -1421,6 +1454,9 @@ class TestAnchorNode:
         from mkdocs_to_confluence.emitter.xhtml import emit
         nodes = parse('[Jump](#section-1)\n\n<a id="section-1"></a>\n')
         xhtml = emit(nodes)
-        assert 'href="#section-1"' in xhtml
+        # The link must use Confluence's anchor form, not a raw <a href="#..">
+        # (which Confluence strips on save).
+        assert 'href="#section-1"' not in xhtml
+        assert '<ac:link ac:anchor="section-1">' in xhtml
         assert 'ac:structured-macro ac:name="anchor"' in xhtml
         assert "section-1" in xhtml

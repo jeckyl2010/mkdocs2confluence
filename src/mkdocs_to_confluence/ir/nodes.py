@@ -185,12 +185,16 @@ class Section(IRNode):
         anchor:   The auto-generated fragment identifier (e.g. ``"my-section"``).
         title:    Inline nodes that form the heading text.
         children: Block nodes that are the body of this section.
+        explicit_anchor: An author-defined id from an attr-list ``{ #id }`` on the
+                  heading line, if present.  When set, the emitter renders a
+                  Confluence ``anchor`` macro so ``[text](#id)`` links resolve.
     """
 
     level: int
     anchor: str
     title: tuple[IRNode, ...]
     children: tuple[IRNode, ...]
+    explicit_anchor: str | None = None
 
 
 @dataclass(frozen=True)

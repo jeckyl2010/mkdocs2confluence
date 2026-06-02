@@ -48,6 +48,14 @@ class TestInlineEmitters:
         out = emit((Paragraph((LinkNode("https://example.com", (TextNode("click"),)),)),))
         assert '<a href="https://example.com">click</a>' in out
 
+    def test_same_page_anchor_link(self) -> None:
+        # [text](#test-me) → ac:link with ac:anchor and no ri:page
+        out = emit((Paragraph((LinkNode("#test-me", (TextNode("This is a test"),)),)),))
+        assert '<ac:link ac:anchor="test-me">' in out
+        assert "ri:page" not in out
+        assert "<ac:link-body>This is a test</ac:link-body>" in out
+        assert 'href="#test-me"' not in out
+
 
 # ── Block nodes ───────────────────────────────────────────────────────────────
 
@@ -64,6 +72,40 @@ class TestSectionEmitter:
         out = emit((node,))
         assert "<h1>Intro</h1>" in out
         assert "<p>body text</p>" in out
+
+    def test_heading_without_explicit_anchor_has_no_macro(self) -> None:
+        node = Section(level=2, anchor="my-section", title=(TextNode("My Section"),), children=())
+        out = emit((node,))
+        assert "ac:name=\"anchor\"" not in out
+        assert out.strip() == "<h2>My Section</h2>"
+
+    def test_heading_with_explicit_anchor_emits_macro(self) -> None:
+        node = Section(
+            level=2,
+            anchor="test-me",
+            title=(TextNode("Test me"),),
+            children=(),
+            explicit_anchor="test-me",
+        )
+        out = emit((node,))
+        assert (
+            '<ac:structured-macro ac:name="anchor">'
+            '<ac:parameter ac:name=""><![CDATA[test-me]]></ac:parameter>'
+            "</ac:structured-macro>"
+        ) in out
+        assert "<h2>Test me</h2>" in out
+
+    def test_explicit_anchor_link_roundtrip(self) -> None:
+        # Full chain: a heading with { #test-me } and a link [..](#test-me)
+        # produce a matching anchor macro + ac:link with the same name.
+        from mkdocs_to_confluence.parser import parse
+
+        out = emit(parse("## Test me { #test-me }\n\n[This is a test](#test-me)\n"))
+        assert '<ac:parameter ac:name=""><![CDATA[test-me]]></ac:parameter>' in out
+        assert '<ac:link ac:anchor="test-me">' in out
+        # The literal attr-list must not leak into the rendered heading.
+        assert "{ #test-me }" not in out
+        assert "<h2>Test me</h2>" in out
 
 
 class TestParagraphEmitter:

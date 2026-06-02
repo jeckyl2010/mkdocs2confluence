@@ -117,6 +117,18 @@ class TestRenderHtml:
         assert "rm -rf /" in out
         assert "<pre>" in out
 
+    def test_anchor_macro_renders_jump_target(self) -> None:
+        # The anchor macro becomes an invisible <span id="..."> so same-page
+        # links navigate in the preview — and no [anchor macro] box appears.
+        xhtml = (
+            '<ac:structured-macro ac:name="anchor">'
+            '<ac:parameter ac:name=""><![CDATA[test-me]]></ac:parameter>'
+            "</ac:structured-macro><h2>Test me</h2>"
+        )
+        out = render_html(xhtml)
+        assert '<span id="test-me"></span>' in out
+        assert "anchor macro" not in out
+
     def test_unknown_macro_shows_placeholder(self) -> None:
         xhtml = (
             '<ac:structured-macro ac:name="fancy-charts">'

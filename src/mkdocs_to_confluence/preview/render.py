@@ -179,6 +179,10 @@ def _render_macro(m: re.Match[str]) -> str:
         return _render_expand(p, body)
     if name == "details":
         return _render_details(body)
+    if name == "anchor":
+        cdata = _CDATA_RE.search(body)
+        anchor_id = (cdata.group(1) if cdata else body).strip()
+        return f'<span id="{_html.escape(anchor_id)}"></span>'
 
     return (
         f'<div style="border:1px dashed #aaa;padding:8px;margin:0.5em 0;'

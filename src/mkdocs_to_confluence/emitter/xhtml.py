@@ -217,7 +217,15 @@ def _emit_section(node: Section) -> str:
     style_attr = ""
     if _styles:
         style_attr = styles_to_attr(_styles.headings.get(f"h{node.level}", {}))
-    heading = f"<{tag}{style_attr}>{title_html}</{tag}>\n"
+    anchor = ""
+    if node.explicit_anchor:
+        name = html.escape(node.explicit_anchor)
+        anchor = (
+            f'<ac:structured-macro ac:name="anchor">'
+            f'<ac:parameter ac:name=""><![CDATA[{name}]]></ac:parameter>'
+            f"</ac:structured-macro>"
+        )
+    heading = f"{anchor}<{tag}{style_attr}>{title_html}</{tag}>\n"
     body = emit(node.children)
     return heading + body
 
@@ -702,6 +710,16 @@ def _emit_inline(node: IRNode) -> str:
 
 
 def _emit_link(node: LinkNode) -> str:
+    # Same-page anchor link: [text](#id) → ac:link with only ac:anchor.
+    # Confluence strips a raw <a href="#id">, so it must use the anchor form.
+    if node.href.startswith("#") and not node.is_internal:
+        anchor = html.escape(node.href[1:])
+        label = _emit_inlines(node.children)
+        return (
+            f'<ac:link ac:anchor="{anchor}">'
+            f"<ac:link-body>{label}</ac:link-body>"
+            "</ac:link>"
+        )
     # Internal page link: resolved by the internallinks transform
     if node.is_internal:
         label = _emit_inlines(node.children)

@@ -118,6 +118,7 @@ def parse(text: str) -> tuple[IRNode, ...]:
 class _HeadingToken:
     level: int
     text: str  # raw heading text, stripped of leading # characters
+    explicit_anchor: str | None = None  # id from a trailing {#id} attr-list
 
 
 @dataclass
@@ -233,6 +234,11 @@ _Token = Union[
 
 # Matches ATX headings: optional leading whitespace, 1–6 '#', space, text.
 _HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.+?)(?:\s+#+\s*)?$")
+
+# Matches a trailing attr-list carrying an id at the end of a heading line, e.g.
+# ``Test me { #test-me }``, ``{: #test-me }``, or ``{#test-me}``.  Only the id
+# attribute is captured; other attr-list content is ignored.
+_HEADING_ATTR_ID_RE = re.compile(r"\s*\{:?\s*#(?P<id>[\w-]+)\s*\}\s*$")
 
 # Matches the opening line of a fenced code block.
 _FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
@@ -385,7 +391,14 @@ def _tokenize(text: str) -> list[_Token]:
         if heading_m:
             level = len(heading_m.group("hashes"))
             heading_text = heading_m.group("text").strip()
-            tokens.append(_HeadingToken(level=level, text=heading_text))
+            explicit_anchor: str | None = None
+            attr_m = _HEADING_ATTR_ID_RE.search(heading_text)
+            if attr_m:
+                explicit_anchor = attr_m.group("id")
+                heading_text = heading_text[: attr_m.start()].rstrip()
+            tokens.append(
+                _HeadingToken(level=level, text=heading_text, explicit_anchor=explicit_anchor)
+            )
             i += 1
             continue
 
@@ -1048,6 +1061,7 @@ class _OpenSection:
 
     level: int
     title_text: str
+    explicit_anchor: str | None = None
     children: list[IRNode] = field(default_factory=list)
 
 
@@ -1102,7 +1116,13 @@ def _build_tree(
     for token in tokens:
         if isinstance(token, _HeadingToken):
             _close_from_level(token.level, stack, root)
-            stack.append(_OpenSection(level=token.level, title_text=token.text))
+            stack.append(
+                _OpenSection(
+                    level=token.level,
+                    title_text=token.text,
+                    explicit_anchor=token.explicit_anchor,
+                )
+            )
 
         elif isinstance(token, _ParagraphToken):
             node = _paragraph_node(token, fn_map=_fn)
@@ -1249,6 +1269,7 @@ def _close_from_level(
             anchor=_make_anchor(closed.title_text),
             title=_parse_inline(closed.title_text),
             children=tuple(closed.children),
+            explicit_anchor=closed.explicit_anchor,
         )
         _append_content(section, stack, root)
 
