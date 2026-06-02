@@ -55,7 +55,12 @@ def compile_page(
     preprocessed = strip_unsupported_html(preprocessed)
     preprocessed = strip_html_comments(preprocessed)
     preprocessed = strip_icon_shortcodes(preprocessed)
-    front_matter, preprocessed = extract_front_matter(preprocessed)
+    exclude_properties = (
+        config.confluence.exclude_properties if config.confluence else ()
+    )
+    front_matter, preprocessed = extract_front_matter(
+        preprocessed, exclude_properties=exclude_properties
+    )
     abbrevs = extract_abbreviations(preprocessed)
     preprocessed = strip_abbreviation_defs(preprocessed)
     link_defs = collect_link_defs(preprocessed)

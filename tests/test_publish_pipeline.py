@@ -84,6 +84,36 @@ def test_compile_page_with_source_path_none_returns_empty(tmp_path: Path) -> Non
     assert labels == ()
 
 
+def test_compile_page_excludes_configured_properties(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text(
+        "---\nauthor: Alice\nsecret_field: hush\n---\n\n# Page\n",
+        encoding="utf-8",
+    )
+
+    node = _page_node("Page", md)
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=docs,
+        repo_url=None,
+        edit_uri=None,
+        nav=None,
+        confluence=ConfluenceConfig(
+            base_url="https://example.atlassian.net",
+            space_key="TECH",
+            email="user@example.com",
+            token="tok",
+            exclude_properties=("secret_field",),
+        ),
+    )
+    xhtml, attachments, labels, _, _ = compile_page(node, config)
+
+    assert "hush" not in xhtml
+    assert "Alice" in xhtml
+
+
 # ── plan_publish: ready: false ────────────────────────────────────────────────
 
 
