@@ -35,6 +35,7 @@ class ConfluenceConfig:
     github_base_branch: str = "main"        # base branch for review PRs
     allow_any_host: bool = False  # set True to allow non-Atlassian Cloud base_url hosts
     changelog_file: str | None = None  # path relative to docs_dir; None means disabled
+    exclude_properties: tuple[str, ...] = ()  # front matter keys to omit from Page Properties table
 
 
 @dataclass(frozen=True)
@@ -276,6 +277,19 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
                     )
                 changelog_file = cl_str
 
+        # exclude_properties (optional) — raw front matter keys to omit from
+        # the Page Properties table. Pure list of literal keys, no wildcards.
+        raw_exclude = raw_conf.get("exclude_properties")
+        if raw_exclude is None:
+            exclude_properties: tuple[str, ...] = ()
+        elif isinstance(raw_exclude, list):
+            exclude_properties = tuple(str(k) for k in raw_exclude)
+        else:
+            raise ConfigError(
+                "mkdocs.yml: 'confluence.exclude_properties' must be a list of "
+                f"front matter keys, got {type(raw_exclude).__name__}."
+            )
+
         confluence = ConfluenceConfig(
             base_url=base_url.rstrip("/"),
             space_key=space_key,
@@ -291,6 +305,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             github_base_branch=str(raw_conf.get("github_base_branch", "main")),
             allow_any_host=allow_any_host,
             changelog_file=changelog_file,
+            exclude_properties=exclude_properties,
         )
 
     # --- extra_css (optional) ---
