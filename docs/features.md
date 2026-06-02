@@ -179,3 +179,4 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline su
 | **Page ordering** | Confluence sorts child pages alphabetically; the v2 REST API has no write endpoint for ordering. |
 | **Code language aliases** | Short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |
 | **Unrecognised blocks** | Preserved as a visible `warning` macro — no content is silently lost. |
+| **Links in admonition titles** | Confluence macro titles are plain text and cannot hold links. A Markdown link in an admonition title is reduced to its link text and a transpiler warning is emitted — move the link into the admonition body to keep it clickable. |
