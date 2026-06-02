@@ -44,6 +44,9 @@ jobs:
       - name: Dead code (vulture)
         run: uv run vulture src --min-confidence 80
 
+      - name: Architecture boundaries (import-linter)
+        run: uv run lint-imports
+
       - name: Security scan (bandit)
         run: |
           uv run bandit -r src -ll -q -f sarif -o bandit.sarif || true

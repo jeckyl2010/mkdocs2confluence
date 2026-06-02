@@ -103,8 +103,36 @@ exclude_lines = [
   "raise NotImplementedError",
 ]
 
+# Architecture boundaries — enforces the compile pipeline stage separation
+# documented in .github/copilot-instructions.md. Higher layers may import lower
+# ones; siblings joined by "|" must stay independent of each other.
+[tool.importlinter]
+root_package = "mkdocs_to_confluence"
+
+[[tool.importlinter.contracts]]
+name = "Compiler pipeline stage layering"
+type = "layers"
+containers = ["mkdocs_to_confluence"]
+layers = [
+    "sync",
+    "publisher",
+    "compiler",
+    "preprocess | parser | transforms | emitter",
+    "ir | loader",
+]
+
+[[tool.importlinter.contracts]]
+name = "Renderer layering (preview/pdf)"
+type = "layers"
+containers = ["mkdocs_to_confluence"]
+layers = [
+    "pdf",
+    "preview",
+]
+
 [dependency-groups]
 dev = [
+    "import-linter>=2.11",
     "pip-audit>=2.10.0",
     "radon>=6.0.1",
     "vulture>=2.16",

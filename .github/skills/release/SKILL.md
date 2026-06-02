@@ -10,13 +10,14 @@ Use this skill when you are ready to cut a release.
 
 ## Pre-release checklist
 
-Run all four checks. All must pass before tagging:
+Run all five checks. All must pass before tagging:
 
 ```bash
 uv run pytest -q                        # tests
 uv run ruff check src tests             # lint (use --fix to auto-correct import sort)
 uv run mypy src                         # type-check
 uv run vulture src --min-confidence 80  # dead code
+uv run lint-imports                     # architecture boundaries (import-linter)
 ```
 
 ## Release order
