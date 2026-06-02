@@ -114,6 +114,25 @@ def test_compile_page_excludes_configured_properties(tmp_path: Path) -> None:
     assert "Alice" in xhtml
 
 
+def test_compile_page_strips_link_from_admonition_title(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "page.md"
+    md.write_text(
+        '!!! warning "Conflict - see [Hello](foobar.md#hello)"\n\n'
+        "    Body text.\n",
+        encoding="utf-8",
+    )
+
+    node = _page_node("Page", md)
+    config = _make_config(docs)
+    xhtml, _, _, _, _ = compile_page(node, config)
+
+    assert "Conflict - see Hello" in xhtml
+    assert "[Hello]" not in xhtml
+    assert "foobar.md#hello" not in xhtml
+
+
 # ── plan_publish: ready: false ────────────────────────────────────────────────
 
 

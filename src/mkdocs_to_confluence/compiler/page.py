@@ -26,6 +26,9 @@ from mkdocs_to_confluence.preprocess.linkdefs import (
     strip_link_defs,
 )
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
+from mkdocs_to_confluence.transforms.admonition_titles import (
+    strip_links_in_admonition_titles,
+)
 from mkdocs_to_confluence.transforms.assets import resolve_local_assets
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.footer import build_source_footer
@@ -67,6 +70,7 @@ def compile_page(
     preprocessed = expand_link_refs(preprocessed, link_defs)
     preprocessed = strip_link_defs(preprocessed)
     ir_nodes = parse(preprocessed)
+    ir_nodes = strip_links_in_admonition_titles(ir_nodes, node.docs_path or "")
     if is_section_index:
         ir_nodes = ir_nodes + (ChildrenMacro(),)
     ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
