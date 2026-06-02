@@ -11,6 +11,7 @@
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![mypy](https://img.shields.io/badge/type--checked-mypy-blue.svg)](https://mypy-lang.org/)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+[![imports: import-linter](https://img.shields.io/badge/imports-linted-blue.svg)](https://github.com/seddonym/import-linter)
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jeckyl2010/mkdocs2confluence/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jeckyl2010/mkdocs2confluence)
 
