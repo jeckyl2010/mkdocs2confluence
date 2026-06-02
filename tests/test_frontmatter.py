@@ -194,3 +194,52 @@ def test_special_chars_escaped_in_properties():
     assert "&amp;" in xhtml
     assert "&lt;" in xhtml
     assert "O&#x27;Brien" in xhtml or "O&apos;Brien" in xhtml or "O&#39;" in xhtml or "O'" not in xhtml
+
+
+class TestExcludeProperties:
+    def test_excluded_key_omitted_from_table(self) -> None:
+        fm, _ = extract_front_matter(_SAMPLE, exclude_properties=("version",))
+        assert fm is not None
+        labels = [display for display, _ in fm.properties]
+        assert "Version" not in labels
+
+    def test_non_excluded_keys_retained(self) -> None:
+        fm, _ = extract_front_matter(_SAMPLE, exclude_properties=("version",))
+        assert fm is not None
+        labels = [display for display, _ in fm.properties]
+        assert "Author" in labels
+        assert "Document ID" in labels
+
+    def test_excluding_tags_still_yields_labels(self) -> None:
+        fm, _ = extract_front_matter(_SAMPLE, exclude_properties=("tags",))
+        assert fm is not None
+        labels = [display for display, _ in fm.properties]
+        assert "Tags" not in labels
+        # side-effect preserved: tags still become Confluence labels
+        assert fm.labels == ("architecture", "iam", "keycloak")
+
+    def test_excluding_title_keeps_page_title(self) -> None:
+        fm, _ = extract_front_matter(_SAMPLE, exclude_properties=("title",))
+        assert fm is not None
+        labels = [display for display, _ in fm.properties]
+        assert "Title" not in labels
+        assert fm.title == "Architecture Proposal – IAM"
+
+    def test_excluding_nonexistent_key_is_noop(self) -> None:
+        baseline, _ = extract_front_matter(_SAMPLE)
+        excluded, _ = extract_front_matter(_SAMPLE, exclude_properties=("not_here",))
+        assert baseline is not None and excluded is not None
+        assert baseline.properties == excluded.properties
+
+    def test_exclude_is_case_sensitive(self) -> None:
+        # 'Version' != 'version' — wrong case does not exclude
+        fm, _ = extract_front_matter(_SAMPLE, exclude_properties=("Version",))
+        assert fm is not None
+        labels = [display for display, _ in fm.properties]
+        assert "Version" in labels
+
+    def test_default_no_exclude_preserves_behavior(self) -> None:
+        fm, _ = extract_front_matter(_SAMPLE)
+        assert fm is not None
+        labels = [display for display, _ in fm.properties]
+        assert "Version" in labels and "Author" in labels

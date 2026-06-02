@@ -80,11 +80,16 @@ _FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?\n?)---\s*\n?", re.DOTALL)
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-def extract_front_matter(text: str) -> tuple[FrontMatter | None, str]:
+def extract_front_matter(
+    text: str, exclude_properties: tuple[str, ...] = ()
+) -> tuple[FrontMatter | None, str]:
     """Parse YAML front matter from the top of *text*.
 
     Args:
         text: Raw markdown content.
+        exclude_properties: Raw front matter keys to omit from the Page
+            Properties table. Matching is exact and case-sensitive. Special
+            behaviors (title, tags->labels, status) are unaffected.
 
     Returns:
         A ``(FrontMatter | None, remaining_text)`` tuple.  ``FrontMatter`` is
@@ -105,14 +110,19 @@ def extract_front_matter(text: str) -> tuple[FrontMatter | None, str]:
     if not isinstance(raw, dict):
         return None, text
 
-    return _build_node(raw), remaining
+    return _build_node(raw, exclude_properties), remaining
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
 
 
-def _build_node(raw: dict[str, Any]) -> FrontMatter:
-    """Convert a raw front matter dict to a :class:`FrontMatter` IR node."""
+def _build_node(raw: dict[str, Any], exclude: tuple[str, ...] = ()) -> FrontMatter:
+    """Convert a raw front matter dict to a :class:`FrontMatter` IR node.
+
+    ``exclude`` lists raw keys to omit from the properties table (table rows
+    only — title/labels/status side-effects are computed independently below).
+    """
+    skip = _STRIP_FIELDS | set(exclude)
     title: str | None = _stringify(raw.get("title")) if "title" in raw else None
     subtitle: str | None = _stringify(raw.get("subtitle")) if "subtitle" in raw else None
 
@@ -129,14 +139,14 @@ def _build_node(raw: dict[str, Any]) -> FrontMatter:
     seen: set[str] = set()
 
     for key in _FIELD_ORDER:
-        if key in raw and key not in _STRIP_FIELDS and key != "subtitle":
+        if key in raw and key not in skip and key != "subtitle":
             display = _DISPLAY_NAMES.get(key, _humanize(key))
             properties.append((display, _format_value(key, raw[key])))
             seen.add(key)
 
     # Append any remaining unknown fields in document order.
     for key, value in raw.items():
-        if key in seen or key in _STRIP_FIELDS or key == "subtitle":
+        if key in seen or key in skip or key == "subtitle":
             continue
         display = _DISPLAY_NAMES.get(key, _humanize(key))
         properties.append((display, _format_value(key, value)))
