@@ -118,7 +118,12 @@ confluence:
   mermaid_render: kroki              # "kroki" (default) | "kroki:https://your-kroki" | "none"
   full_width: true                   # default: true
   changelog: CHANGELOG.md           # optional: publish as a top-level "What's New" page
+  exclude_properties:                # optional: front matter keys to hide from Page Properties
+    - source_documents
+    - internal_ref
 ```
+
+`exclude_properties` lists raw front matter keys to omit from the Page Properties table (e.g. internal tooling fields). Matching is exact and case-sensitive; `title`, `tags`, and `status` keep their special behavior even if excluded from the table.
 
 The `confluence:` block is also accepted under `extra:` for MkDocs strict-mode compatibility. The API token is read from `token:` in `mkdocs.yml`, then `CONFLUENCE_API_TOKEN`, then `MK2CONF_TOKEN`.
 

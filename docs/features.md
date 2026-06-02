@@ -83,6 +83,8 @@ status: in-progress
 | `status` | Sets the Confluence page status badge — common values: `rough-draft`, `in-progress`, `ready-for-review`. Space-specific values are also supported. Not shown in the properties table. |
 | *other fields* | Title-cased key, value stringified |
 
+Set `confluence.exclude_properties` in `mkdocs.yml` to a list of raw front matter keys to omit from the Page Properties table — e.g. internal tooling fields like `source_documents`. Matching is exact and case-sensitive. Special behaviors are unaffected: `title` still sets the page title, `tags` still become Confluence labels, and `status` still sets the page status.
+
 If `site_url` is set in `mkdocs.yml`, a **Published Page** row links to the rendered MkDocs site.
 
 ## Changelog / What's New page
