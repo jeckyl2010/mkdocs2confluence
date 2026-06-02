@@ -1,131 +1,60 @@
-PS C:\Repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section examples
-mk2conf 0.10.2
-Planning...
-  compiling  'Examples'  (folder)
-  compiling  'IAM Test Cases'  (section index)
-  unchanged  'IAM Test Cases'  (content unchanged)
-  compiling  '01 Shared Android Tablet F1 Login'
-        rendering  mermaid diagram (cached)
-  unchanged  '01 Shared Android Tablet F1 Login'  (content unchanged)
-  compiling  '02 Shared iPad F1 Login'
-        rendering  mermaid diagram (cached)
-  unchanged  '02 Shared iPad F1 Login'  (content unchanged)
-  compiling  '03 Shared Android Phone F1 Login'
-  unchanged  '03 Shared Android Phone F1 Login'  (content unchanged)
-  compiling  '04 Shared iPhone F1 Login'
-  unchanged  '04 Shared iPhone F1 Login'  (content unchanged)
-  compiling  '05 Shared Device Nice To Have Features'
-  unchanged  '05 Shared Device Nice To Have Features'  (content unchanged)
-  compiling  'IAM Frontline License Model'
-  unchanged  'IAM Frontline License Model'  (content unchanged)
-  compiling  'IAM PoC Common Test Prerequisites'
-  unchanged  'IAM PoC Common Test Prerequisites'  (content unchanged)
-  compiling  'Shared Device Platform Comparison Note'
-  compiling  'Test Case Template'
-  unchanged  'Test Case Template'  (content unchanged)
+# Agent Mission: Manufacturing Target Architecture Requirements Generator
 
-Publishing 2 page(s)...
-  [1/2] create  'Examples'
-  [status] setting 'in-progress' on page '6354796555'...
-  [status] ok
-  [status] setting 'in-progress' on page '6353846443'...
-  [status] ok
-  [status] setting 'in-progress' on page '6354305085'...
-  [status] ok
-  [status] setting 'in-progress' on page '6354469015'...
-  [status] ok
-  [status] setting 'draft' on page '6354763795'...
-  [status] ok
-  [2/2] update  'Shared Device Platform Comparison Note'
-Published:  0 created, 2 updated, 9 skipped
-Assets:     0 uploaded, 0 skipped
-Page map: 70 page(s) → .mk2conf-pages.json
-PS C:\Repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section examples
-mk2conf 0.10.2
-Planning...
-  compiling  'Examples'  (folder)
-  compiling  'IAM Test Cases'  (section index)
-  unchanged  'IAM Test Cases'  (content unchanged)
-  compiling  '01 Shared Android Tablet F1 Login'
-        rendering  mermaid diagram (cached)
-  compiling  '02 Shared iPad F1 Login'
-        rendering  mermaid diagram (cached)
-  compiling  '03 Shared Android Phone F1 Login'
-  compiling  '04 Shared iPhone F1 Login'
-  compiling  '05 Shared Device Nice To Have Features'
-  compiling  'IAM Frontline License Model'
-  unchanged  'IAM Frontline License Model'  (content unchanged)
-  compiling  'IAM PoC Common Test Prerequisites'
-  compiling  'Shared Device Platform Comparison Note'
-  compiling  'Test Case Template'
+You are an expert Principal Software Architect Agent specializing in automated "Documentation-as-Code" (Docs-as-Code) governance. Your objective is to read our existing raw project documentation and synthesize it into a clean, highly structured, index-driven **Target Architecture Requirements Framework** tailored for **Material for MkDocs**.
 
-Publishing 9 page(s)...
-  [1/9] create  'Examples'
-  [status] setting 'in-progress' on page '6354796555'...
-  [status] ok
-  [2/9] update  '01 Shared Android Tablet F1 Login'
-  [status] setting 'in-progress' on page '6353846443'...
-  [status] ok
-        skipping   mermaid_83b953f8a619a856777e33cd39c0fd82ececf5b0dacce299978e52fd6398dfde.png (unchanged)
-  [3/9] update  '02 Shared iPad F1 Login'
-  [status] setting 'in-progress' on page '6354305085'...
-  [status] ok
-        skipping   mermaid_4d4f7c6b1a6701e64e86a6e4f434a729fe5f38b0d1301d1e211306652f6cd8ff.png (unchanged)
-  [4/9] update  '03 Shared Android Phone F1 Login'
-  [5/9] update  '04 Shared iPhone F1 Login'
-  [6/9] update  '05 Shared Device Nice To Have Features'
-  [status] setting 'in-progress' on page '6354469015'...
-  [status] ok
-  [status] setting 'draft' on page '6354763795'...
-  [status] ok
-  [7/9] update  'IAM PoC Common Test Prerequisites'
-  [8/9] update  'Shared Device Platform Comparison Note'
-  [9/9] update  'Test Case Template'
-Published:  0 created, 9 updated, 2 skipped
-Assets:     0 uploaded, 2 skipped
-Page map: 70 page(s) → .mk2conf-pages.json
-PS C:\Repos\rockwool\docs> mk2conf publish --config ../mkdocs.yml --section examples
-mk2conf 0.10.2
-Planning...
-  compiling  'Examples'  (folder)
-  compiling  'IAM Test Cases'  (section index)
-  unchanged  'IAM Test Cases'  (content unchanged)
-  compiling  '01 Shared Android Tablet F1 Login'
-        rendering  mermaid diagram (cached)
-  compiling  '02 Shared iPad F1 Login'
-        rendering  mermaid diagram (cached)
-  compiling  '03 Shared Android Phone F1 Login'
-  compiling  '04 Shared iPhone F1 Login'
-  compiling  '05 Shared Device Nice To Have Features'
-  compiling  'IAM Frontline License Model'
-  unchanged  'IAM Frontline License Model'  (content unchanged)
-  compiling  'IAM PoC Common Test Prerequisites'
-  compiling  'Shared Device Platform Comparison Note'
-  unchanged  'Shared Device Platform Comparison Note'  (content unchanged)
-  compiling  'Test Case Template'
+---
 
-Publishing 8 page(s)...
-  [1/8] create  'Examples'
-  [status] setting 'in-progress' on page '6354796555'...
-  [status] ok
-  [2/8] update  '01 Shared Android Tablet F1 Login'
-  [status] setting 'in-progress' on page '6353846443'...
-  [status] ok
-        skipping   mermaid_83b953f8a619a856777e33cd39c0fd82ececf5b0dacce299978e52fd6398dfde.png (unchanged)
-  [3/8] update  '02 Shared iPad F1 Login'
-  [status] setting 'in-progress' on page '6354305085'...
-  [status] ok
-        skipping   mermaid_4d4f7c6b1a6701e64e86a6e4f434a729fe5f38b0d1301d1e211306652f6cd8ff.png (unchanged)
-  [4/8] update  '03 Shared Android Phone F1 Login'
-  [5/8] update  '04 Shared iPhone F1 Login'
-  [6/8] update  '05 Shared Device Nice To Have Features'
-  [status] setting 'in-progress' on page '6354469015'...
-  [status] ok
-  [status] setting 'draft' on page '6354763795'...
-  [status] ok
-  [7/8] update  'IAM PoC Common Test Prerequisites'
-  [8/8] update  'Test Case Template'
-Published:  0 created, 8 updated, 3 skipped
-Assets:     0 uploaded, 2 skipped
-Page map: 70 page(s) → .mk2conf-pages.json
-PS C:\Repos\rockwool\docs>
+## 🏗️ 1. Architecture Philosophy & Constraints
+
+- **Strict Separation of Concerns**: Keep this architectural requirements layer completely self-contained. Do not include or generate any user manuals, daily operational logs, or detailed implementation steps.
+- **The Core Spectrum**: The framework must seamlessly span from high-level operational boundaries to specific manufacturing technology choices.
+- **Technology Anchors**: Explicitly bake our mandatory technology platform choices directly into the specifications:
+  * **Platform**: Red Hat OpenShift running natively at the local factory edge.
+  * **Identity**: Local Keycloak instances deployed on OpenShift acting as site-local Identity Brokers with offline token-caching.
+  * **Mobility**: Company-owned, shared-fleet mobile devices conforming strictly to Android Enterprise Recommended (AER) standards running in EMM-managed kiosk loops.
+  * **Privacy**: Localized Edge AI computer vision data boundaries with mandatory 24-hour raw video storage purge metrics.
+
+---
+
+## 🗂️ 2. Repository Folder & Link Structure
+
+You must distribute the output deterministically across a **Hub-and-Spoke** matrix inside the repository. Do not combine everything into a single file:
+
+```text
+docs/architecture/
+├── architecture-guardrails.md      <-- THE HUB: Master Index Portal Layout
+└── specs/                         <-- THE SPOKES: Isolated Domain Specifications
+    ├── 01_site_autonomy.md         <-- Platform & Infrastructure Requirements
+    ├── 02_digital_identities.md    <-- Keycloak & Access Requirements
+    ├── 03_mobility.md              <-- Shared Mobile Device Requirements
+    └── 04_cctv_gdpr.md             <-- Computer Vision & Privacy Requirements
+```
+
+---
+
+## ✍️ 3. Execution Fields & Formatting Syntax
+
+### The Hub: `docs/architecture/architecture-guardrails.md`
+- Must feature a YAML frontmatter block mapping out the master registry metadata.
+- Must act as a self-contained traffic router using Material for MkDocs `<div class="grid cards">` styling features.
+- Must display 4 prominent cards mapping out the active domain modules with relative markdown text links (`specs/file.md`) pointing down to the spokes.
+
+### The Spokes: Files inside `specs/`
+- Every sub-level module file must start with a clean YAML frontmatter block tracking its metadata profile (`id`, `domain`, `parent_index`, `status: Active`).
+- You must organize the internal requirements of each file using **Material for MkDocs Content Tabs** to cleanly segregate the technical profiles:
+  * `=== "🛠️ Functional Requirements (FAR)"`: Defines the explicit capabilities or technological paths the architecture executes.
+  * `=== "📐 Non-Functional Requirements (NFAR)"`: Defines the operational constraints, performance thresholds, and security parameters (like the 72-hour WAN isolation uptime target).
+- Every single requirement inside the tabs must utilize a strict, itemized layout:
+  * **Identifier Code**: (e.g., `FAR-AUT-01`, `NFAR-ID-02`, `FAR-MOB-01`)
+  * **Requirement Field**: A concise statement of the engineering restriction.
+  * **Verification Rule Field**: Actionable, deterministic testing criteria that our automated CI/CD pipeline harness can run code assertions against.
+
+---
+
+## ⚡ 4. Execution Step-by-Step Instructions
+
+1. **Scan Context**: Process all active markdown repositories and text snippets to extract current design intents, technical variables, and baseline project choices.
+2. **Execute Token Routing Rules**: Write the Master Index routing hub file first (`architecture-guardrails.md`).
+3. **Parse and Modularize**: Group the discovered requirements cleanly into their 4 specific sub-level domains. Strip out any non-architectural text blocks.
+4. **Draft Executable Schema Blocks**: Map out the explicit `FAR` and `NFAR` sections for each specification file, ensuring every rule features a clear, non-hallucinated `Verification Rule` statement.
+5. **Verify Formatting Integration**: Ensure all tabs (`===`), grids, and callouts utilize exact Material for MkDocs syntax conventions to eliminate dead links or compile errors.
