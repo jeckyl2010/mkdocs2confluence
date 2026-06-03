@@ -758,14 +758,19 @@ def _emit_image(node: ImageNode) -> str:
     height_attr = f' ac:height="{node.height}"' if node.height is not None else ""
     align_attr = f' ac:align="{html.escape(node.align)}"' if node.align else ""
     size_attrs = width_attr + height_attr + align_attr
+    caption = (
+        f"<ac:caption><p>{html.escape(node.caption)}</p></ac:caption>"
+        if node.caption
+        else ""
+    )
     # Local file → attachment reference; URL → external ri:url
     src = node.src
     if src.startswith(("http://", "https://", "//", "data:")):
         ref = f'<ri:url ri:value="{html.escape(src)}"/>'
-        return f"<ac:image{alt_attr}{title_attr}{size_attrs}>{ref}</ac:image>"
+        return f"<ac:image{alt_attr}{title_attr}{size_attrs}>{ref}{caption}</ac:image>"
     else:
         filename = html.escape(node.attachment_name or Path(src).name)
         # data-local-path is used by the preview renderer only (not valid XHTML)
         local_attr = f' data-local-path="{html.escape(src)}"'
         ref = f'<ri:attachment ri:filename="{filename}"/>'
-        return f"<ac:image{alt_attr}{title_attr}{size_attrs}{local_attr}>{ref}</ac:image>"
+        return f"<ac:image{alt_attr}{title_attr}{size_attrs}{local_attr}>{ref}{caption}</ac:image>"

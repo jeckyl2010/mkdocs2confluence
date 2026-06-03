@@ -162,6 +162,7 @@ class ImageNode(IRNode):
     src: str
     alt: str
     title: str | None = None
+    caption: str | None = None
     attachment_name: str | None = None
     width: int | None = None
     height: int | None = None
