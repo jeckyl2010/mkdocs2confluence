@@ -73,6 +73,57 @@ def test_resolve_captions_external_image():
     assert out[0].children[0].title is None  # same clearing guarantee as local images
 
 
+def test_rewrite_figure_caption_basic():
+    from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
+
+    md = (
+        '<figure markdown="span">\n'
+        "  ![Arch](arch.png)\n"
+        "  <figcaption>System overview</figcaption>\n"
+        "</figure>\n"
+    )
+    out = rewrite_figure_captions(md)
+    assert out.strip() == '![Arch](arch.png "System overview")'
+
+
+def test_rewrite_figure_caption_precedence_over_title():
+    from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
+
+    md = (
+        "<figure>\n"
+        '![Arch](arch.png "ignored title")\n'
+        "<figcaption>Real caption</figcaption>\n"
+        "</figure>\n"
+    )
+    out = rewrite_figure_captions(md)
+    assert out.strip() == '![Arch](arch.png "Real caption")'
+
+
+def test_rewrite_figure_caption_escapes_quotes():
+    from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
+
+    md = '<figure>\n![A](a.png)\n<figcaption>a "quoted" cap</figcaption>\n</figure>\n'
+    out = rewrite_figure_captions(md)
+    assert out.strip() == "![A](a.png \"a 'quoted' cap\")"
+
+
+def test_rewrite_figure_caption_no_figure_unchanged():
+    from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
+
+    md = "Just text with ![A](a.png) inline.\n"
+    assert rewrite_figure_captions(md) == md
+
+
+def test_figure_pipeline_end_to_end():
+    from mkdocs_to_confluence.parser.markdown import parse
+    from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
+    from mkdocs_to_confluence.transforms.captions import resolve_captions
+
+    md = "<figure>\n![Arch](arch.png)\n<figcaption>Overview</figcaption>\n</figure>\n"
+    out = emit(resolve_captions(parse(rewrite_figure_captions(md))))
+    assert "<ac:caption><p>Overview</p></ac:caption>" in out
+
+
 def test_compile_page_renders_image_caption(tmp_path):
     from mkdocs_to_confluence.loader.config import MkDocsConfig
     from mkdocs_to_confluence.loader.nav import NavNode

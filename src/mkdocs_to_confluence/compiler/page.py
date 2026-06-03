@@ -13,6 +13,7 @@ from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
     strip_abbreviation_defs,
 )
+from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
 from mkdocs_to_confluence.preprocess.frontmatter import extract_front_matter
 from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
 from mkdocs_to_confluence.preprocess.includes import (
@@ -57,6 +58,7 @@ def compile_page(
         docs_dir=config.docs_dir,
     )
     preprocessed = strip_unsupported_html(preprocessed)
+    preprocessed = rewrite_figure_captions(preprocessed)
     preprocessed = strip_html_comments(preprocessed)
     preprocessed = strip_icon_shortcodes(preprocessed)
     exclude_properties = (
