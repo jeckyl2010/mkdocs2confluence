@@ -56,6 +56,36 @@
 | Edit link banner | `info` macro linking back to source in GitHub/GitLab |
 | Grid cards `<div class="grid cards" markdown>` | Native `ac:layout` multi-column sections (auto-detects 1/2/3 columns from card count) |
 
+## Image captions
+
+Images render with a visible Confluence caption when either is present:
+
+- An image title: `![Alt text](diagram.png "Figure 1: Overview")`.
+- A Material `md_in_html` figure:
+
+  ```markdown
+  <figure markdown="span">
+    ![Alt text](diagram.png)
+    <figcaption>Figure 1: Overview</figcaption>
+  </figure>
+  ```
+
+When both are present on the same image, the `<figcaption>` wins. Captions work
+for both local (attached) and external (URL) images.
+
+## Inline attachment previews
+
+Links to local PDF or Office files (`.pdf`, `.doc(x)`, `.xls(x)`, `.ppt(x)`) can
+render as inline Confluence previews instead of download links. Enable it in
+`mkdocs.yml`:
+
+```yaml
+confluence:
+  attachment_preview: true   # default: false
+```
+
+Other file types (`.zip`, `.csv`, …) always remain download links.
+
 ## YAML front matter → Page Properties
 
 A YAML front matter block is converted to a Confluence **Page Properties** macro, making it queryable via the Page Properties Report macro.
