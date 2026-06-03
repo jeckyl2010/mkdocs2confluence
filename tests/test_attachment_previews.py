@@ -109,3 +109,40 @@ def test_non_attachment_link_unchanged():
     nodes = (_link("https://x.test/spec.pdf", attachment_name=None),)
     out = resolve_attachment_previews(nodes, enabled=True)
     assert isinstance(out[0].children[0], LinkNode)
+
+
+def test_compile_page_attachment_preview(tmp_path):
+    from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
+    from mkdocs_to_confluence.loader.nav import NavNode
+    from mkdocs_to_confluence.publisher.pipeline import compile_page
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "spec.pdf").write_bytes(b"%PDF-1.4\n")
+    (docs / "index.md").write_text("See the [spec](spec.pdf).\n", encoding="utf-8")
+    node = NavNode(
+        title="Index", docs_path="index.md", source_path=docs / "index.md", level=0
+    )
+
+    def _cfg(preview: bool) -> MkDocsConfig:
+        return MkDocsConfig(
+            site_name="T",
+            docs_dir=docs,
+            repo_url=None,
+            edit_uri=None,
+            nav=None,
+            confluence=ConfluenceConfig(
+                base_url="https://x.atlassian.net",
+                space_key="TECH",
+                email="a@b.test",
+                token="t",
+                attachment_preview=preview,
+            ),
+        )
+
+    xhtml_on, _, _, _, _ = compile_page(node, _cfg(True))
+    assert 'ac:name="view-file"' in xhtml_on
+
+    xhtml_off, _, _, _, _ = compile_page(node, _cfg(False))
+    assert 'ac:name="view-file"' not in xhtml_off
+    assert "<ac:link>" in xhtml_off  # default: attachment download link
