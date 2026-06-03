@@ -114,6 +114,20 @@ def test_rewrite_figure_caption_no_figure_unchanged():
     assert rewrite_figure_captions(md) == md
 
 
+def test_rewrite_figure_caption_two_figures_no_boundary_cross():
+    from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
+
+    md = (
+        "<figure>\n![A](a.png)\n<figcaption>First</figcaption>\n</figure>\n"
+        "<figure>\n![B](b.png)\n<figcaption>Second</figcaption>\n</figure>\n"
+    )
+    out = rewrite_figure_captions(md)
+    assert '![A](a.png "First")' in out
+    assert '![B](b.png "Second")' in out
+    # the plain-text caption group must not swallow the second figure
+    assert "<figure>" not in out
+
+
 def test_figure_pipeline_end_to_end():
     from mkdocs_to_confluence.parser.markdown import parse
     from mkdocs_to_confluence.preprocess.captions import rewrite_figure_captions
