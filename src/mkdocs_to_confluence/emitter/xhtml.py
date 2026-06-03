@@ -25,6 +25,7 @@ from mkdocs_to_confluence.ir.nodes import (
     AbbrevGlossaryBlock,
     Admonition,
     AnchorNode,
+    AttachmentPreview,
     BlockQuote,
     BoldNode,
     BulletList,
@@ -685,6 +686,8 @@ def _emit_inline(node: IRNode) -> str:
         return f"<code{style_attr}>{html.escape(node.code)}</code>"
     if isinstance(node, LinkNode):
         return _emit_link(node)
+    if isinstance(node, AttachmentPreview):
+        return _emit_attachment_preview(node)
     if isinstance(node, ImageNode):
         return _emit_image(node)
     if isinstance(node, FootnoteRef):
@@ -707,6 +710,15 @@ def _emit_inline(node: IRNode) -> str:
         )
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
+
+
+def _emit_attachment_preview(node: AttachmentPreview) -> str:
+    filename = html.escape(node.filename, quote=True)
+    return (
+        '<ac:structured-macro ac:name="view-file">'
+        f'<ac:parameter ac:name="name"><ri:attachment ri:filename="{filename}"/></ac:parameter>'
+        "</ac:structured-macro>"
+    )
 
 
 def _emit_link(node: LinkNode) -> str:

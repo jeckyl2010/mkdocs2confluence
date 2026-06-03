@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from mkdocs_to_confluence.emitter.xhtml import emit
+from mkdocs_to_confluence.ir.nodes import AttachmentPreview, Paragraph
 from mkdocs_to_confluence.loader.config import ConfigError, load_config
 
 
@@ -39,3 +41,18 @@ def test_attachment_preview_default_false(tmp_path: Path) -> None:
 def test_attachment_preview_non_bool_raises(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="attachment_preview"):
         load_config(_write_mkdocs(tmp_path, _CONF + "  attachment_preview: maybe\n"))
+
+
+def test_emit_attachment_preview_macro():
+    out = emit((Paragraph(children=(AttachmentPreview(filename="docs_spec.pdf"),)),))
+    assert '<ac:structured-macro ac:name="view-file">' in out
+    assert (
+        '<ac:parameter ac:name="name"><ri:attachment ri:filename="docs_spec.pdf"/>'
+        "</ac:parameter>" in out
+    )
+    assert "</ac:structured-macro>" in out
+
+
+def test_emit_attachment_preview_escapes_filename():
+    out = emit((Paragraph(children=(AttachmentPreview(filename='a&b".pdf'),)),))
+    assert "a&amp;b&quot;.pdf" in out

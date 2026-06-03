@@ -454,6 +454,18 @@ class ChildrenMacro(IRNode):
 
 
 @dataclass(frozen=True)
+class AttachmentPreview(IRNode):
+    """An inline preview of an uploaded attachment (PDF/Office file).
+
+    ``filename`` is the collision-safe Confluence attachment name (the same
+    value carried on the originating ``LinkNode.attachment_name``). The emitter
+    renders a ``view-file`` macro referencing the attachment.
+    """
+
+    filename: str
+
+
+@dataclass(frozen=True)
 class SourceFooter(IRNode):
     """Footer panel showing source-control links and last-commit info.
 
