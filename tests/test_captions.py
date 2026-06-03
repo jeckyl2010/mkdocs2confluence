@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.ir.nodes import ImageNode, Paragraph
+from mkdocs_to_confluence.transforms.captions import resolve_captions
 
 
 def test_emit_image_with_caption_local():
@@ -37,3 +38,36 @@ def test_emit_image_caption_is_escaped():
     node = Paragraph(children=(ImageNode(src="a.png", alt="A", caption="x & <y>"),))
     out = emit((node,))
     assert "x &amp; &lt;y&gt;" in out
+
+
+def test_resolve_captions_title_becomes_caption():
+    nodes = (Paragraph(children=(ImageNode(src="a.png", alt="A", title="Cap"),)),)
+    out = resolve_captions(nodes)
+    img = out[0].children[0]
+    assert img.caption == "Cap"
+    assert img.title is None  # cleared so it is not also a tooltip
+
+
+def test_resolve_captions_existing_caption_wins():
+    nodes = (
+        Paragraph(children=(ImageNode(src="a.png", alt="A", title="T", caption="C"),)),
+    )
+    out = resolve_captions(nodes)
+    img = out[0].children[0]
+    assert img.caption == "C"
+    assert img.title == "T"  # untouched when caption already set
+
+
+def test_resolve_captions_no_title_unchanged():
+    nodes = (Paragraph(children=(ImageNode(src="a.png", alt="A"),)),)
+    out = resolve_captions(nodes)
+    assert out[0].children[0].caption is None
+
+
+def test_resolve_captions_external_image():
+    nodes = (
+        Paragraph(children=(ImageNode(src="https://x.test/a.png", alt="A", title="Cap"),)),
+    )
+    out = resolve_captions(nodes)
+    assert out[0].children[0].caption == "Cap"
+    assert out[0].children[0].title is None  # same clearing guarantee as local images
