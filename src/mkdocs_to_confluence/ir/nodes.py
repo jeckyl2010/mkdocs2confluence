@@ -162,6 +162,7 @@ class ImageNode(IRNode):
     src: str
     alt: str
     title: str | None = None
+    caption: str | None = None
     attachment_name: str | None = None
     width: int | None = None
     height: int | None = None
@@ -450,6 +451,18 @@ class ChildrenMacro(IRNode):
     Appended to section index pages so readers see a live, auto-maintained
     sub-page list.  Emitted as ``ac:structured-macro ac:name="children"``.
     """
+
+
+@dataclass(frozen=True)
+class AttachmentPreview(IRNode):
+    """An inline preview of an uploaded attachment (PDF/Office file).
+
+    ``filename`` is the collision-safe Confluence attachment name (the same
+    value carried on the originating ``LinkNode.attachment_name``). The emitter
+    renders a ``view-file`` macro referencing the attachment.
+    """
+
+    filename: str
 
 
 @dataclass(frozen=True)

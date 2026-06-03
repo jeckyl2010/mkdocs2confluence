@@ -36,6 +36,7 @@ class ConfluenceConfig:
     allow_any_host: bool = False  # set True to allow non-Atlassian Cloud base_url hosts
     changelog_file: str | None = None  # path relative to docs_dir; None means disabled
     exclude_properties: tuple[str, ...] = ()  # front matter keys to omit from Page Properties table
+    attachment_preview: bool = False  # render PDF/Office attachment links as view-file macros
 
 
 @dataclass(frozen=True)
@@ -290,6 +291,15 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
                 f"front matter keys, got {type(raw_exclude).__name__}."
             )
 
+        # attachment_preview (optional) — render PDF/Office attachment links inline
+        raw_preview = raw_conf.get("attachment_preview", False)
+        if not isinstance(raw_preview, bool):
+            raise ConfigError(
+                "mkdocs.yml: 'confluence.attachment_preview' must be a boolean, "
+                f"got {type(raw_preview).__name__}."
+            )
+        attachment_preview = raw_preview
+
         confluence = ConfluenceConfig(
             base_url=base_url.rstrip("/"),
             space_key=space_key,
@@ -306,6 +316,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             allow_any_host=allow_any_host,
             changelog_file=changelog_file,
             exclude_properties=exclude_properties,
+            attachment_preview=attachment_preview,
         )
 
     # --- extra_css (optional) ---

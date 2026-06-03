@@ -25,6 +25,7 @@ from mkdocs_to_confluence.ir.nodes import (
     AbbrevGlossaryBlock,
     Admonition,
     AnchorNode,
+    AttachmentPreview,
     BlockQuote,
     BoldNode,
     BulletList,
@@ -685,6 +686,8 @@ def _emit_inline(node: IRNode) -> str:
         return f"<code{style_attr}>{html.escape(node.code)}</code>"
     if isinstance(node, LinkNode):
         return _emit_link(node)
+    if isinstance(node, AttachmentPreview):
+        return _emit_attachment_preview(node)
     if isinstance(node, ImageNode):
         return _emit_image(node)
     if isinstance(node, FootnoteRef):
@@ -707,6 +710,15 @@ def _emit_inline(node: IRNode) -> str:
         )
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
+
+
+def _emit_attachment_preview(node: AttachmentPreview) -> str:
+    filename = html.escape(node.filename, quote=True)
+    return (
+        '<ac:structured-macro ac:name="view-file">'
+        f'<ac:parameter ac:name="name"><ri:attachment ri:filename="{filename}"/></ac:parameter>'
+        "</ac:structured-macro>"
+    )
 
 
 def _emit_link(node: LinkNode) -> str:
@@ -758,14 +770,19 @@ def _emit_image(node: ImageNode) -> str:
     height_attr = f' ac:height="{node.height}"' if node.height is not None else ""
     align_attr = f' ac:align="{html.escape(node.align)}"' if node.align else ""
     size_attrs = width_attr + height_attr + align_attr
+    caption = (
+        f"<ac:caption><p>{html.escape(node.caption)}</p></ac:caption>"
+        if node.caption
+        else ""
+    )
     # Local file → attachment reference; URL → external ri:url
     src = node.src
     if src.startswith(("http://", "https://", "//", "data:")):
         ref = f'<ri:url ri:value="{html.escape(src)}"/>'
-        return f"<ac:image{alt_attr}{title_attr}{size_attrs}>{ref}</ac:image>"
+        return f"<ac:image{alt_attr}{title_attr}{size_attrs}>{ref}{caption}</ac:image>"
     else:
         filename = html.escape(node.attachment_name or Path(src).name)
         # data-local-path is used by the preview renderer only (not valid XHTML)
         local_attr = f' data-local-path="{html.escape(src)}"'
         ref = f'<ri:attachment ri:filename="{filename}"/>'
-        return f"<ac:image{alt_attr}{title_attr}{size_attrs}{local_attr}>{ref}</ac:image>"
+        return f"<ac:image{alt_attr}{title_attr}{size_attrs}{local_attr}>{ref}{caption}</ac:image>"
