@@ -71,3 +71,23 @@ def test_resolve_captions_external_image():
     out = resolve_captions(nodes)
     assert out[0].children[0].caption == "Cap"
     assert out[0].children[0].title is None  # same clearing guarantee as local images
+
+
+def test_compile_page_renders_image_caption(tmp_path):
+    from mkdocs_to_confluence.loader.config import MkDocsConfig
+    from mkdocs_to_confluence.loader.nav import NavNode
+    from mkdocs_to_confluence.publisher.pipeline import compile_page
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    (docs / "index.md").write_text('![Logo](logo.png "Our logo")\n', encoding="utf-8")
+
+    node = NavNode(
+        title="Index", docs_path="index.md", source_path=docs / "index.md", level=0
+    )
+    config = MkDocsConfig(
+        site_name="T", docs_dir=docs, repo_url=None, edit_uri=None, nav=None
+    )
+    xhtml, _, _, _, _ = compile_page(node, config)
+    assert "<ac:caption><p>Our logo</p></ac:caption>" in xhtml

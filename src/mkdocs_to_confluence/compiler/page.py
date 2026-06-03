@@ -30,6 +30,7 @@ from mkdocs_to_confluence.transforms.admonition_titles import (
     strip_links_in_admonition_titles,
 )
 from mkdocs_to_confluence.transforms.assets import resolve_local_assets
+from mkdocs_to_confluence.transforms.captions import resolve_captions
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.footer import build_source_footer
 from mkdocs_to_confluence.transforms.internallinks import resolve_internal_links
@@ -79,6 +80,7 @@ def compile_page(
         page_path=node.source_path,
         docs_dir=config.docs_dir,
     )
+    ir_nodes = resolve_captions(ir_nodes)
     mermaid_render = config.confluence.mermaid_render if config.confluence else "kroki"
     if mermaid_render != "none":
         kroki_url = (
