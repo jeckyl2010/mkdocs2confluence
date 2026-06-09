@@ -623,11 +623,11 @@ def _emit_abbrev_glossary_block(node: AbbrevGlossaryBlock) -> str:
             f"</ac:structured-macro>"
         )
         abbr = html.escape(fn.abbr)
-        defn = html.escape(fn.definition)
+        defn = _emit_inlines(fn.definition)
         parts.append(f"<li>{anchor_macro}<strong>{abbr}</strong> — {defn}</li>\n")
-    for abbr, defn in node.extras:
+    for fn in node.extras:
         # No anchor — these only appeared in headings/titles, no inline superscript links here.
-        parts.append(f"<li><strong>{html.escape(abbr)}</strong> — {html.escape(defn)}</li>\n")
+        parts.append(f"<li><strong>{html.escape(fn.abbr)}</strong> — {_emit_inlines(fn.definition)}</li>\n")
     parts.append("</ol>\n")
     return "".join(parts)
 

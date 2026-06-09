@@ -8,7 +8,7 @@ from mkdocs_to_confluence.ir.nodes import ChildrenMacro, FrontMatter, SourceFoot
 from mkdocs_to_confluence.loader.config import MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import load_page
-from mkdocs_to_confluence.parser.markdown import parse
+from mkdocs_to_confluence.parser.markdown import parse, parse_inline
 from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
     strip_abbreviation_defs,
@@ -79,7 +79,9 @@ def compile_page(
     ir_nodes = strip_links_in_admonition_titles(ir_nodes, node.docs_path or "")
     if is_section_index:
         ir_nodes = ir_nodes + (ChildrenMacro(),)
-    ir_nodes = apply_abbreviations(ir_nodes, abbrevs, page_text=preprocessed)
+    # Parse definitions as inline markdown so links etc. survive into the glossary.
+    parsed_abbrevs = {abbr: parse_inline(defn) for abbr, defn in abbrevs.items()}
+    ir_nodes = apply_abbreviations(ir_nodes, parsed_abbrevs, page_text=preprocessed)
     ir_nodes, attachments = resolve_local_assets(
         ir_nodes,
         page_path=node.source_path,

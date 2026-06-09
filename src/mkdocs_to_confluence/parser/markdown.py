@@ -111,6 +111,16 @@ def parse(text: str) -> tuple[IRNode, ...]:
     return _build_tree(tokens)
 
 
+def parse_inline(text: str) -> tuple[IRNode, ...]:
+    """Parse a standalone snippet of inline markdown into IR inline nodes.
+
+    Used for one-line fragments that live outside the main document flow,
+    e.g. abbreviation definitions, where links and other inline formatting
+    must still be honoured.
+    """
+    return _parse_inline(text)
+
+
 # ── Internal token types ──────────────────────────────────────────────────────
 
 

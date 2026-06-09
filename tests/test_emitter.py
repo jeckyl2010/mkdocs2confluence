@@ -474,10 +474,10 @@ class TestFootnoteEmitter:
         """Abbreviations only in headings/titles must appear in <ol>, not <ul>."""
         from mkdocs_to_confluence.emitter.xhtml import emit
         from mkdocs_to_confluence.ir.nodes import AbbrevFootnoteNode, AbbrevGlossaryBlock
-        fn = AbbrevFootnoteNode(abbr="API", definition="Application Programming Interface", number=1)
+        fn = AbbrevFootnoteNode(abbr="API", definition=(TextNode("Application Programming Interface"),), number=1)
         block = AbbrevGlossaryBlock(
             footnoted=(fn,),
-            extras=(("AD", "Active Directory"),),
+            extras=(AbbrevFootnoteNode(abbr="AD", definition=(TextNode("Active Directory"),), number=None),),
         )
         out = emit((block,))
         assert "<ol>" in out
@@ -487,6 +487,22 @@ class TestFootnoteEmitter:
         assert "API" in out
         # extras must NOT get an anchor macro
         assert out.count('ac:name="anchor"') == 1  # only for the footnoted entry
+
+    def test_abbrev_glossary_definition_with_link(self) -> None:
+        """A markdown link in a definition must render as an <a>, not raw text."""
+        from mkdocs_to_confluence.ir.nodes import AbbrevFootnoteNode, AbbrevGlossaryBlock
+        defn = (
+            TextNode("The "),
+            LinkNode(href="http://forr.bar", children=(TextNode("Foo"),)),
+            TextNode(" service"),
+        )
+        block = AbbrevGlossaryBlock(
+            footnoted=(AbbrevFootnoteNode(abbr="FB", definition=defn, number=1),),
+            extras=(AbbrevFootnoteNode(abbr="BZ", definition=defn, number=None),),
+        )
+        out = emit((block,))
+        assert out.count('<a href="http://forr.bar">Foo</a>') == 2
+        assert "[Foo]" not in out
 
 
 # ── Inline HTML emitters ──────────────────────────────────────────────────────

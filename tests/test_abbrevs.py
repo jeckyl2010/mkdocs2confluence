@@ -8,6 +8,7 @@ from mkdocs_to_confluence.ir.nodes import (
     Admonition,
     BoldNode,
     CodeBlock,
+    IRNode,
     LinkNode,
     Paragraph,
     Section,
@@ -16,11 +17,25 @@ from mkdocs_to_confluence.ir.nodes import (
     TableRow,
     TextNode,
 )
+from mkdocs_to_confluence.parser import parse_inline
 from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
     strip_abbreviation_defs,
 )
-from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
+from mkdocs_to_confluence.transforms.abbrevs import (
+    apply_abbreviations as _apply_abbreviations,
+)
+
+
+def apply_abbreviations(
+    nodes: tuple[IRNode, ...],
+    abbrevs: dict[str, str],
+    *,
+    page_text: str = "",
+) -> tuple[IRNode, ...]:
+    """Parse string definitions inline (as the compiler does) and apply."""
+    parsed = {abbr: parse_inline(defn) for abbr, defn in abbrevs.items()}
+    return _apply_abbreviations(nodes, parsed, page_text=page_text)
 
 # ── extract_abbreviations ─────────────────────────────────────────────────────
 
@@ -94,7 +109,7 @@ def test_expands_first_occurrence_as_footnote():
     fn = children[1]
     assert isinstance(fn, AbbrevFootnoteNode)
     assert fn.abbr == "IAM"
-    assert fn.definition == "Identity and Access Management"
+    assert fn.definition == (TextNode("Identity and Access Management"),)
     assert fn.number == 1
     # Second occurrence left as plain text
     assert isinstance(children[2], TextNode)
@@ -141,7 +156,10 @@ def test_glossary_block_appended_for_heading_only_abbrev():
     glossary = result[1]
     assert isinstance(glossary, AbbrevGlossaryBlock)
     assert len(glossary.footnoted) == 0
-    assert glossary.extras == (("IAM", "Identity and Access Management"),)
+    assert len(glossary.extras) == 1
+    assert glossary.extras[0].abbr == "IAM"
+    assert glossary.extras[0].definition == (TextNode("Identity and Access Management"),)
+    assert glossary.extras[0].number is None
 
 
 def test_no_glossary_when_abbrev_footnoted_inline():
@@ -232,7 +250,7 @@ def test_extras_sorted_alphabetically():
     result = apply_abbreviations((section,), abbrevs, page_text="IAM and RBAC Overview")
     glossary = result[-1]
     assert isinstance(glossary, AbbrevGlossaryBlock)
-    extra_abbrs = [abbr for abbr, _ in glossary.extras]
+    extra_abbrs = [fn.abbr for fn in glossary.extras]
     assert extra_abbrs == sorted(extra_abbrs)
 
 
@@ -254,3 +272,29 @@ def test_expands_in_loose_list_item():
     result = apply_abbreviations(nodes, abbrevs, page_text="Use the API here.")
     para_children = result[0].items[0].children[0].children  # type: ignore[union-attr]
     assert any(isinstance(c, AbbrevFootnoteNode) and c.abbr == "API" for c in para_children)
+
+
+# ── Markdown in definitions ──────────────────────────────────────────────────
+
+
+def test_definition_with_link_parsed_to_link_node():
+    abbrevs = {"FB": "The [Foo](http://forr.bar) service"}
+    nodes = (_para("Use FB here."),)
+    result = apply_abbreviations(nodes, abbrevs, page_text="Use FB here.")
+    glossary = result[-1]
+    assert isinstance(glossary, AbbrevGlossaryBlock)
+    definition = glossary.footnoted[0].definition
+    links = [n for n in definition if isinstance(n, LinkNode)]
+    assert len(links) == 1
+    assert links[0].href == "http://forr.bar"
+    assert links[0].children == (TextNode("Foo"),)
+
+
+def test_extra_definition_with_link_parsed_to_link_node():
+    abbrevs = {"FB": "The [Foo](http://forr.bar) service"}
+    section = Section(level=2, anchor="fb", title=(TextNode("FB Platform"),), children=())
+    result = apply_abbreviations((section,), abbrevs, page_text="FB Platform")
+    glossary = result[-1]
+    assert isinstance(glossary, AbbrevGlossaryBlock)
+    definition = glossary.extras[0].definition
+    assert any(isinstance(n, LinkNode) and n.href == "http://forr.bar" for n in definition)

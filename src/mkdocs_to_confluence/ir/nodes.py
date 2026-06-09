@@ -497,11 +497,16 @@ class AbbrevFootnoteNode(IRNode):
 
     The emitter renders ``ABBR<sup>[N]</sup>`` where ``[N]`` links to the
     corresponding entry in the end-of-page :class:`AbbrevGlossaryBlock`.
+
+    ``definition`` holds the definition text parsed as inline IR nodes so
+    that links and other inline formatting survive into the glossary.
     """
 
     abbr: str
-    definition: str
-    number: int  # 1-based, assigned by the transform in order of first encounter
+    definition: tuple[IRNode, ...]
+    # 1-based, assigned by the transform in order of first encounter.
+    # ``None`` for glossary-only entries (no inline superscript, no anchor).
+    number: int | None
 
 
 @dataclass(frozen=True)
@@ -509,17 +514,17 @@ class AbbrevGlossaryBlock(IRNode):
     """End-of-page abbreviations reference block.
 
     Rendered as a numbered list (with Confluence anchor targets for the
-    back-links) followed by an optional bullet list of abbreviations that
-    only appeared in headings or other non-expandable contexts.
+    back-links) followed by entries for abbreviations that only appeared
+    in headings or other non-expandable contexts.
 
     Attributes:
         footnoted: Abbreviations annotated inline, ordered by first encounter.
-        extras:    ``(abbr, definition)`` pairs for abbreviations that could
+        extras:    Entries (``number=None``) for abbreviations that could
                    not be annotated inline, sorted alphabetically.
     """
 
     footnoted: tuple[AbbrevFootnoteNode, ...]
-    extras: tuple[tuple[str, str], ...]
+    extras: tuple[AbbrevFootnoteNode, ...]
 
 
 # ── Footnotes ────────────────────────────────────────────────────────────────

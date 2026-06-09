@@ -65,7 +65,7 @@ _BLOCK_TYPES = (
 class _State:
     """Mutable transform state threaded through the recursive walk."""
 
-    def __init__(self, abbrevs: dict[str, str]) -> None:
+    def __init__(self, abbrevs: dict[str, tuple[IRNode, ...]]) -> None:
         self.abbrevs = abbrevs
         self._expanded_list: list[str] = []  # ordered by first encounter
         self._expanded_set: set[str] = set()  # fast membership test
@@ -207,7 +207,7 @@ def _transform_inline(node: IRNode, state: _State, safe: bool) -> tuple[IRNode, 
 # ── Glossary builder ──────────────────────────────────────────────────────────
 
 
-def _find_mentioned(text: str, abbrevs: dict[str, str]) -> set[str]:
+def _find_mentioned(text: str, abbrevs: dict[str, tuple[IRNode, ...]]) -> set[str]:
     """Return abbreviations that appear as whole words anywhere in *text*."""
     return {
         abbr
@@ -221,7 +221,7 @@ def _find_mentioned(text: str, abbrevs: dict[str, str]) -> set[str]:
 
 def apply_abbreviations(
     nodes: tuple[IRNode, ...],
-    abbrevs: dict[str, str],
+    abbrevs: dict[str, tuple[IRNode, ...]],
     *,
     page_text: str = "",
 ) -> tuple[IRNode, ...]:
@@ -229,8 +229,12 @@ def apply_abbreviations(
 
     Args:
         nodes:      Top-level IR nodes returned by :func:`parse`.
-        abbrevs:    ``{abbreviation: definition}`` mapping, typically from
-                    :func:`~mkdocs_to_confluence.preprocess.abbrevs.extract_abbreviations`.
+        abbrevs:    ``{abbreviation: definition}`` mapping where each
+                    definition is parsed inline IR nodes (the caller parses
+                    the raw definition strings from
+                    :func:`~mkdocs_to_confluence.preprocess.abbrevs.extract_abbreviations`
+                    with :func:`~mkdocs_to_confluence.parser.parse_inline` so
+                    links and other inline formatting are preserved).
         page_text:  The preprocessed page text (after stripping abbreviation
                     definition lines) used to detect which abbreviations are
                     actually present on the page.
@@ -255,7 +259,7 @@ def apply_abbreviations(
         for i, abbr in enumerate(state._expanded_list)
     )
     extras = tuple(
-        (abbr, abbrevs[abbr])
+        AbbrevFootnoteNode(abbr=abbr, definition=abbrevs[abbr], number=None)
         for abbr in sorted(mentioned - state._expanded_set)
     )
 
