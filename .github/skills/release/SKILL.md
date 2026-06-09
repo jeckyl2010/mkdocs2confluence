@@ -38,7 +38,7 @@ git push origin vX.Y.Z
 
 # 4. Create the GitHub release
 uv build -q
-gh release create vX.Y.Z dist/mkdocs_to_confluence-X.Y.Z* \
+gh release create vX.Y.Z dist/mkdocs2confluence-X.Y.Z* \
   --title "vX.Y.Z" \
   --notes "$(git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --oneline --no-merges | sed 's/^/- /')"
 ```
