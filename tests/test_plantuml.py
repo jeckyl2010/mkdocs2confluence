@@ -33,6 +33,13 @@ def test_parser_plantuml_case_insensitive():
     assert isinstance(nodes[0], PlantUMLDiagram)
 
 
+def test_parser_kroki_plantuml_alias():
+    """A ```kroki-plantuml fenced block must also parse to PlantUMLDiagram."""
+    nodes = parse("```kroki-plantuml\n@startuml\nA -> B\n@enduml\n```\n")
+    assert len(nodes) == 1
+    assert isinstance(nodes[0], PlantUMLDiagram)
+
+
 def test_parser_non_plantuml_code_block_stays_codeblock():
     """A ```python block must still parse to CodeBlock."""
     nodes = parse("```python\nprint('hello')\n```\n")

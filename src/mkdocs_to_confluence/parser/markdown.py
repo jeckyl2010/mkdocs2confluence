@@ -1140,9 +1140,10 @@ def _build_tree(
             _append_content(node, stack, root)
 
         elif isinstance(token, _CodeToken):
-            if token.language and token.language.lower() == "mermaid":
+            lang = token.language.lower() if token.language else ""
+            if lang in ("mermaid", "kroki-mermaid"):
                 _append_content(MermaidDiagram(source=token.code), stack, root)
-            elif token.language and token.language.lower() == "plantuml":
+            elif lang in ("plantuml", "kroki-plantuml"):
                 _append_content(PlantUMLDiagram(source=token.code), stack, root)
             else:
                 _append_content(

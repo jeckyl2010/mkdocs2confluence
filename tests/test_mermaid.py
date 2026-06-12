@@ -26,6 +26,13 @@ def test_parser_produces_mermaid_diagram_node():
     assert "graph TD" in nodes[0].source
 
 
+def test_parser_kroki_mermaid_alias():
+    """A ```kroki-mermaid fenced block must also parse to MermaidDiagram."""
+    nodes = parse("```kroki-mermaid\ngraph TD\n    A --> B\n```\n")
+    assert len(nodes) == 1
+    assert isinstance(nodes[0], MermaidDiagram)
+
+
 def test_parser_non_mermaid_code_block_stays_codeblock():
     """A ```python block must still parse to CodeBlock."""
     nodes = parse("```python\nprint('hello')\n```\n")
