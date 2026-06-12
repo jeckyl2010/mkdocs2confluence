@@ -51,6 +51,7 @@ from mkdocs_to_confluence.ir.nodes import (
     MermaidDiagram,
     OrderedList,
     Paragraph,
+    PlantUMLDiagram,
     RawHTML,
     RawInlineHtml,
     Section,
@@ -187,6 +188,8 @@ def _emit_node(node: IRNode) -> str:
         return _emit_raw_html(node)
     if isinstance(node, MermaidDiagram):
         return _emit_mermaid(node)
+    if isinstance(node, PlantUMLDiagram):
+        return _emit_plantuml(node)
     if isinstance(node, ContentTabs):
         return _emit_content_tabs(node)
     if isinstance(node, Expandable):
@@ -500,6 +503,25 @@ def _emit_mermaid(node: MermaidDiagram) -> str:
     return (
         '<ac:structured-macro ac:name="code">\n'
         '  <ac:parameter ac:name="language">mermaid</ac:parameter>\n'
+        f"  <ac:plain-text-body><![CDATA[{safe}]]></ac:plain-text-body>\n"
+        "</ac:structured-macro>\n"
+    )
+
+
+def _emit_plantuml(node: PlantUMLDiagram) -> str:
+    if node.attachment_name is not None:
+        filename = html.escape(node.attachment_name)
+        local_attr = (
+            f' data-local-path="{html.escape(str(node.local_path))}"'
+            if node.local_path is not None
+            else ""
+        )
+        return f'<ac:image ac:align="center"{local_attr}><ri:attachment ri:filename="{filename}"/></ac:image>\n'
+    # Fallback: show source as a code block when rendering was skipped/disabled.
+    safe = node.source.replace("]]>", "]]]]><![CDATA[>")
+    return (
+        '<ac:structured-macro ac:name="code">\n'
+        '  <ac:parameter ac:name="language">text</ac:parameter>\n'
         f"  <ac:plain-text-body><![CDATA[{safe}]]></ac:plain-text-body>\n"
         "</ac:structured-macro>\n"
     )

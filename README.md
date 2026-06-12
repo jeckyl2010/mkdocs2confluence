@@ -116,7 +116,7 @@ confluence:
   email: user@example.com
   token: !ENV CONFLUENCE_API_TOKEN   # never hardcode the token
   parent_page_id: "123456"           # optional root page
-  mermaid_render: kroki              # "kroki" (default) | "kroki:https://your-kroki" | "none"
+  mermaid_render: kroki              # "kroki" (default) | "kroki:https://your-kroki" | "none" — also controls PlantUML rendering
   full_width: true                   # default: true
   attachment_preview: false          # default: false — inline PDF/Office previews
   changelog: CHANGELOG.md           # optional: publish as a top-level "What's New" page

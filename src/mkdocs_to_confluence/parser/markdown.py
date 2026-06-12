@@ -81,6 +81,7 @@ from mkdocs_to_confluence.ir.nodes import (
     MermaidDiagram,
     OrderedList,
     Paragraph,
+    PlantUMLDiagram,
     RawInlineHtml,
     Section,
     StrikethroughNode,
@@ -1141,6 +1142,8 @@ def _build_tree(
         elif isinstance(token, _CodeToken):
             if token.language and token.language.lower() == "mermaid":
                 _append_content(MermaidDiagram(source=token.code), stack, root)
+            elif token.language and token.language.lower() == "plantuml":
+                _append_content(PlantUMLDiagram(source=token.code), stack, root)
             else:
                 _append_content(
                     CodeBlock(

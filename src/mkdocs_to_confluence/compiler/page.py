@@ -26,6 +26,7 @@ from mkdocs_to_confluence.preprocess.linkdefs import (
     expand_link_refs,
     strip_link_defs,
 )
+from mkdocs_to_confluence.transforms._kroki import DEFAULT_KROKI_URL
 from mkdocs_to_confluence.transforms.abbrevs import apply_abbreviations
 from mkdocs_to_confluence.transforms.admonition_titles import (
     strip_links_in_admonition_titles,
@@ -38,7 +39,8 @@ from mkdocs_to_confluence.transforms.captions import resolve_captions
 from mkdocs_to_confluence.transforms.editlink import attach_source_url
 from mkdocs_to_confluence.transforms.footer import build_source_footer
 from mkdocs_to_confluence.transforms.internallinks import resolve_internal_links
-from mkdocs_to_confluence.transforms.mermaid import DEFAULT_KROKI_URL, render_mermaid_diagrams
+from mkdocs_to_confluence.transforms.mermaid import render_mermaid_diagrams
+from mkdocs_to_confluence.transforms.plantuml import render_plantuml_diagrams
 
 
 def compile_page(
@@ -99,6 +101,8 @@ def compile_page(
         )
         ir_nodes, mermaid_attachments = render_mermaid_diagrams(ir_nodes, kroki_url, quiet=quiet)
         attachments = attachments + mermaid_attachments
+        ir_nodes, plantuml_attachments = render_plantuml_diagrams(ir_nodes, kroki_url, quiet=quiet)
+        attachments = attachments + plantuml_attachments
     effective_link_map = link_map if link_map is not None else {}
     if node.docs_path:
         ir_nodes = resolve_internal_links(ir_nodes, effective_link_map, node.docs_path)

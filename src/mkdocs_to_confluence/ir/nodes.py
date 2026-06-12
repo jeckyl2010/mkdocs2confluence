@@ -379,6 +379,20 @@ class MermaidDiagram(IRNode):
 
 
 @dataclass(frozen=True)
+class PlantUMLDiagram(IRNode):
+    """A PlantUML diagram (`` ```plantuml `` fenced block).
+
+    ``source`` is the raw PlantUML DSL.  When ``attachment_name`` is set the
+    emitter renders an ``<ac:image>`` referencing the uploaded PNG; otherwise
+    it falls back to a code block showing the raw source.
+    """
+
+    source: str
+    attachment_name: str | None = None
+    local_path: Path | None = None  # set by plantuml transform; used by preview renderer
+
+
+@dataclass(frozen=True)
 class Tab(IRNode):
     """A single tab inside a :class:`ContentTabs` group."""
 

@@ -23,32 +23,30 @@ out to external services.
 from __future__ import annotations
 
 import base64
-import dataclasses
 import hashlib
 import json
 import sys
-import threading
 import time
 import urllib.error
 import urllib.request
 import zlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import cast
 
-from mkdocs_to_confluence.ir.nodes import IRNode, MermaidDiagram, walk
-from mkdocs_to_confluence.ir.treeutil import replace_nodes
+from mkdocs_to_confluence.ir.nodes import IRNode, MermaidDiagram
+from mkdocs_to_confluence.transforms._kroki import (
+    _CACHE_LOCK,
+    _MIN_PNG_BYTES,
+    _RETRY_ATTEMPTS,
+    _RETRY_BACKOFF,
+    _RETRYABLE_HTTP,
+    _TIMEOUT,
+    DEFAULT_KROKI_URL,
+    render_diagrams,
+)
 
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "mermaid"
-DEFAULT_KROKI_URL = "https://kroki.io"
 _MERMAID_INK_URL = "https://mermaid.ink"
-_TIMEOUT = 30  # seconds
-_MIN_PNG_BYTES = 67  # smallest valid PNG (1×1 px) is 67 bytes
-_CACHE_LOCK = threading.Lock()
-_MAX_WORKERS = 8
-_RETRY_ATTEMPTS = 3
-_RETRY_BACKOFF = 1.0  # seconds; doubles each attempt
-_RETRYABLE_HTTP = {429, 500, 502, 503, 504}
 
 
 def _kroki_png(source: str, kroki_url: str) -> bytes:
@@ -189,49 +187,7 @@ def render_mermaid_diagrams(
     except OSError as exc:
         _warn(f"cannot create mermaid cache dir {_CACHE_DIR}: {exc} — all diagrams will fall back to code blocks")
 
-    # Collect all unresolved MermaidDiagram nodes (deduplicated by source).
-    diagrams: list[MermaidDiagram] = []
-    seen_sources: set[str] = set()
-    for top_node in nodes:
-        for node in walk(top_node):
-            if isinstance(node, MermaidDiagram) and node.attachment_name is None:
-                if node.source not in seen_sources:
-                    diagrams.append(node)
-                    seen_sources.add(node.source)
+    def render_fn(source: str, q: bool) -> Path | None:
+        return _render_one(source, kroki_url, quiet=q)
 
-    if not diagrams:
-        return nodes, []
-
-    # Render all diagrams concurrently, preserving source → result mapping.
-    source_to_path: dict[str, Path | None] = {}
-    with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(diagrams))) as pool:
-        future_to_source = {
-            pool.submit(_render_one, d.source, kroki_url, quiet=quiet): d.source for d in diagrams
-        }
-        for future in as_completed(future_to_source):
-            source = future_to_source[future]
-            source_to_path[source] = future.result()
-
-    # Build replacements and attachments from results.
-    attachments: list[Path] = []
-    replacements: dict[int, IRNode] = {}
-    seen_paths: set[Path] = set()
-
-    for top_node in nodes:
-        for node in walk(top_node):
-            if not isinstance(node, MermaidDiagram) or node.attachment_name is not None:
-                continue
-            path = source_to_path.get(node.source)
-            if path is None:
-                continue  # render failed — leave as code block
-            if path not in seen_paths:
-                attachments.append(path)
-                seen_paths.add(path)
-            replacements[id(node)] = dataclasses.replace(
-                node, attachment_name=path.name, local_path=path
-            )
-
-    if not replacements:
-        return nodes, attachments
-
-    return replace_nodes(nodes, replacements), attachments
+    return render_diagrams(nodes, MermaidDiagram, render_fn, quiet=quiet)
