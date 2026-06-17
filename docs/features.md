@@ -51,7 +51,7 @@
 | Footnotes `[^1]` | Superscript anchor links + *Footnotes* section at page bottom |
 | In-page anchors `<a id="...">` / `<a name="...">` / heading `{ #id }` | Confluence `anchor` macro; same-page links `[text](#target)` resolve correctly |
 | Mermaid diagrams | PNG via Kroki, uploaded as attachment (`<ac:image ac:align="center">`) |
-| PlantUML diagrams | PNG via Kroki, uploaded as attachment (`<ac:image ac:align="center">`) |
+| PlantUML diagrams | SVG via Kroki, uploaded as attachment (`<ac:image ac:align="center">`) |
 | Internal links `[text](page.md)` | Native Confluence page link; `#fragment` anchors preserved |
 | `awesome-pages` nav (`.pages` files) | Fully supported |
 | Edit link banner | `info` macro linking back to source in GitHub/GitLab |

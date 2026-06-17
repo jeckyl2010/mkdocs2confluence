@@ -12,7 +12,7 @@ from mkdocs_to_confluence.transforms.plantuml import (
 )
 
 _SAMPLE_SOURCE = "@startuml\nAlice -> Bob: Hello\n@enduml\n"
-_FAKE_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100  # fake PNG > _MIN_PNG_BYTES (67)
+_FAKE_SVG = b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>'
 
 
 # ── Parser ────────────────────────────────────────────────────────────────────
@@ -60,10 +60,10 @@ def test_emit_plantuml_fallback_code_block():
 
 def test_emit_plantuml_attachment_image():
     """With attachment_name set the emitter produces an ac:image."""
-    node = PlantUMLDiagram(source=_SAMPLE_SOURCE, attachment_name="plantuml_abc123.png")
+    node = PlantUMLDiagram(source=_SAMPLE_SOURCE, attachment_name="plantuml_abc123.svg")
     result = emit((node,))
     assert '<ac:image ac:align="center">' in result
-    assert 'ri:filename="plantuml_abc123.png"' in result
+    assert 'ri:filename="plantuml_abc123.svg"' in result
     assert "code" not in result
 
 
@@ -76,7 +76,7 @@ def test_render_uses_cache_on_second_call(tmp_path):
 
     with (
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", return_value=_FAKE_PNG) as mock_fetch,
+        patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", return_value=_FAKE_SVG) as mock_fetch,
     ):
         render_plantuml_diagrams((node,))
         render_plantuml_diagrams((node,))
@@ -89,12 +89,12 @@ def test_render_sets_attachment_name(tmp_path):
 
     with (
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", return_value=_FAKE_PNG),
+        patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", return_value=_FAKE_SVG),
     ):
         updated_nodes, attachments = render_plantuml_diagrams((node,))
 
     assert len(attachments) == 1
-    assert attachments[0].suffix == ".png"
+    assert attachments[0].suffix == ".svg"
     rendered = updated_nodes[0]
     assert isinstance(rendered, PlantUMLDiagram)
     assert rendered.attachment_name == attachments[0].name
@@ -107,7 +107,7 @@ def test_render_deduplicates_identical_diagrams(tmp_path):
 
     with (
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", return_value=_FAKE_PNG),
+        patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", return_value=_FAKE_SVG),
     ):
         _, attachments = render_plantuml_diagrams((node_a, node_b))
 
@@ -124,7 +124,7 @@ def test_render_fallback_on_network_error(tmp_path, capsys):
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
         patch("mkdocs_to_confluence.transforms.plantuml.time.sleep"),
         patch(
-            "mkdocs_to_confluence.transforms.plantuml._kroki_png",
+            "mkdocs_to_confluence.transforms.plantuml._kroki_svg",
             side_effect=urllib.error.URLError("timed out"),
         ),
     ):
@@ -146,7 +146,7 @@ def test_render_fallback_on_http_error(tmp_path, capsys):
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
         patch("mkdocs_to_confluence.transforms.plantuml.time.sleep"),
         patch(
-            "mkdocs_to_confluence.transforms.plantuml._kroki_png",
+            "mkdocs_to_confluence.transforms.plantuml._kroki_svg",
             side_effect=urllib.error.HTTPError(
                 url=None, code=503, msg="Service Unavailable", hdrs=None, fp=None  # type: ignore[arg-type]
             ),
@@ -167,7 +167,7 @@ def test_render_fallback_on_empty_response(tmp_path, capsys):
     with (
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
         patch(
-            "mkdocs_to_confluence.transforms.plantuml._kroki_png",
+            "mkdocs_to_confluence.transforms.plantuml._kroki_svg",
             return_value=b"",
         ),
     ):
@@ -186,11 +186,11 @@ def test_render_uses_custom_kroki_url(tmp_path):
 
     def fake_fetch(source: str, kroki_url: str) -> bytes:
         captured.append(kroki_url)
-        return _FAKE_PNG
+        return _FAKE_SVG
 
     with (
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", side_effect=fake_fetch),
+        patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", side_effect=fake_fetch),
     ):
         render_plantuml_diagrams((node,), kroki_url="https://internal.kroki")
 
@@ -201,7 +201,7 @@ def test_render_plantuml_none_skips(tmp_path):
     """Nodes with attachment_name already set are left untouched."""
     node = PlantUMLDiagram(source=_SAMPLE_SOURCE, attachment_name="already_set.png")
 
-    with patch("mkdocs_to_confluence.transforms.plantuml._kroki_png") as mock_fetch:
+    with patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg") as mock_fetch:
         updated_nodes, attachments = render_plantuml_diagrams((node,))
 
     mock_fetch.assert_not_called()
@@ -215,7 +215,7 @@ def test_render_multiple_diagrams_concurrently(tmp_path):
     nodes = tuple(PlantUMLDiagram(source=s) for s in sources)
 
     with patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path), \
-         patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", return_value=_FAKE_PNG):
+         patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", return_value=_FAKE_SVG):
         updated, attachments = render_plantuml_diagrams(nodes)
 
     assert len(attachments) == 4
@@ -230,7 +230,7 @@ def test_render_retries_on_503_then_succeeds(tmp_path):
 
     from mkdocs_to_confluence.transforms.plantuml import _render_one
 
-    calls = [urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None), _FAKE_PNG]
+    calls = [urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None), _FAKE_SVG]
 
     def fake_kroki(source: str, url: str) -> bytes:
         result = calls.pop(0)
@@ -240,7 +240,7 @@ def test_render_retries_on_503_then_succeeds(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.plantuml.time.sleep") as mock_sleep, \
-         patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", side_effect=fake_kroki):
+         patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", side_effect=fake_kroki):
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
     assert result is not None
@@ -256,7 +256,7 @@ def test_render_no_mermaid_ink_fallback(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.plantuml.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.plantuml._kroki_png",
+         patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg",
                side_effect=urllib.error.HTTPError("url", 504, "Gateway Timeout", {}, None)):
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
@@ -269,7 +269,7 @@ def test_render_quiet_suppresses_stdout(tmp_path, capsys):
 
     with (
         patch("mkdocs_to_confluence.transforms.plantuml._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.plantuml._kroki_png", return_value=_FAKE_PNG),
+        patch("mkdocs_to_confluence.transforms.plantuml._kroki_svg", return_value=_FAKE_SVG),
     ):
         render_plantuml_diagrams((node,), quiet=True)
 

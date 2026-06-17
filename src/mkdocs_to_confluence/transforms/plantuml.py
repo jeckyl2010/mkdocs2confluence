@@ -1,8 +1,13 @@
 """PlantUML diagram rendering transform.
 
-Walks the IR tree, finds :class:`PlantUMLDiagram` nodes, renders each to PNG
+Walks the IR tree, finds :class:`PlantUMLDiagram` nodes, renders each to SVG
 via the Kroki rendering service, caches results locally, and returns updated
-nodes with ``attachment_name`` set plus a list of PNG paths to upload.
+nodes with ``attachment_name`` set plus a list of SVG paths to upload.
+
+SVG (vector) output is used rather than PNG because PlantUML caps raster output
+at ``PLANTUML_LIMIT_SIZE`` pixels (default 4096) per dimension, which causes
+large diagrams to fail rendering.  SVG is not subject to that limit, scales
+crisply, and is supported by Confluence attachments.
 
 The cache lives at ``~/.cache/mk2conf/plantuml/`` and is keyed by the SHA-256
 of the PlantUML source so unchanged diagrams are never re-fetched.
@@ -25,7 +30,6 @@ from typing import cast
 from mkdocs_to_confluence.ir.nodes import IRNode, PlantUMLDiagram
 from mkdocs_to_confluence.transforms._kroki import (
     _CACHE_LOCK,
-    _MIN_PNG_BYTES,
     _RETRY_ATTEMPTS,
     _RETRY_BACKOFF,
     _RETRYABLE_HTTP,
@@ -37,16 +41,16 @@ from mkdocs_to_confluence.transforms._kroki import (
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "plantuml"
 
 
-def _kroki_png(source: str, kroki_url: str) -> bytes:
-    """Fetch a PNG rendering of *source* from the Kroki service (POST)."""
-    url = f"{kroki_url.rstrip('/')}/plantuml/png"
+def _kroki_svg(source: str, kroki_url: str) -> bytes:
+    """Fetch an SVG rendering of *source* from the Kroki service (POST)."""
+    url = f"{kroki_url.rstrip('/')}/plantuml/svg"
     body = source.encode("utf-8")
     req = urllib.request.Request(
         url,
         data=body,
         headers={
             "Content-Type": "text/plain",
-            "Accept": "image/png",
+            "Accept": "image/svg+xml",
             "User-Agent": "mk2conf/1.0",
         },
         method="POST",
@@ -55,9 +59,15 @@ def _kroki_png(source: str, kroki_url: str) -> bytes:
         return cast(bytes, resp.read())
 
 
+def _looks_like_svg(data: bytes) -> bool:
+    """Heuristic: does *data* look like a valid SVG document?"""
+    head = data[:512].lstrip()
+    return head.startswith(b"<?xml") or head.startswith(b"<svg") or b"<svg" in head
+
+
 def _cache_path(source: str) -> Path:
     digest = hashlib.sha256(source.encode()).hexdigest()
-    return _CACHE_DIR / f"plantuml_{digest}.png"
+    return _CACHE_DIR / f"plantuml_{digest}.svg"
 
 
 def _warn(msg: str) -> None:
@@ -87,11 +97,11 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
         try:
             if not quiet:
                 print(f"        rendering  plantuml diagram via Kroki ({kroki_url})")
-            png = _kroki_png(source, kroki_url)
-            if len(png) < _MIN_PNG_BYTES:
-                raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
+            svg = _kroki_svg(source, kroki_url)
+            if not _looks_like_svg(svg):
+                raise ValueError(f"Kroki returned {len(svg)} bytes (expected a valid SVG)")
             with _CACHE_LOCK:
-                path.write_bytes(png)
+                path.write_bytes(svg)
             return path
         except urllib.error.HTTPError as exc:
             if exc.code in _RETRYABLE_HTTP:
@@ -116,11 +126,11 @@ def render_plantuml_diagrams(
     *,
     quiet: bool = False,
 ) -> tuple[tuple[IRNode, ...], list[Path]]:
-    """Render all :class:`PlantUMLDiagram` nodes to PNG via Kroki.
+    """Render all :class:`PlantUMLDiagram` nodes to SVG via Kroki.
 
     Diagrams are rendered concurrently (up to ``_MAX_WORKERS`` threads).
     Returns the updated IR node tuple (with ``attachment_name`` set on each
-    successfully rendered diagram) and a list of PNG :class:`Path` objects to
+    successfully rendered diagram) and a list of SVG :class:`Path` objects to
     upload as page attachments.
 
     Diagrams that fail to render are left unchanged (code-block fallback).
