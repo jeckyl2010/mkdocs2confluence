@@ -70,7 +70,7 @@ def test_render_uses_cache_on_second_call(tmp_path):
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG) as mock_fetch,
+        patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", return_value=_FAKE_PNG) as mock_fetch,
     ):
         render_mermaid_diagrams((node,))
         render_mermaid_diagrams((node,))
@@ -83,7 +83,7 @@ def test_render_sets_attachment_name(tmp_path):
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG),
+        patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", return_value=_FAKE_PNG),
     ):
         updated_nodes, attachments = render_mermaid_diagrams((node,))
 
@@ -101,7 +101,7 @@ def test_render_deduplicates_identical_diagrams(tmp_path):
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG),
+        patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", return_value=_FAKE_PNG),
     ):
         _, attachments = render_mermaid_diagrams((node_a, node_b))
 
@@ -118,7 +118,7 @@ def test_render_fallback_on_network_error(tmp_path, capsys):
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"),
         patch(
-            "mkdocs_to_confluence.transforms.mermaid._kroki_png",
+            "mkdocs_to_confluence.transforms.mermaid.kroki_post",
             side_effect=urllib.error.URLError("timed out"),
         ),
         patch(
@@ -144,7 +144,7 @@ def test_render_fallback_on_http_error(tmp_path, capsys):
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
         patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"),
         patch(
-            "mkdocs_to_confluence.transforms.mermaid._kroki_png",
+            "mkdocs_to_confluence.transforms.mermaid.kroki_post",
             side_effect=urllib.error.HTTPError(
                 url=None, code=503, msg="Service Unavailable", hdrs=None, fp=None  # type: ignore[arg-type]
             ),
@@ -165,7 +165,7 @@ def test_render_fallback_on_empty_response(tmp_path, capsys):
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
         patch(
-            "mkdocs_to_confluence.transforms.mermaid._kroki_png",
+            "mkdocs_to_confluence.transforms.mermaid.kroki_post",
             return_value=b"",  # empty response
         ),
     ):
@@ -182,13 +182,13 @@ def test_render_uses_custom_kroki_url(tmp_path):
     node = MermaidDiagram(source=_SAMPLE_SOURCE)
     captured: list[str] = []
 
-    def fake_fetch(source: str, kroki_url: str) -> bytes:
+    def fake_fetch(source: str, diagram_type: str, kroki_url: str, fmt: str = "png") -> bytes:
         captured.append(kroki_url)
         return _FAKE_PNG
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", side_effect=fake_fetch),
+        patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", side_effect=fake_fetch),
     ):
         render_mermaid_diagrams((node,), kroki_url="https://internal.kroki")
 
@@ -202,7 +202,7 @@ def test_render_mermaid_none_skips(tmp_path):
     # already set, the transform is idempotent.
     node = MermaidDiagram(source=_SAMPLE_SOURCE, attachment_name="already_set.png")
 
-    with patch("mkdocs_to_confluence.transforms.mermaid._kroki_png") as mock_fetch:
+    with patch("mkdocs_to_confluence.transforms.mermaid.kroki_post") as mock_fetch:
         updated_nodes, attachments = render_mermaid_diagrams((node,))
 
     mock_fetch.assert_not_called()
@@ -219,7 +219,7 @@ def test_render_multiple_diagrams_concurrently(tmp_path):
     nodes = tuple(MermaidDiagram(source=s) for s in sources)
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG):
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", return_value=_FAKE_PNG):
         updated, attachments = render_mermaid_diagrams(nodes)
 
     assert len(attachments) == 4
@@ -236,13 +236,13 @@ def test_render_one_failure_does_not_block_others(tmp_path):
     bad_source = "graph TD\n    X --> Y\n"
     nodes = (MermaidDiagram(source=good_source), MermaidDiagram(source=bad_source))
 
-    def fake_kroki(source: str, url: str) -> bytes:
+    def fake_kroki(source: str, diagram_type: str, url: str, fmt: str = "png") -> bytes:
         if source == bad_source:
             raise urllib.error.URLError("timeout")
         return _FAKE_PNG
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", side_effect=fake_kroki), \
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", side_effect=fake_kroki), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                side_effect=urllib.error.URLError("timeout")):
         updated, attachments = render_mermaid_diagrams(nodes)
@@ -263,7 +263,7 @@ def test_render_one_cached(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid._cache_path", return_value=path), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png") as mock_fetch:
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post") as mock_fetch:
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
     mock_fetch.assert_not_called()
@@ -278,7 +278,7 @@ def test_render_one_network_failure_returns_none(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.URLError("connection refused")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                side_effect=urllib.error.URLError("connection refused")):
@@ -298,7 +298,7 @@ def test_render_one_retries_on_503_then_succeeds(tmp_path):
 
     calls = [urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None), _FAKE_PNG]
 
-    def fake_kroki(source: str, url: str) -> bytes:
+    def fake_kroki(source: str, diagram_type: str, url: str, fmt: str = "png") -> bytes:
         result = calls.pop(0)
         if isinstance(result, Exception):
             raise result
@@ -306,7 +306,7 @@ def test_render_one_retries_on_503_then_succeeds(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep") as mock_sleep, \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", side_effect=fake_kroki):
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", side_effect=fake_kroki):
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
     assert result is not None
@@ -322,7 +322,7 @@ def test_render_one_non_retryable_http_error_returns_none(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep") as mock_sleep, \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.HTTPError("url", 400, "Bad Request", {}, None)):
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
@@ -338,7 +338,7 @@ def test_render_one_exhausts_retries_on_persistent_503(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None)) as mock_fetch:
         result = _render_one(_SAMPLE_SOURCE, "https://kroki.io")
 
@@ -356,7 +356,7 @@ def test_render_mermaid_quiet_suppresses_stdout(tmp_path, capsys):
 
     with (
         patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path),
-        patch("mkdocs_to_confluence.transforms.mermaid._kroki_png", return_value=_FAKE_PNG),
+        patch("mkdocs_to_confluence.transforms.mermaid.kroki_post", return_value=_FAKE_PNG),
     ):
         render_mermaid_diagrams((node,), quiet=True)
 
@@ -393,7 +393,7 @@ def test_render_one_504_on_public_kroki_falls_back_to_mermaid_ink(tmp_path, caps
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.HTTPError("url", 504, "Gateway Timeout", {}, None)), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
@@ -412,7 +412,7 @@ def test_render_one_timeout_on_public_kroki_falls_back_to_mermaid_ink(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.URLError("timed out")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
@@ -431,7 +431,7 @@ def test_render_one_read_phase_timeout_falls_back_to_mermaid_ink(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=socket.timeout("The read operation timed out")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
@@ -450,7 +450,7 @@ def test_render_one_504_on_self_hosted_kroki_does_not_fall_back(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.HTTPError("url", 504, "Gateway Timeout", {}, None)), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
@@ -468,7 +468,7 @@ def test_render_one_timeout_on_self_hosted_kroki_does_not_fall_back(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.URLError("timed out")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
@@ -486,7 +486,7 @@ def test_render_one_read_phase_timeout_self_hosted_does_not_fall_back(tmp_path):
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=socket.timeout("The read operation timed out")), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                return_value=_FAKE_PNG) as mock_ink:
@@ -504,7 +504,7 @@ def test_render_one_mermaid_ink_fallback_also_fails_returns_none(tmp_path, capsy
 
     with patch("mkdocs_to_confluence.transforms.mermaid._CACHE_DIR", tmp_path), \
          patch("mkdocs_to_confluence.transforms.mermaid.time.sleep"), \
-         patch("mkdocs_to_confluence.transforms.mermaid._kroki_png",
+         patch("mkdocs_to_confluence.transforms.mermaid.kroki_post",
                side_effect=urllib.error.HTTPError("url", 504, "Gateway Timeout", {}, None)), \
          patch("mkdocs_to_confluence.transforms.mermaid._mermaid_ink_png",
                side_effect=urllib.error.URLError("connection refused")):

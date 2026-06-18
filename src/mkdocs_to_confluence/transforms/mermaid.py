@@ -25,7 +25,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -42,29 +41,15 @@ from mkdocs_to_confluence.transforms._kroki import (
     _RETRYABLE_HTTP,
     _TIMEOUT,
     DEFAULT_KROKI_URL,
+    kroki_post,
     render_diagrams,
+)
+from mkdocs_to_confluence.transforms._kroki import (
+    warn as _warn,
 )
 
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "mermaid"
 _MERMAID_INK_URL = "https://mermaid.ink"
-
-
-def _kroki_png(source: str, kroki_url: str) -> bytes:
-    """Fetch a PNG rendering of *source* from the Kroki service (POST)."""
-    url = f"{kroki_url.rstrip('/')}/mermaid/png"
-    body = source.encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={
-            "Content-Type": "text/plain",
-            "Accept": "image/png",
-            "User-Agent": "mk2conf/1.0",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310  # nosec B310
-        return cast(bytes, resp.read())
 
 
 def _mermaid_ink_png(source: str) -> bytes:
@@ -85,10 +70,6 @@ def _mermaid_ink_png(source: str) -> bytes:
 def _cache_path(source: str) -> Path:
     digest = hashlib.sha256(source.encode()).hexdigest()
     return _CACHE_DIR / f"mermaid_{digest}.png"
-
-
-def _warn(msg: str) -> None:
-    print(f"  warning    {msg}", file=sys.stderr)
 
 
 def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | None:
@@ -120,7 +101,7 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
         try:
             if not quiet:
                 print(f"        rendering  mermaid diagram via Kroki ({kroki_url})")
-            png = _kroki_png(source, kroki_url)
+            png = kroki_post(source, "mermaid", kroki_url)
             if len(png) < _MIN_PNG_BYTES:
                 raise ValueError(f"Kroki returned {len(png)} bytes (expected a valid PNG)")
             with _CACHE_LOCK:

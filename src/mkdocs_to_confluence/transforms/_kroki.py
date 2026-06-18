@@ -1,7 +1,7 @@
 """Generic Kroki diagram rendering utilities shared by all diagram transforms.
 
 Provides:
-- :func:`kroki_post_png` — low-level HTTP POST to Kroki for any diagram type.
+- :func:`kroki_post` — low-level HTTP POST to Kroki for any diagram type and format.
 - :func:`render_diagrams` — concurrent deduplication/replacement loop used by
   every diagram-type transform.  Each transform supplies its own ``render_fn``
   that handles type-specific caching and retry behaviour.
@@ -46,16 +46,19 @@ class _DiagramNode(Protocol):
 _D = TypeVar("_D", bound="_DiagramNode")
 
 
-def kroki_post_png(source: str, diagram_type: str, kroki_url: str) -> bytes:
-    """POST *source* to Kroki for *diagram_type* and return PNG bytes."""
-    url = f"{kroki_url.rstrip('/')}/{diagram_type}/png"
+_ACCEPT: dict[str, str] = {"png": "image/png", "svg": "image/svg+xml"}
+
+
+def kroki_post(source: str, diagram_type: str, kroki_url: str, fmt: str = "png") -> bytes:
+    """POST *source* to Kroki for *diagram_type* and return rendered bytes."""
+    url = f"{kroki_url.rstrip('/')}/{diagram_type}/{fmt}"
     body = source.encode("utf-8")
     req = urllib.request.Request(
         url,
         data=body,
         headers={
             "Content-Type": "text/plain",
-            "Accept": "image/png",
+            "Accept": _ACCEPT.get(fmt, f"image/{fmt}"),
             "User-Agent": "mk2conf/1.0",
         },
         method="POST",

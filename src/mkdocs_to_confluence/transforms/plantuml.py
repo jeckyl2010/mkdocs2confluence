@@ -20,12 +20,9 @@ code block.  The rest of the pipeline continues unaffected.
 from __future__ import annotations
 
 import hashlib
-import sys
 import time
 import urllib.error
-import urllib.request
 from pathlib import Path
-from typing import cast
 
 from mkdocs_to_confluence.ir.nodes import IRNode, PlantUMLDiagram
 from mkdocs_to_confluence.transforms._kroki import (
@@ -33,30 +30,15 @@ from mkdocs_to_confluence.transforms._kroki import (
     _RETRY_ATTEMPTS,
     _RETRY_BACKOFF,
     _RETRYABLE_HTTP,
-    _TIMEOUT,
     DEFAULT_KROKI_URL,
+    kroki_post,
     render_diagrams,
+)
+from mkdocs_to_confluence.transforms._kroki import (
+    warn as _warn,
 )
 
 _CACHE_DIR = Path.home() / ".cache" / "mk2conf" / "plantuml"
-
-
-def _kroki_svg(source: str, kroki_url: str) -> bytes:
-    """Fetch an SVG rendering of *source* from the Kroki service (POST)."""
-    url = f"{kroki_url.rstrip('/')}/plantuml/svg"
-    body = source.encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={
-            "Content-Type": "text/plain",
-            "Accept": "image/svg+xml",
-            "User-Agent": "mk2conf/1.0",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310  # nosec B310
-        return cast(bytes, resp.read())
 
 
 def _looks_like_svg(data: bytes) -> bool:
@@ -68,10 +50,6 @@ def _looks_like_svg(data: bytes) -> bool:
 def _cache_path(source: str) -> Path:
     digest = hashlib.sha256(source.encode()).hexdigest()
     return _CACHE_DIR / f"plantuml_{digest}.svg"
-
-
-def _warn(msg: str) -> None:
-    print(f"  warning    {msg}", file=sys.stderr)
 
 
 def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | None:
@@ -97,7 +75,7 @@ def _render_one(source: str, kroki_url: str, *, quiet: bool = False) -> Path | N
         try:
             if not quiet:
                 print(f"        rendering  plantuml diagram via Kroki ({kroki_url})")
-            svg = _kroki_svg(source, kroki_url)
+            svg = kroki_post(source, "plantuml", kroki_url, fmt="svg")
             if not _looks_like_svg(svg):
                 raise ValueError(f"Kroki returned {len(svg)} bytes (expected a valid SVG)")
             with _CACHE_LOCK:
