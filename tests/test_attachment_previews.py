@@ -112,9 +112,9 @@ def test_non_attachment_link_unchanged():
 
 
 def test_compile_page_attachment_preview(tmp_path):
+    from mkdocs_to_confluence.compiler.page import compile_page
     from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
     from mkdocs_to_confluence.loader.nav import NavNode
-    from mkdocs_to_confluence.publisher.planner import compile_page
 
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -140,9 +140,9 @@ def test_compile_page_attachment_preview(tmp_path):
             ),
         )
 
-    xhtml_on, _, _, _, _ = compile_page(node, _cfg(True))
+    xhtml_on = compile_page(node, _cfg(True)).xhtml
     assert 'ac:name="view-file"' in xhtml_on
 
-    xhtml_off, _, _, _, _ = compile_page(node, _cfg(False))
+    xhtml_off = compile_page(node, _cfg(False)).xhtml
     assert 'ac:name="view-file"' not in xhtml_off
     assert "<ac:link>" in xhtml_off  # default: attachment download link

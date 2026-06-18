@@ -10,6 +10,7 @@ import pytest
 
 from mkdocs_to_confluence import __version__
 from mkdocs_to_confluence.cli import main
+from mkdocs_to_confluence.compiler.models import CompileResult
 
 
 def _minimal_config(tmp_path: Path, *, extra: str = "") -> Path:
@@ -175,7 +176,7 @@ class TestQuietOutputBehavior:
         yml = _minimal_config(tmp_path)
         (tmp_path / "docs" / "index.md").write_text("# Home\n\nHello.", encoding="utf-8")
 
-        mock_compile = MagicMock(return_value=("<p>Hello</p>", [], (), None, None))
+        mock_compile = MagicMock(return_value=CompileResult(xhtml="<p>Hello</p>"))
         with patch("mkdocs_to_confluence.cli.compile_page", mock_compile), \
              patch("sys.stdout.isatty", return_value=False):
             flags = ["--quiet"] if quiet else []
@@ -223,7 +224,7 @@ class TestWatchFlag:
         yml = _minimal_config(tmp_path)
         (tmp_path / "docs" / "index.md").write_text("# Home\n", encoding="utf-8")
 
-        mock_compile = MagicMock(return_value=("<p>Hello</p>", [], (), None, None))
+        mock_compile = MagicMock(return_value=CompileResult(xhtml="<p>Hello</p>"))
         mock_render = MagicMock(return_value="<html>preview</html>")
 
         with patch("mkdocs_to_confluence.cli.compile_page", mock_compile), \

@@ -3,9 +3,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from mkdocs_to_confluence.compiler.page import compile_page
 from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.ir.nodes import ChildrenMacro
-from mkdocs_to_confluence.publisher.planner import compile_page
 
 # ── Emitter ───────────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ def test_compile_page_section_index_includes_children_macro(tmp_path: Path) -> N
     node = _page_node("Section", md)
     config = MkDocsConfig(site_name="Test", docs_dir=docs, repo_url=None, edit_uri=None, nav=None)
 
-    xhtml, _, _, _, _ = compile_page(node, config, is_section_index=True)
+    xhtml = compile_page(node, config, is_section_index=True).xhtml
 
     assert 'ac:name="children"' in xhtml
 
@@ -57,7 +57,7 @@ def test_compile_page_non_index_excludes_children_macro(tmp_path: Path) -> None:
     node = _page_node("Guide", md)
     config = MkDocsConfig(site_name="Test", docs_dir=docs, repo_url=None, edit_uri=None, nav=None)
 
-    xhtml, _, _, _, _ = compile_page(node, config, is_section_index=False)
+    xhtml = compile_page(node, config, is_section_index=False).xhtml
 
     assert 'ac:name="children"' not in xhtml
 
@@ -83,7 +83,7 @@ def test_compile_page_children_macro_before_footer(tmp_path: Path) -> None:
     with patch(
         "mkdocs_to_confluence.transforms.footer._last_commit_info", return_value=None
     ):
-        xhtml, _, _, _, _ = compile_page(node, config, is_section_index=True)
+        xhtml = compile_page(node, config, is_section_index=True).xhtml
 
     children_pos = xhtml.find('ac:name="children"')
     panel_pos = xhtml.find('ac:name="panel"')

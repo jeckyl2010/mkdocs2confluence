@@ -9,12 +9,12 @@ import webbrowser
 from pathlib import Path
 
 from mkdocs_to_confluence import __version__
+from mkdocs_to_confluence.compiler.page import compile_page
 from mkdocs_to_confluence.emitter.xhtml import configure_styles
 from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import inject_livereload, render_index, render_page
-from mkdocs_to_confluence.publisher.planner import compile_page
 from mkdocs_to_confluence.transforms.internallinks import build_link_map
 
 
@@ -389,7 +389,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
             for node in pages:
                 html_name = page_link_map.get(node.title, f"{Path(node.docs_path or node.title).stem}.html")
                 try:
-                    xhtml, _a, _l, _s, _vm = compile_page(node, config, link_map, quiet=args.quiet)
+                    xhtml = compile_page(node, config, link_map, quiet=args.quiet).xhtml
                 except PageLoadError as exc:
                     print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
                     continue
@@ -447,7 +447,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
 
         def _build_page() -> None:
             try:
-                xhtml, _a, _l, _s, _vm = compile_page(page_node, config, link_map, quiet=True)
+                xhtml = compile_page(page_node, config, link_map, quiet=True).xhtml
             except PageLoadError as exc:
                 print(f"  warning: {exc}", file=sys.stderr)
                 return
@@ -471,7 +471,7 @@ def _cmd_preview(args: argparse.Namespace) -> None:
         return
 
     try:
-        xhtml, _attachments, _labels, _status, _vm = compile_page(page_node, config, link_map, quiet=args.quiet)
+        xhtml = compile_page(page_node, config, link_map, quiet=args.quiet).xhtml
     except PageLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -727,7 +727,7 @@ def _cmd_pdf(args: argparse.Namespace) -> None:
     chapters: list[tuple[str, str]] = []
     for node in pages:
         try:
-            xhtml, _a, _l, _s, _vm = compile_page(node, config, link_map, quiet=args.quiet)
+            xhtml = compile_page(node, config, link_map, quiet=args.quiet).xhtml
         except PageLoadError as exc:
             print(f"  warning: skipping '{node.title}': {exc}", file=sys.stderr)
             continue

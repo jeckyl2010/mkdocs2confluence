@@ -139,9 +139,9 @@ def test_figure_pipeline_end_to_end():
 
 
 def test_compile_page_renders_image_caption(tmp_path):
+    from mkdocs_to_confluence.compiler.page import compile_page
     from mkdocs_to_confluence.loader.config import MkDocsConfig
     from mkdocs_to_confluence.loader.nav import NavNode
-    from mkdocs_to_confluence.publisher.planner import compile_page
 
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -154,5 +154,5 @@ def test_compile_page_renders_image_caption(tmp_path):
     config = MkDocsConfig(
         site_name="T", docs_dir=docs, repo_url=None, edit_uri=None, nav=None
     )
-    xhtml, _, _, _, _ = compile_page(node, config)
+    xhtml = compile_page(node, config).xhtml
     assert "<ac:caption><p>Our logo</p></ac:caption>" in xhtml

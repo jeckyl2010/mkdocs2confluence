@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from mkdocs_to_confluence.compiler.page import compile_page
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.preprocess.frontmatter import _FRONT_MATTER_RE
 from mkdocs_to_confluence.publisher.executor import _upload_assets
-from mkdocs_to_confluence.publisher.planner import compile_page
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
@@ -72,11 +72,9 @@ def publish_changelog(
     if not quiet:
         print(f"  compiling  '{title}'  (changelog)")
 
-    xhtml, attachments, labels, confluence_status, version_message = compile_page(
-        node, config, link_map or {}, quiet=quiet
-    )
+    result = compile_page(node, config, link_map or {}, quiet=quiet)
 
-    xhtml_hash = hashlib.sha256(xhtml.encode()).hexdigest()
+    xhtml_hash = hashlib.sha256(result.xhtml.encode()).hexdigest()
     existing = client.find_page(space_id, title)
 
     if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_hash:
@@ -87,7 +85,7 @@ def publish_changelog(
     parent_id = conf_config.parent_page_id
 
     if existing is None:
-        page = client.create_page(space_id, title, xhtml, parent_id=parent_id)
+        page = client.create_page(space_id, title, result.xhtml, parent_id=parent_id)
         page_id = str(page["id"])
         # Do NOT stamp as managed: _prune_orphans skips unmanaged pages, so
         # this ensures --prune never deletes the changelog page.
@@ -97,15 +95,15 @@ def publish_changelog(
         page_id = str(existing["id"])
         version: int = existing["version"]["number"]
         client.update_page(
-            page_id, title, xhtml, version + 1,
+            page_id, title, result.xhtml, version + 1,
             parent_id=parent_id,
-            version_message=version_message,
+            version_message=result.version_message,
         )
         if not quiet:
             print(f"  updated    '{title}'  (changelog)")
 
-    if attachments:
-        _upload_assets(page_id, attachments, config.docs_dir, client, quiet=quiet)
+    if result.attachments:
+        _upload_assets(page_id, result.attachments, config.docs_dir, client, quiet=quiet)
 
     # content hash is an internal optimization; if it fails the next run just
     # re-publishes, so a failure is self-healing and stays silent.
@@ -118,9 +116,9 @@ def publish_changelog(
     # never fail an already-saved page (catch broadly so a transient network
     # error can't abort the publish), but failures are warned so they aren't
     # invisible — mirroring publisher/executor.py.
-    if labels:
+    if result.labels:
         try:
-            client.set_page_labels(page_id, labels)
+            client.set_page_labels(page_id, result.labels)
         except Exception as exc:
             print(f"  [warn] changelog: could not set labels: {exc}", file=sys.stderr)
 
@@ -130,12 +128,12 @@ def publish_changelog(
         except Exception as exc:
             print(f"  [warn] changelog: could not set full-width: {exc}", file=sys.stderr)
 
-    if confluence_status:
+    if result.confluence_status:
         try:
-            client.set_page_status(page_id, confluence_status, space_key=space_key)
+            client.set_page_status(page_id, result.confluence_status, space_key=space_key)
         except Exception as exc:
             print(
                 f"  [warn] changelog: could not set page status "
-                f"{confluence_status!r}: {exc}",
+                f"{result.confluence_status!r}: {exc}",
                 file=sys.stderr,
             )

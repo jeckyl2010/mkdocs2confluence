@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from mkdocs_to_confluence.compiler.page import compile_page as _compile_page_result
+from mkdocs_to_confluence.compiler.page import compile_page
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import PageLoadError
@@ -37,31 +37,6 @@ def _extract_ready_flag(raw: str) -> bool | None:
     if val is None:
         return None
     return bool(val)
-
-
-def compile_page(
-    node: NavNode,
-    config: MkDocsConfig,
-    link_map: dict[str, str] | None = None,
-    *,
-    is_section_index: bool = False,
-    quiet: bool = False,
-) -> tuple[str, list[Path], tuple[str, ...], str | None, str | None]:
-    """Compatibility wrapper around the compiler module's typed page compiler."""
-    result = _compile_page_result(
-        node,
-        config,
-        link_map,
-        is_section_index=is_section_index,
-        quiet=quiet,
-    )
-    return (
-        result.xhtml,
-        result.attachments,
-        result.labels,
-        result.confluence_status,
-        result.version_message,
-    )
 
 
 def _find_section_index(node: NavNode) -> NavNode | None:
@@ -183,7 +158,7 @@ def _plan_nodes(
                     if not quiet:
                         print(f"  compiling  '{clean_title}'  (section index)")
                     try:
-                        xhtml, attachments, labels, confluence_status, version_message = compile_page(
+                        result = compile_page(
                             index_child, config, link_map, is_section_index=True, quiet=quiet
                         )
                         page_action = _plan_compiled_page_action(
@@ -193,11 +168,11 @@ def _plan_nodes(
                             title=clean_title,
                             parent_id=parent_id,
                             parent_is_folder=parent_is_folder,
-                            xhtml=xhtml,
-                            attachments=attachments,
-                            labels=labels,
-                            confluence_status=confluence_status,
-                            version_message=version_message,
+                            xhtml=result.xhtml,
+                            attachments=result.attachments,
+                            labels=result.labels,
+                            confluence_status=result.confluence_status,
+                            version_message=result.version_message,
                             quiet=quiet,
                         )
                         actions.append(page_action)
@@ -268,9 +243,7 @@ def _plan_nodes(
             if not quiet:
                 print(f"  compiling  '{clean_title}'")
             try:
-                xhtml, attachments, labels, confluence_status, version_message = compile_page(
-                    node, config, link_map, quiet=quiet
-                )
+                result = compile_page(node, config, link_map, quiet=quiet)
             except (PageLoadError, OSError) as exc:
                 if not quiet:
                     print(f"  skipping   '{clean_title}'  (error: {exc})")
@@ -291,11 +264,11 @@ def _plan_nodes(
                 title=clean_title,
                 parent_id=parent_id,
                 parent_is_folder=False,
-                xhtml=xhtml,
-                attachments=attachments,
-                labels=labels,
-                confluence_status=confluence_status,
-                version_message=version_message,
+                xhtml=result.xhtml,
+                attachments=result.attachments,
+                labels=result.labels,
+                confluence_status=result.confluence_status,
+                version_message=result.version_message,
                 quiet=quiet,
             )
             actions.append(page_action)

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from mkdocs_to_confluence.compiler.models import CompileResult
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.publisher.changelog import _extract_title, publish_changelog
 
@@ -70,7 +71,7 @@ def test_publish_changelog_skips_unchanged_content(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("compiled-xhtml", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="compiled-xhtml")
         expected_hash = hashlib.sha256(b"compiled-xhtml").hexdigest()
         client = _make_client(existing_id="42", stored_hash=expected_hash)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
@@ -87,7 +88,7 @@ def test_publish_changelog_creates_new_page(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml-new", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml-new")
         client = _make_client(existing_id=None)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
@@ -105,7 +106,7 @@ def test_publish_changelog_updates_existing_page(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml-updated", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml-updated")
         client = _make_client(existing_id="77", stored_hash="old-hash")
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
@@ -131,7 +132,7 @@ def test_publish_changelog_uses_parent_page_id_when_set(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml")
         client = _make_client(existing_id=None)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
@@ -150,7 +151,7 @@ def test_publish_changelog_uses_title_from_front_matter(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml")
         client = _make_client(existing_id=None)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
@@ -166,7 +167,7 @@ def test_publish_changelog_defaults_title_to_whats_new(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml")
         client = _make_client(existing_id=None)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
@@ -187,7 +188,7 @@ def test_publish_changelog_uploads_attachments(tmp_path: Path) -> None:
         patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile,
         patch("mkdocs_to_confluence.publisher.changelog._upload_assets") as mock_upload,
     ):
-        mock_compile.return_value = ("xhtml", [attachment], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml", attachments=[attachment])
         client = _make_client(existing_id=None)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=True)
 
@@ -206,7 +207,10 @@ def test_publish_changelog_update_path_applies_metadata(
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml-updated", [], ("release-notes",), "current", "v1.2.3")
+        mock_compile.return_value = CompileResult(
+            xhtml="xhtml-updated", labels=("release-notes",),
+            confluence_status="current", version_message="v1.2.3",
+        )
         client = _make_client(existing_id="77", stored_hash="old-hash")
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
 
@@ -232,7 +236,7 @@ def test_publish_changelog_created_prints_when_not_quiet(
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml-new", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml-new")
         client = _make_client(existing_id=None)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
 
@@ -249,7 +253,7 @@ def test_publish_changelog_unchanged_prints_when_not_quiet(
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("compiled-xhtml", [], (), None, None)
+        mock_compile.return_value = CompileResult(xhtml="compiled-xhtml")
         expected_hash = hashlib.sha256(b"compiled-xhtml").hexdigest()
         client = _make_client(existing_id="42", stored_hash=expected_hash)
         publish_changelog(config, conf, client, "space-1", space_key="TECH", quiet=False)
@@ -270,7 +274,7 @@ def test_publish_changelog_swallows_metadata_errors(
     config = _config(tmp_path)
 
     with patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile:
-        mock_compile.return_value = ("xhtml", [], ("lbl",), "current", None)
+        mock_compile.return_value = CompileResult(xhtml="xhtml", labels=("lbl",), confluence_status="current")
         client = _make_client(existing_id=None)
         client.set_content_hash.side_effect = RuntimeError("hash boom")
         client.set_page_labels.side_effect = RuntimeError("labels boom")
