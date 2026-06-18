@@ -336,6 +336,9 @@ def _emit_code_block(node: CodeBlock) -> str:
             parts.append(
                 f'  <ac:parameter ac:name="firstline">{node.linenums_start}</ac:parameter>\n'
             )
+    if node.highlight_lines:
+        hl = ",".join(str(n) for n in node.highlight_lines)
+        parts.append(f'  <ac:parameter ac:name="highlight">{hl}</ac:parameter>\n')
     # Escape ]]> sequences inside CDATA to avoid breaking the block
     safe_code = node.code.replace("]]>", "]]]]><![CDATA[>")
     parts.append(f"  <ac:plain-text-body><![CDATA[{safe_code}]]></ac:plain-text-body>\n")

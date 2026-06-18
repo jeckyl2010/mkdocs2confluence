@@ -135,6 +135,15 @@ class TestCodeBlockEmitter:
         out = emit((CodeBlock(code="pass", linenums=True),))
         assert "linenumbers" in out
 
+    def test_highlight_lines(self) -> None:
+        out = emit((CodeBlock(code="a\nb\nc", highlight_lines=(1, 3)),))
+        assert 'ac:name="highlight"' in out
+        assert "1,3" in out
+
+    def test_no_highlight_lines_when_empty(self) -> None:
+        out = emit((CodeBlock(code="pass"),))
+        assert 'ac:name="highlight"' not in out
+
     def test_cdata_escaping(self) -> None:
         out = emit((CodeBlock(code="a]]>b"),))
         # The escape sequence splits ]]> across two CDATA sections

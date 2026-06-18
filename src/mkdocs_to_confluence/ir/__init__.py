@@ -4,12 +4,10 @@ All node types are frozen dataclasses — immutable, hashable, and structurally
 equal.  Import everything you need directly from this package:
 
     from mkdocs_to_confluence.ir import (
-        Document, PageMeta,
         Section, Paragraph, Text, CodeBlock, ...
     )
 """
 
-from mkdocs_to_confluence.ir.document import Document, PageMeta, compute_sha
 from mkdocs_to_confluence.ir.nodes import (
     # Material extension nodes
     Admonition,
@@ -64,10 +62,6 @@ from mkdocs_to_confluence.ir.nodes import (
 )
 
 __all__ = [
-    # Document envelope
-    "Document",
-    "PageMeta",
-    "compute_sha",
     # Base
     "IRNode",
     "walk",

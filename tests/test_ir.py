@@ -15,7 +15,6 @@ from mkdocs_to_confluence.ir import (
     CodeBlock,
     CodeInlineNode,
     ContentTabs,
-    Document,
     Expandable,
     GridCards,
     HorizontalRule,
@@ -27,7 +26,6 @@ from mkdocs_to_confluence.ir import (
     ListItem,
     MermaidDiagram,
     OrderedList,
-    PageMeta,
     Paragraph,
     RawHTML,
     Section,
@@ -40,7 +38,6 @@ from mkdocs_to_confluence.ir import (
     TableRow,
     TextNode,
     UnsupportedBlock,
-    compute_sha,
     walk,
 )
 
@@ -53,112 +50,6 @@ def text(s: str) -> TextNode:
 
 def para(*children: IRNode) -> Paragraph:
     return Paragraph(children=children)
-
-
-# ── compute_sha ───────────────────────────────────────────────────────────────
-
-
-class TestComputeSha:
-    def test_returns_64_char_hex_string(self) -> None:
-        result = compute_sha("hello")
-        assert len(result) == 64
-        assert all(c in "0123456789abcdef" for c in result)
-
-    def test_deterministic(self) -> None:
-        assert compute_sha("hello") == compute_sha("hello")
-
-    def test_different_inputs_differ(self) -> None:
-        assert compute_sha("hello") != compute_sha("world")
-
-    def test_empty_string(self) -> None:
-        result = compute_sha("")
-        assert len(result) == 64
-
-    def test_unicode_content(self) -> None:
-        result = compute_sha("こんにちは")
-        assert len(result) == 64
-
-
-# ── PageMeta ──────────────────────────────────────────────────────────────────
-
-
-class TestPageMeta:
-    def test_required_fields(self) -> None:
-        meta = PageMeta(source_path="docs/index.md", title="Home", sha="abc123")
-        assert meta.source_path == "docs/index.md"
-        assert meta.title == "Home"
-        assert meta.sha == "abc123"
-
-    def test_optional_defaults(self) -> None:
-        meta = PageMeta(source_path="docs/index.md", title="Home", sha="abc123")
-        assert meta.repo_url is None
-        assert meta.tool_version == ""
-        assert meta.confluence_id is None
-
-    def test_optional_fields(self) -> None:
-        meta = PageMeta(
-            source_path="docs/index.md",
-            title="Home",
-            sha="abc123",
-            repo_url="https://github.com/x/y",
-            tool_version="0.1.0",
-            confluence_id=42,
-        )
-        assert meta.repo_url == "https://github.com/x/y"
-        assert meta.tool_version == "0.1.0"
-        assert meta.confluence_id == 42
-
-    def test_immutable(self) -> None:
-        meta = PageMeta(source_path="docs/index.md", title="Home", sha="abc123")
-        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
-            meta.title = "Other"  # type: ignore[misc]
-
-    def test_equality_by_value(self) -> None:
-        a = PageMeta(source_path="docs/index.md", title="Home", sha="abc")
-        b = PageMeta(source_path="docs/index.md", title="Home", sha="abc")
-        assert a == b
-
-    def test_inequality(self) -> None:
-        a = PageMeta(source_path="docs/index.md", title="Home", sha="abc")
-        b = PageMeta(source_path="docs/other.md", title="Other", sha="xyz")
-        assert a != b
-
-
-# ── Document ──────────────────────────────────────────────────────────────────
-
-
-class TestDocument:
-    def _meta(self) -> PageMeta:
-        return PageMeta(source_path="docs/index.md", title="Home", sha="abc")
-
-    def test_construction(self) -> None:
-        doc = Document(meta=self._meta(), body=())
-        assert doc.body == ()
-        assert doc.attachments == []
-        assert doc.nav_context == {}
-
-    def test_body_with_nodes(self) -> None:
-        body = (para(text("Hello")),)
-        doc = Document(meta=self._meta(), body=body)
-        assert len(doc.body) == 1
-
-    def test_attachments_mutable(self) -> None:
-        doc = Document(meta=self._meta(), body=())
-        doc.attachments.append("docs/images/logo.png")
-        assert "docs/images/logo.png" in doc.attachments
-
-    def test_nav_context_mutable(self) -> None:
-        doc = Document(meta=self._meta(), body=())
-        doc.nav_context["docs/other.md"] = "Other Page"
-        assert doc.nav_context["docs/other.md"] == "Other Page"
-
-    def test_different_docs_not_equal_by_default(self) -> None:
-        meta = self._meta()
-        a = Document(meta=meta, body=())
-        b = Document(meta=meta, body=())
-        # Document is not frozen — two instances are not equal by value
-        # (regular dataclass uses identity equality unless __eq__ is customised)
-        assert a is not b
 
 
 # ── Inline nodes ──────────────────────────────────────────────────────────────

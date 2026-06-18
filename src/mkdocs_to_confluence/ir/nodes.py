@@ -216,6 +216,7 @@ class CodeBlock(IRNode):
         linenums:        Whether line numbers are enabled.
         linenums_start:  First line number (default 1); only meaningful when
                          ``linenums`` is ``True``.
+    Attributes:
         highlight_lines: 1-based line numbers that should be highlighted.
     """
 
