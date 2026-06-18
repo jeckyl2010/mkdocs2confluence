@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -9,7 +10,8 @@ import pytest
 
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
-from mkdocs_to_confluence.publisher.pipeline import PageAction, compile_page, plan_publish
+from mkdocs_to_confluence.publisher.models import PageAction
+from mkdocs_to_confluence.publisher.planner import compile_page, plan_publish
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -215,7 +217,6 @@ def test_plan_publish_update_when_page_exists(tmp_path: Path) -> None:
 
 def test_plan_publish_skips_when_content_unchanged(tmp_path: Path) -> None:
     """When stored hash matches new XHTML hash the action must be 'skip'."""
-    from mkdocs_to_confluence.publisher.pipeline import _xhtml_hash
 
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -227,9 +228,9 @@ def test_plan_publish_skips_when_content_unchanged(tmp_path: Path) -> None:
     conf_config = _make_conf_config()
 
     # Compile once to get the real hash
-    from mkdocs_to_confluence.publisher.pipeline import compile_page
+    from mkdocs_to_confluence.publisher.planner import compile_page
     xhtml, _, _, _, _ = compile_page(node, config)
-    stored_hash = _xhtml_hash(xhtml)
+    stored_hash = hashlib.sha256(xhtml.encode()).hexdigest()
 
     existing_page = {"id": "77", "version": {"number": 2}}
     client = MagicMock()
@@ -452,7 +453,7 @@ def _make_page_node(title: str, tmp_path: Path, docs_dir: Path) -> NavNode:
 class TestExecutePublish:
     def test_new_section_children_get_correct_parent_id(self, tmp_path: Path) -> None:
         """Children of a newly-created section must be nested under it."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -479,7 +480,7 @@ class TestExecutePublish:
 
     def test_existing_section_children_wired_from_update(self, tmp_path: Path) -> None:
         """Children of an existing (update) section are also wired correctly."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -504,7 +505,7 @@ class TestExecutePublish:
 
     def test_three_level_hierarchy_nesting(self, tmp_path: Path) -> None:
         """Section → SubSection → Page creates the correct parent chain."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -527,7 +528,7 @@ class TestExecutePublish:
 
     def test_sections_use_create_folder_not_create_page(self, tmp_path: Path) -> None:
         """Section nodes must create Confluence folders, not pages."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -554,7 +555,7 @@ class TestExecutePublish:
 
     def test_existing_folder_is_reused_not_recreated(self, tmp_path: Path) -> None:
         """If a folder already exists, it must be reused (find_folder_under → reuse)."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -574,7 +575,7 @@ class TestExecutePublish:
 
     def test_nested_folders_use_parent_is_folder_endpoint(self, tmp_path: Path) -> None:
         """Sub-folders must search via /folders/{id}/direct-children, not /pages/."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -605,7 +606,7 @@ class TestExecutePublish:
         sub-section.  The update_page call must include the new parent_id so
         Confluence moves the page rather than leaving it in the old position.
         """
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -634,7 +635,7 @@ class TestExecutePublish:
 
 
         """Attachments must be uploaded with the docs_dir-relative name."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         assets = docs_dir / "assets" / "images"
@@ -664,7 +665,8 @@ class TestExecutePublish:
 
     def test_returns_publish_report(self, tmp_path: Path) -> None:
         """execute_publish must return a PublishReport with accurate counts."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -688,7 +690,7 @@ class TestExecutePublish:
 
     def test_report_counts_assets_uploaded(self, tmp_path: Path) -> None:
         """assets_uploaded in the report must count all uploaded files."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -710,7 +712,7 @@ class TestExecutePublish:
 
     def test_assets_skipped_when_not_newer_than_confluence(self, tmp_path: Path) -> None:
         """Assets whose mtime <= Confluence createdAt must be skipped."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir(exist_ok=True)
@@ -738,7 +740,7 @@ class TestExecutePublish:
 
     def test_assets_uploaded_when_newer_than_confluence(self, tmp_path: Path) -> None:
         """Assets whose mtime > Confluence createdAt must be uploaded."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir(exist_ok=True)
@@ -767,7 +769,7 @@ class TestExecutePublish:
     def test_report_captures_page_error(self, tmp_path: Path) -> None:
         """A page that fails to create is logged in report.errors."""
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -790,7 +792,7 @@ class TestExecutePublish:
         Replicates the user scenario: appendix → [cctv, gdpr, api-test-client] → pages.
         Each page must end up under its own sub-folder, NOT flat under appendix.
         """
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -869,7 +871,7 @@ class TestExecutePublish:
 
     def test_parallel_uploads_all_called(self, tmp_path: Path) -> None:
         """All attachments are uploaded even when running in parallel."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -895,7 +897,7 @@ class TestExecutePublish:
         regular Confluence page) must still propagate their page_id to children so
         children are nested correctly instead of landing at the space root.
         """
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -928,7 +930,7 @@ class TestExecutePublish:
         When the parent is a regular page (section-index), we must create a
         stub page instead of a native folder so hierarchy is preserved.
         """
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -976,7 +978,7 @@ class TestExecutePublish:
         into the children — not leave them with parent_id=None at the space root.
         """
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1019,7 +1021,7 @@ class TestExecutePublish:
         fall back to create, just like the 404 case.
         """
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1054,7 +1056,7 @@ class TestPruneOrphans:
 
     def test_prune_deletes_managed_orphan(self, tmp_path: Path) -> None:
         """A managed descendant not in published_ids must be deleted."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1075,7 +1077,7 @@ class TestPruneOrphans:
 
     def test_prune_skips_unmanaged_orphan(self, tmp_path: Path) -> None:
         """A manually-created page (no mk2conf-managed stamp) must not be deleted."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1096,7 +1098,7 @@ class TestPruneOrphans:
 
     def test_prune_skips_published_pages(self, tmp_path: Path) -> None:
         """Published pages that are descendants must not be deleted."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1119,7 +1121,7 @@ class TestPruneOrphans:
 
     def test_prune_disabled_by_default(self, tmp_path: Path) -> None:
         """Without prune=True, descendant IDs are never fetched."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1137,7 +1139,7 @@ class TestPruneOrphans:
 
     def test_prune_disabled_when_no_root_page_id(self, tmp_path: Path) -> None:
         """prune=True without root_page_id does nothing."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1155,7 +1157,7 @@ class TestPruneOrphans:
 
     def test_stamp_managed_called_on_create(self, tmp_path: Path) -> None:
         """stamp_managed must be called for each newly created page."""
-        from mkdocs_to_confluence.publisher.pipeline import execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1171,14 +1173,14 @@ class TestPruneOrphans:
         client.stamp_managed.assert_called_once()
 
     def test_report_str_shows_pruned_count(self) -> None:
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         r = PublishReport(created=2, updated=1, skipped=0, pruned=3)
         out = str(r)
         assert "3 orphaned page(s) deleted" in out
 
     def test_report_str_omits_pruned_when_zero(self) -> None:
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         r = PublishReport(created=2, updated=1, skipped=0, pruned=0)
         out = str(r)
@@ -1189,7 +1191,7 @@ class TestPruneOrphans:
 
 
 def test_publish_report_total_pages() -> None:
-    from mkdocs_to_confluence.publisher.pipeline import PublishReport
+    from mkdocs_to_confluence.publisher.models import PublishReport
 
     r = PublishReport(created=3, updated=2, skipped=1)
     assert r.total_pages == 6
@@ -1199,7 +1201,7 @@ def test_publish_report_total_pages() -> None:
 
 
 def test_publish_report_str_with_errors() -> None:
-    from mkdocs_to_confluence.publisher.pipeline import PublishReport
+    from mkdocs_to_confluence.publisher.models import PublishReport
 
     r = PublishReport(created=1, updated=0, skipped=0, errors=[("MyPage", "oops")])
     out = str(r)
@@ -1212,7 +1214,7 @@ def test_publish_report_str_with_errors() -> None:
 
 
 def test_extract_ready_flag_yaml_error_returns_none() -> None:
-    from mkdocs_to_confluence.publisher.pipeline import _extract_ready_flag
+    from mkdocs_to_confluence.publisher.planner import _extract_ready_flag
 
     # Invalid YAML inside front matter
     raw = "---\n: :\n---\n"
@@ -1222,7 +1224,7 @@ def test_extract_ready_flag_yaml_error_returns_none() -> None:
 
 
 def test_extract_ready_flag_non_dict_returns_none() -> None:
-    from mkdocs_to_confluence.publisher.pipeline import _extract_ready_flag
+    from mkdocs_to_confluence.publisher.planner import _extract_ready_flag
 
     # Front matter that parses to a scalar string, not a dict
     raw = "---\njust a string\n---\n"
@@ -1231,7 +1233,7 @@ def test_extract_ready_flag_non_dict_returns_none() -> None:
 
 
 def test_extract_ready_flag_missing_key_returns_none() -> None:
-    from mkdocs_to_confluence.publisher.pipeline import _extract_ready_flag
+    from mkdocs_to_confluence.publisher.planner import _extract_ready_flag
 
     # Valid dict front matter, but no 'ready' key
     raw = "---\ntitle: Hello\n---\n"
@@ -1246,7 +1248,8 @@ def test_execute_publish_dry_run_counts_actions(tmp_path: Path) -> None:
     """dry_run=True returns counts without calling the client."""
     from unittest.mock import MagicMock
 
-    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
+    from mkdocs_to_confluence.publisher.models import PageAction
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -1278,7 +1281,8 @@ def test_prune_orphans_get_descendants_raises_prints_warning(
     """When get_descendant_ids raises, prune prints a warning and returns."""
     from unittest.mock import MagicMock
 
-    from mkdocs_to_confluence.publisher.pipeline import PublishReport, _prune_orphans
+    from mkdocs_to_confluence.publisher.executor import _prune_orphans
+    from mkdocs_to_confluence.publisher.models import PublishReport
 
     client = MagicMock()
     client.get_descendant_ids.side_effect = RuntimeError("network error")
@@ -1296,7 +1300,8 @@ def test_prune_orphans_delete_raises_continues(
     """When delete_page raises, the warning is printed and other orphans are processed."""
     from unittest.mock import MagicMock
 
-    from mkdocs_to_confluence.publisher.pipeline import PublishReport, _prune_orphans
+    from mkdocs_to_confluence.publisher.executor import _prune_orphans
+    from mkdocs_to_confluence.publisher.models import PublishReport
 
     client = MagicMock()
     client.get_descendant_ids.return_value = ["orphan1", "orphan2"]
@@ -1332,7 +1337,8 @@ class TestExecutePublishNonFatal:
         return client
 
     def test_stamp_managed_failure_is_non_fatal(self, tmp_path: Path) -> None:
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PageAction
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1345,7 +1351,8 @@ class TestExecutePublishNonFatal:
         assert report.errors == []
 
     def test_set_content_hash_failure_is_non_fatal(self, tmp_path: Path) -> None:
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PageAction
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1359,7 +1366,8 @@ class TestExecutePublishNonFatal:
         assert report.errors == []
 
     def test_set_page_full_width_failure_is_non_fatal(self, tmp_path: Path) -> None:
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PageAction
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1374,7 +1382,8 @@ class TestExecutePublishNonFatal:
         assert report.errors == []
 
     def test_set_page_labels_failure_is_non_fatal(self, tmp_path: Path) -> None:
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PageAction
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1393,7 +1402,8 @@ class TestExecutePublishNonFatal:
         Regression test: Confluence's state PUT resets content-appearance-published,
         so full-width must always be the last post-process write.
         """
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PageAction
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1418,7 +1428,8 @@ class TestExecutePublishNonFatal:
     def test_stamp_managed_after_fallback_create_is_non_fatal(self, tmp_path: Path) -> None:
         """stamp_managed after the update-fallback-to-create path is also non-fatal."""
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+        from mkdocs_to_confluence.publisher.models import PageAction
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1439,7 +1450,8 @@ class TestExecutePublishNonFatal:
 
 def test_execute_publish_asset_upload_error_in_report(tmp_path: Path) -> None:
     """Asset upload errors must be recorded in the report, not raise."""
-    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
+    from mkdocs_to_confluence.publisher.models import PageAction
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -1461,7 +1473,8 @@ def test_execute_publish_asset_upload_error_in_report(tmp_path: Path) -> None:
 
 def test_execute_publish_find_folder_under_failure_continues(tmp_path: Path) -> None:
     """find_folder_under raising must not abort the run — a new folder is created."""
-    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
+    from mkdocs_to_confluence.publisher.models import PageAction
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -1486,7 +1499,8 @@ def test_execute_publish_find_folder_under_failure_continues(tmp_path: Path) -> 
 
 def test_execute_publish_stub_page_reuse(tmp_path: Path) -> None:
     """When a stub page already exists for a section under a page parent, it is reused."""
-    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
+    from mkdocs_to_confluence.publisher.models import PageAction
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -1519,7 +1533,8 @@ def test_execute_publish_stub_page_reuse(tmp_path: Path) -> None:
 def test_execute_publish_non_stale_update_error_is_recorded(tmp_path: Path) -> None:
     """A non-stale ConfluenceError from update_page is recorded in report errors."""
     from mkdocs_to_confluence.publisher.client import ConfluenceError
-    from mkdocs_to_confluence.publisher.pipeline import PageAction, execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
+    from mkdocs_to_confluence.publisher.models import PageAction
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
@@ -1537,7 +1552,7 @@ def test_execute_publish_non_stale_update_error_is_recorded(tmp_path: Path) -> N
 # ── TestExecutePublishHelpers ─────────────────────────────────────────────────
 
 
-from mkdocs_to_confluence.publisher.pipeline import (  # noqa: E402
+from mkdocs_to_confluence.publisher.executor import (  # noqa: E402
     _execute_folder_action,
     _execute_page_action,
     _post_process_action,
@@ -1552,7 +1567,7 @@ class TestExecutePublishHelpers:
 
     def test_folder_page_id_already_set_increments_updated(self, tmp_path: Path) -> None:
         """page_id already set → reuse, no client calls, report.updated += 1."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("Sec", [])
         action = PageAction(node=node, title="Sec", action="create",
@@ -1569,7 +1584,7 @@ class TestExecutePublishHelpers:
 
     def test_folder_parent_is_folder_existing_reused(self, tmp_path: Path) -> None:
         """parent_is_folder=True + find_folder_under hits → reuse, report.updated += 1."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("Sec", [])
         action = PageAction(node=node, title="Sec", action="create",
@@ -1588,7 +1603,7 @@ class TestExecutePublishHelpers:
 
     def test_folder_parent_is_folder_not_found_creates(self, tmp_path: Path) -> None:
         """parent_is_folder=True + find_folder_under miss → create_folder, report.created += 1."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("Sec", [])
         action = PageAction(node=node, title="Sec", action="create",
@@ -1608,7 +1623,7 @@ class TestExecutePublishHelpers:
 
     def test_folder_find_folder_under_raises_falls_through_to_create(self) -> None:
         """find_folder_under raising → warn, fall through to create_folder."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("Sec", [])
         action = PageAction(node=node, title="Sec", action="create",
@@ -1627,7 +1642,7 @@ class TestExecutePublishHelpers:
 
     def test_folder_parent_is_page_existing_page_reused(self) -> None:
         """Parent is a page (not folder, not root) → stub path: find_page hits → updated."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("Sec", [])
         action = PageAction(node=node, title="Sec", action="create",
@@ -1646,7 +1661,7 @@ class TestExecutePublishHelpers:
 
     def test_folder_parent_is_page_no_existing_creates_stub(self) -> None:
         """Parent is a page → stub path: find_page miss → create_page stub called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("Sec", [])
         action = PageAction(node=node, title="Sec", action="create",
@@ -1670,7 +1685,7 @@ class TestExecutePublishHelpers:
 
     def test_page_create_calls_create_page_and_stamp(self) -> None:
         """create → create_page called, page_id set, report.created += 1, stamp_managed called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1691,7 +1706,7 @@ class TestExecutePublishHelpers:
 
     def test_page_create_stamp_managed_raises_non_fatal(self) -> None:
         """create + stamp_managed raises → non-fatal, report.created still incremented."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1708,7 +1723,7 @@ class TestExecutePublishHelpers:
 
     def test_page_update_calls_update_page(self) -> None:
         """update → update_page called, report.updated += 1."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="update",
@@ -1728,7 +1743,7 @@ class TestExecutePublishHelpers:
     def test_page_update_404_falls_back_to_create(self) -> None:
         """update + HTTP 404 → fallback create_page, report.created += 1."""
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="update",
@@ -1749,7 +1764,7 @@ class TestExecutePublishHelpers:
     def test_page_update_400_another_space_falls_back_to_create(self) -> None:
         """update + HTTP 400 'another space' → fallback create_page."""
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="update",
@@ -1770,7 +1785,7 @@ class TestExecutePublishHelpers:
     def test_page_update_non_stale_error_reraises(self) -> None:
         """update + HTTP 500 → re-raises (not caught by helper)."""
         from mkdocs_to_confluence.publisher.client import ConfluenceError
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="update",
@@ -1831,7 +1846,7 @@ class TestExecutePublishHelpers:
 
     def test_post_full_width_called_when_true(self, tmp_path: Path) -> None:
         """full_width=True + not folder → set_page_full_width called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1846,7 +1861,7 @@ class TestExecutePublishHelpers:
 
     def test_post_full_width_not_called_when_false(self, tmp_path: Path) -> None:
         """full_width=False → set_page_full_width NOT called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1861,7 +1876,7 @@ class TestExecutePublishHelpers:
 
     def test_post_full_width_not_called_for_folder(self, tmp_path: Path) -> None:
         """is_folder=True → set_page_full_width + set_page_labels NOT called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("F", [])
         action = PageAction(node=node, title="F", action="create",
@@ -1878,7 +1893,7 @@ class TestExecutePublishHelpers:
 
     def test_post_labels_called_when_set(self, tmp_path: Path) -> None:
         """action.labels set + not folder → set_page_labels called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1894,7 +1909,7 @@ class TestExecutePublishHelpers:
 
     def test_post_content_hash_stored_on_create(self, tmp_path: Path) -> None:
         """content_hash + action='create' → set_content_hash called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1910,7 +1925,7 @@ class TestExecutePublishHelpers:
 
     def test_post_content_hash_not_stored_on_skip(self, tmp_path: Path) -> None:
         """content_hash + action='skip' → set_content_hash NOT called."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="skip",
@@ -1926,7 +1941,7 @@ class TestExecutePublishHelpers:
 
     def test_post_attachments_uploaded_and_counted(self, tmp_path: Path) -> None:
         """action.attachments set → _upload_assets called, report.assets_uploaded incremented."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         docs_dir = tmp_path / "docs"
         docs_dir.mkdir()
@@ -1950,7 +1965,7 @@ class TestExecutePublishHelpers:
 
     def test_post_full_width_raises_non_fatal(self, tmp_path: Path) -> None:
         """set_page_full_width raising → non-fatal, no exception propagated."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1969,7 +1984,7 @@ class TestExecutePublishHelpers:
         Confluence's state PUT resets content-appearance-published, so
         full-width must always be the last write.
         """
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -1993,7 +2008,7 @@ class TestExecutePublishHelpers:
 
     def test_post_full_width_called_after_labels(self, tmp_path: Path) -> None:
         """set_page_full_width must be called AFTER set_page_labels."""
-        from mkdocs_to_confluence.publisher.pipeline import PublishReport
+        from mkdocs_to_confluence.publisher.models import PublishReport
 
         node = _make_section_node("P", [])
         action = PageAction(node=node, title="P", action="create",
@@ -2058,7 +2073,7 @@ def test_plan_publish_without_quiet_produces_stdout(tmp_path: Path, capsys: pyte
 
 def test_execute_publish_quiet_suppresses_stdout(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """execute_publish(quiet=True) must produce no stdout output."""
-    from mkdocs_to_confluence.publisher.pipeline import execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
 
     node = _make_section_node("P", [])
     action = PageAction(node=node, title="P", action="create", parent_id=None, xhtml="<p/>")
@@ -2136,7 +2151,6 @@ def test_plan_publish_sets_confluence_status_on_create(tmp_path: Path) -> None:
 
 def test_plan_publish_sets_confluence_status_on_skip(tmp_path: Path) -> None:
     """plan_publish must carry confluence_status into a skip (unchanged) PageAction."""
-    from mkdocs_to_confluence.publisher.pipeline import _xhtml_hash
 
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -2148,7 +2162,7 @@ def test_plan_publish_sets_confluence_status_on_skip(tmp_path: Path) -> None:
     conf_config = _make_conf_config()
 
     xhtml, _, _, _, _ = compile_page(node, config)
-    stored_hash = _xhtml_hash(xhtml)
+    stored_hash = hashlib.sha256(xhtml.encode()).hexdigest()
 
     existing_page = {"id": "77", "version": {"number": 2}}
     client = MagicMock()
@@ -2163,7 +2177,7 @@ def test_plan_publish_sets_confluence_status_on_skip(tmp_path: Path) -> None:
 
 def test_execute_publish_calls_set_page_status_on_create(tmp_path: Path) -> None:
     """execute_publish must call client.set_page_status for a created page with confluence_status."""
-    from mkdocs_to_confluence.publisher.pipeline import execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
 
     node = _make_section_node("P", [])
     action = PageAction(
@@ -2180,7 +2194,7 @@ def test_execute_publish_calls_set_page_status_on_create(tmp_path: Path) -> None
 
 def test_execute_publish_calls_set_page_status_on_skip(tmp_path: Path) -> None:
     """execute_publish must call client.set_page_status even for skipped (unchanged) pages."""
-    from mkdocs_to_confluence.publisher.pipeline import execute_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
 
     node = _make_section_node("P", [])
     action = PageAction(

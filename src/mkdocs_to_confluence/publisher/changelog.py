@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import re
+import hashlib
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,14 +10,13 @@ from typing import TYPE_CHECKING
 import yaml
 
 from mkdocs_to_confluence.loader.nav import NavNode
+from mkdocs_to_confluence.preprocess.frontmatter import _FRONT_MATTER_RE
 from mkdocs_to_confluence.publisher.executor import _upload_assets
-from mkdocs_to_confluence.publisher.planner import _xhtml_hash, compile_page
+from mkdocs_to_confluence.publisher.planner import compile_page
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
-
-_FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?\n?)---\s*\n?", re.DOTALL)
 
 
 def _extract_title(source_path: Path) -> str | None:
@@ -77,7 +76,7 @@ def publish_changelog(
         node, config, link_map or {}, quiet=quiet
     )
 
-    xhtml_hash = _xhtml_hash(xhtml)
+    xhtml_hash = hashlib.sha256(xhtml.encode()).hexdigest()
     existing = client.find_page(space_id, title)
 
     if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_hash:

@@ -14,7 +14,7 @@ from mkdocs_to_confluence.loader.config import load_config
 from mkdocs_to_confluence.loader.nav import find_section, find_section_by_folder, flat_pages, resolve_nav
 from mkdocs_to_confluence.loader.page import PageLoadError, find_page
 from mkdocs_to_confluence.preview.render import inject_livereload, render_index, render_page
-from mkdocs_to_confluence.publisher.pipeline import compile_page
+from mkdocs_to_confluence.publisher.planner import compile_page
 from mkdocs_to_confluence.transforms.internallinks import build_link_map
 
 
@@ -553,7 +553,8 @@ def _cmd_publish(args: argparse.Namespace) -> None:
 
     from mkdocs_to_confluence.publisher.changelog import publish_changelog
     from mkdocs_to_confluence.publisher.client import ConfluenceClient, ConfluenceError
-    from mkdocs_to_confluence.publisher.pipeline import execute_publish, plan_publish
+    from mkdocs_to_confluence.publisher.executor import execute_publish
+    from mkdocs_to_confluence.publisher.planner import plan_publish
 
     try:
         with ConfluenceClient(conf_config) as client:

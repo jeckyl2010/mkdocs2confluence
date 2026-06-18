@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -14,14 +13,13 @@ from mkdocs_to_confluence.compiler.page import compile_page as _compile_page_res
 from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.loader.page import PageLoadError
+from mkdocs_to_confluence.preprocess.frontmatter import _FRONT_MATTER_RE
 from mkdocs_to_confluence.preprocess.icons import strip_icon_shortcodes
 from mkdocs_to_confluence.publisher.models import PageAction
 from mkdocs_to_confluence.transforms.internallinks import build_link_map
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
-
-_FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?\n?)---\s*\n?", re.DOTALL)
 
 
 def _extract_ready_flag(raw: str) -> bool | None:
@@ -66,11 +64,6 @@ def compile_page(
     )
 
 
-def _xhtml_hash(xhtml: str) -> str:
-    """Return a stable sha256 hex digest of the emitted XHTML string."""
-    return hashlib.sha256(xhtml.encode()).hexdigest()
-
-
 def _find_section_index(node: NavNode) -> NavNode | None:
     """Return the first direct child whose docs_path ends with 'index.md'."""
     for child in node.children:
@@ -96,7 +89,7 @@ def _plan_compiled_page_action(
 ) -> PageAction:
     """Build the PageAction for a compiled page or section index."""
     existing = client.find_page(space_id, title)
-    xhtml_h = _xhtml_hash(xhtml)
+    xhtml_h = hashlib.sha256(xhtml.encode()).hexdigest()
     if existing is not None and client.get_content_hash(str(existing["id"])) == xhtml_h:
         if not quiet:
             print(f"  unchanged  '{title}'  (content unchanged)")

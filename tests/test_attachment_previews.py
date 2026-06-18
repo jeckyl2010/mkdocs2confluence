@@ -114,7 +114,7 @@ def test_non_attachment_link_unchanged():
 def test_compile_page_attachment_preview(tmp_path):
     from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
     from mkdocs_to_confluence.loader.nav import NavNode
-    from mkdocs_to_confluence.publisher.pipeline import compile_page
+    from mkdocs_to_confluence.publisher.planner import compile_page
 
     docs = tmp_path / "docs"
     docs.mkdir()

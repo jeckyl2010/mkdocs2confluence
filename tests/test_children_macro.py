@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.ir.nodes import ChildrenMacro
-from mkdocs_to_confluence.publisher.pipeline import compile_page
+from mkdocs_to_confluence.publisher.planner import compile_page
 
 # ── Emitter ───────────────────────────────────────────────────────────────────
 

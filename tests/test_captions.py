@@ -141,7 +141,7 @@ def test_figure_pipeline_end_to_end():
 def test_compile_page_renders_image_caption(tmp_path):
     from mkdocs_to_confluence.loader.config import MkDocsConfig
     from mkdocs_to_confluence.loader.nav import NavNode
-    from mkdocs_to_confluence.publisher.pipeline import compile_page
+    from mkdocs_to_confluence.publisher.planner import compile_page
 
     docs = tmp_path / "docs"
     docs.mkdir()
