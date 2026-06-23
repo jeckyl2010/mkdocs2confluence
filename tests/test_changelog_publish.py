@@ -186,7 +186,7 @@ def test_publish_changelog_uploads_attachments(tmp_path: Path) -> None:
 
     with (
         patch("mkdocs_to_confluence.publisher.changelog.compile_page") as mock_compile,
-        patch("mkdocs_to_confluence.publisher.changelog._upload_assets") as mock_upload,
+        patch("mkdocs_to_confluence.publisher.changelog.upload_assets") as mock_upload,
     ):
         mock_compile.return_value = CompileResult(xhtml="xhtml", attachments=[attachment])
         client = _make_client(existing_id=None)

@@ -12,7 +12,7 @@ import yaml
 from mkdocs_to_confluence.compiler.page import compile_page
 from mkdocs_to_confluence.loader.nav import NavNode
 from mkdocs_to_confluence.preprocess.frontmatter import _FRONT_MATTER_RE
-from mkdocs_to_confluence.publisher.executor import _upload_assets
+from mkdocs_to_confluence.publisher.executor import upload_assets
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
@@ -103,7 +103,7 @@ def publish_changelog(
             print(f"  updated    '{title}'  (changelog)")
 
     if result.attachments:
-        _upload_assets(page_id, result.attachments, config.docs_dir, client, quiet=quiet)
+        upload_assets(page_id, result.attachments, config.docs_dir, client, quiet=quiet)
 
     # content hash is an internal optimization; if it fails the next run just
     # re-publishes, so a failure is self-healing and stays silent.

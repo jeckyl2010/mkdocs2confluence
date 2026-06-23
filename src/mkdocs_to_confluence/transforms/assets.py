@@ -31,7 +31,7 @@ def is_url(value: str) -> bool:
     return value.startswith(("http://", "https://", "//", "data:"))
 
 
-def _make_attachment_name(abs_path: Path, docs_dir: Path) -> str:
+def make_attachment_name(abs_path: Path, docs_dir: Path) -> str:
     """Compute a collision-safe attachment filename from an absolute path.
 
     Joins the path parts relative to ``docs_dir`` with underscores so that
@@ -83,7 +83,7 @@ def resolve_local_assets(
                 candidate = _resolve_asset_path(node.src, page_dir, docs_dir)
                 if candidate is None:
                     continue
-                attachment_name = _make_attachment_name(candidate, docs_dir)
+                attachment_name = make_attachment_name(candidate, docs_dir)
                 if candidate not in seen:
                     seen[candidate] = None
                     attachments.append(candidate)
@@ -114,7 +114,7 @@ def resolve_local_assets(
                         stacklevel=2,
                     )
                     continue
-                attachment_name = _make_attachment_name(candidate, docs_dir)
+                attachment_name = make_attachment_name(candidate, docs_dir)
                 if candidate not in seen:
                     seen[candidate] = None
                     attachments.append(candidate)

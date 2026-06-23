@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING
 
 from mkdocs_to_confluence.publisher.client import ConfluenceError
 from mkdocs_to_confluence.publisher.models import PageAction, PublishReport
-from mkdocs_to_confluence.transforms.assets import _make_attachment_name
+from mkdocs_to_confluence.transforms.assets import make_attachment_name
 
 if TYPE_CHECKING:
     from mkdocs_to_confluence.publisher.client import ConfluenceClient
 
 
-def _upload_assets(
+def upload_assets(
     page_id: str,
     attachments: list[Path],
     docs_dir: Path,
@@ -24,7 +24,7 @@ def _upload_assets(
     quiet: bool = False,
 ) -> tuple[int, int, list[tuple[str, str]]]:
     """Upload attachments for one page sequentially."""
-    pairs = [(_make_attachment_name(p, docs_dir), p) for p in attachments]
+    pairs = [(make_attachment_name(p, docs_dir), p) for p in attachments]
     uploaded = 0
     skipped = 0
     errors: list[tuple[str, str]] = []
@@ -271,7 +271,7 @@ def _post_process_action(
 
     # Upload assets — skip files whose mtime is not newer than Confluence.
     if action.page_id and action.attachments:
-        uploaded, asset_skipped, asset_errors = _upload_assets(
+        uploaded, asset_skipped, asset_errors = upload_assets(
             action.page_id, action.attachments, docs_dir, client, quiet=quiet
         )
         report.assets_uploaded += uploaded

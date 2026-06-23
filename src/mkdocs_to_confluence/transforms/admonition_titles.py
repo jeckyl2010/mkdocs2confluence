@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import dataclasses
 import re
-import sys
 
 from mkdocs_to_confluence.ir.nodes import Admonition, IRNode, walk
 from mkdocs_to_confluence.ir.treeutil import replace_nodes
+from mkdocs_to_confluence.transforms._kroki import warn as _warn
 
 # Inline Markdown link [text](target), but not an image (no leading '!').
 _LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
@@ -50,6 +50,3 @@ def strip_links_in_admonition_titles(
         return nodes
     return replace_nodes(nodes, replacements)
 
-
-def _warn(msg: str) -> None:
-    print(f"  warning    {msg}", file=sys.stderr)

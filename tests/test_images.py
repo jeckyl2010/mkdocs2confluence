@@ -9,8 +9,8 @@ import pytest
 
 from mkdocs_to_confluence.ir.nodes import ImageNode, LinkNode, Paragraph, TextNode
 from mkdocs_to_confluence.transforms.assets import (
-    _make_attachment_name,
     _resolve_asset_path,
+    make_attachment_name,
     resolve_local_assets,
 )
 from mkdocs_to_confluence.transforms.images import is_local, resolve_images
@@ -166,20 +166,20 @@ def test_no_images_returns_original_nodes(tmp_path: Path):
     assert attachments == []
 
 
-# ── assets: _make_attachment_name ────────────────────────────────────────────
+# ── assets: make_attachment_name ────────────────────────────────────────────
 
 
 def test_make_attachment_name_inside_docs_dir(tmp_path: Path) -> None:
     docs_dir = tmp_path / "docs"
     abs_path = docs_dir / "assets" / "images" / "logo.png"
-    assert _make_attachment_name(abs_path, docs_dir) == "assets_images_logo.png"
+    assert make_attachment_name(abs_path, docs_dir) == "assets_images_logo.png"
 
 
 def test_make_attachment_name_outside_docs_dir(tmp_path: Path) -> None:
     """Falls back to bare filename when path is outside docs_dir."""
     docs_dir = tmp_path / "docs"
     abs_path = tmp_path / "other" / "logo.png"
-    assert _make_attachment_name(abs_path, docs_dir) == "logo.png"
+    assert make_attachment_name(abs_path, docs_dir) == "logo.png"
 
 
 # ── assets: _resolve_asset_path ──────────────────────────────────────────────
