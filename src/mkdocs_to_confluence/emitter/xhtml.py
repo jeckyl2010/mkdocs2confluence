@@ -222,8 +222,12 @@ def _emit_section(node: Section) -> str:
     if _styles:
         style_attr = styles_to_attr(_styles.headings.get(f"h{node.level}", {}))
     anchor = ""
-    if node.explicit_anchor:
-        name = html.escape(node.explicit_anchor)
+    # Emit an anchor macro for every heading so links resolve to the section.
+    # Confluence's auto heading-anchors use a different naming scheme than the
+    # MkDocs slug our links carry, so without an explicit named anchor a
+    # `#slug` link lands at the top of the page instead of the section.
+    name = html.escape(node.explicit_anchor or node.anchor)
+    if name:
         anchor = (
             f'<ac:structured-macro ac:name="anchor">'
             f'<ac:parameter ac:name=""><![CDATA[{name}]]></ac:parameter>'

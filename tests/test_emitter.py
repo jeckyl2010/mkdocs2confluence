@@ -73,11 +73,17 @@ class TestSectionEmitter:
         assert "<h1>Intro</h1>" in out
         assert "<p>body text</p>" in out
 
-    def test_heading_without_explicit_anchor_has_no_macro(self) -> None:
+    def test_heading_without_explicit_anchor_emits_slug_macro(self) -> None:
+        # Default-named headings must still emit an anchor macro using the
+        # MkDocs slug, otherwise `#slug` links land at the top of the page.
         node = Section(level=2, anchor="my-section", title=(TextNode("My Section"),), children=())
         out = emit((node,))
-        assert "ac:name=\"anchor\"" not in out
-        assert out.strip() == "<h2>My Section</h2>"
+        assert (
+            '<ac:structured-macro ac:name="anchor">'
+            '<ac:parameter ac:name=""><![CDATA[my-section]]></ac:parameter>'
+            "</ac:structured-macro>"
+        ) in out
+        assert "<h2>My Section</h2>" in out
 
     def test_heading_with_explicit_anchor_emits_macro(self) -> None:
         node = Section(
