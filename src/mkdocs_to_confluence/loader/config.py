@@ -37,6 +37,7 @@ class ConfluenceConfig:
     changelog_file: str | None = None  # path relative to docs_dir; None means disabled
     exclude_properties: tuple[str, ...] = ()  # front matter keys to omit from Page Properties table
     attachment_preview: bool = False  # render PDF/Office attachment links as view-file macros
+    children_macro: bool = True  # append Children Display macro to section index pages
 
 
 @dataclass(frozen=True)
@@ -300,6 +301,15 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             )
         attachment_preview = raw_preview
 
+        # children_macro (optional) — child page list on section index pages
+        raw_children = raw_conf.get("children_macro", True)
+        if not isinstance(raw_children, bool):
+            raise ConfigError(
+                "mkdocs.yml: 'confluence.children_macro' must be a boolean, "
+                f"got {type(raw_children).__name__}."
+            )
+        children_macro = raw_children
+
         confluence = ConfluenceConfig(
             base_url=base_url.rstrip("/"),
             space_key=space_key,
@@ -317,6 +327,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             changelog_file=changelog_file,
             exclude_properties=exclude_properties,
             attachment_preview=attachment_preview,
+            children_macro=children_macro,
         )
 
     # --- extra_css (optional) ---
