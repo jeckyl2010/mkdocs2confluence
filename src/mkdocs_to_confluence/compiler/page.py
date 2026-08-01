@@ -79,7 +79,7 @@ def compile_page(
     preprocessed = strip_link_defs(preprocessed)
     ir_nodes = parse(preprocessed)
     ir_nodes = strip_links_in_admonition_titles(ir_nodes, node.docs_path or "")
-    if is_section_index:
+    if is_section_index and (config.confluence is None or config.confluence.children_macro):
         ir_nodes = ir_nodes + (ChildrenMacro(),)
     # Parse definitions as inline markdown so links etc. survive into the glossary.
     parsed_abbrevs = {abbr: parse_inline(defn) for abbr, defn in abbrevs.items()}

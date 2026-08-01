@@ -92,7 +92,87 @@ def test_compile_page_children_macro_before_footer(tmp_path: Path) -> None:
     assert children_pos < panel_pos
 
 
+# ── children_macro config flag ────────────────────────────────────────────────
+
+
+def test_children_macro_disabled_omits_macro(tmp_path: Path) -> None:
+    """confluence.children_macro=false must suppress the macro on section indexes."""
+    xhtml = _compile_index(tmp_path, children_macro=False)
+
+    assert 'ac:name="children"' not in xhtml
+
+
+def test_children_macro_enabled_by_default(tmp_path: Path) -> None:
+    """A confluence block without children_macro must keep the macro."""
+    xhtml = _compile_index(tmp_path, children_macro=True)
+
+    assert 'ac:name="children"' in xhtml
+
+
+def test_children_macro_config_default_true(tmp_path: Path) -> None:
+    from mkdocs_to_confluence.loader.config import load_config
+
+    cfg = load_config(_write_mkdocs(tmp_path, _CONF))
+    assert cfg.confluence.children_macro is True
+
+
+def test_children_macro_config_false(tmp_path: Path) -> None:
+    from mkdocs_to_confluence.loader.config import load_config
+
+    cfg = load_config(_write_mkdocs(tmp_path, _CONF + "  children_macro: false\n"))
+    assert cfg.confluence.children_macro is False
+
+
+def test_children_macro_config_non_bool_raises(tmp_path: Path) -> None:
+    import pytest
+
+    from mkdocs_to_confluence.loader.config import ConfigError, load_config
+
+    with pytest.raises(ConfigError, match="children_macro"):
+        load_config(_write_mkdocs(tmp_path, _CONF + "  children_macro: maybe\n"))
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+_CONF = (
+    "confluence:\n"
+    "  base_url: https://x.atlassian.net/wiki\n"
+    "  email: a@b.test\n"
+    "  space_key: TECH\n"
+)
+
+
+def _write_mkdocs(tmp_path: Path, extra: str = "") -> Path:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "mkdocs.yml").write_text(f"site_name: Test Site\n{extra}", encoding="utf-8")
+    return tmp_path / "mkdocs.yml"
+
+
+def _compile_index(tmp_path: Path, *, children_macro: bool) -> str:
+    """Compile a section index page with a confluence block set to *children_macro*."""
+    from mkdocs_to_confluence.loader.config import ConfluenceConfig, MkDocsConfig
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    md = docs / "index.md"
+    md.write_text("# Section\n\nIntro.\n", encoding="utf-8")
+
+    config = MkDocsConfig(
+        site_name="Test",
+        docs_dir=docs,
+        repo_url=None,
+        edit_uri=None,
+        nav=None,
+        confluence=ConfluenceConfig(
+            base_url="https://x.atlassian.net/wiki",
+            email="a@b.test",
+            token="",
+            space_key="TECH",
+            children_macro=children_macro,
+        ),
+    )
+    return compile_page(_page_node("Section", md), config, is_section_index=True).xhtml
 
 
 def _page_node(title: str, path: Path) -> object:

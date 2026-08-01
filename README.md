@@ -119,6 +119,7 @@ confluence:
   mermaid_render: kroki              # "kroki" (default) | "kroki:https://your-kroki" | "none" — also controls PlantUML rendering
   full_width: true                   # default: true
   attachment_preview: false          # default: false — inline PDF/Office previews
+  children_macro: true               # default: true — child page list on section index pages
   changelog: CHANGELOG.md           # optional: publish as a top-level "What's New" page
   exclude_properties:                # optional: front matter keys to hide from Page Properties
     - source_documents
@@ -128,6 +129,8 @@ confluence:
 `exclude_properties` lists raw front matter keys to omit from the Page Properties table (e.g. internal tooling fields). Matching is exact and case-sensitive; `title`, `tags`, and `status` keep their special behavior even if excluded from the table.
 
 `attachment_preview` (bool, default `false`) renders links to local PDF/Office files (`.pdf`, `.doc(x)`, `.xls(x)`, `.ppt(x)`) as inline `view-file` previews instead of download links. Other file types always remain download links.
+
+`children_macro` (bool, default `true`) controls the native Children Display macro appended to section index pages (a nav section with an `index.md`). Set it to `false` to publish those pages without the auto-generated child page list; the change takes effect on the next publish.
 
 The `confluence:` block is also accepted under `extra:` for MkDocs strict-mode compatibility. The API token is read from `token:` in `mkdocs.yml`, then `CONFLUENCE_API_TOKEN`, then `MK2CONF_TOKEN`.
 

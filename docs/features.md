@@ -195,6 +195,15 @@ The commit SHA and message are also written to the **Confluence version history*
 
 When a MkDocs nav section has an `index.md`, the published Confluence page automatically includes the native **Children Display macro** below the page content — a live, auto-maintained list of all direct child pages.
 
+Disable it in `mkdocs.yml` if you maintain your own links to sub-pages:
+
+```yaml
+confluence:
+  children_macro: false   # default: true
+```
+
+The change applies on the next publish.
+
 ## Abbreviation expansion
 
 MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline superscript anchor links. The **first occurrence** of each abbreviation in body text gets a superscript number (`API¹`) that links to a numbered glossary appended at the bottom of the page. Uses only native Confluence storage format — no plugins required.
