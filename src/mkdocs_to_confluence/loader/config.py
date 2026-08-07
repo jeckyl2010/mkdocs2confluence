@@ -154,6 +154,10 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         raise FileNotFoundError(f"mkdocs.yml not found: {mkdocs_yml}")
 
     with mkdocs_yml.open(encoding="utf-8") as fh:
+        # B506 is suppressed below because _make_env_loader() returns a
+        # yaml.SafeLoader subclass — this is a safe load. Bandit cannot resolve the
+        # loader through the function call, so it assumes the worst. Removing the
+        # suppression reintroduces a medium-severity finding that fails CI.
         raw: object = yaml.load(fh, Loader=_make_env_loader())  # nosec B506
 
     if not isinstance(raw, dict):
