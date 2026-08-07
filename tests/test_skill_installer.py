@@ -64,6 +64,8 @@ def test_install_skill_copilot(tmp_path: Path) -> None:
     assert dest.name == "mk2conf-changelog.instructions.md"
     content = dest.read_text(encoding="utf-8")
     assert "name: mkdocs-changelog" not in content
+    # Copilot ignores .instructions.md files without applyTo frontmatter
+    assert content.startswith('---\napplyTo: "**"\n---\n\n# MkDocs Changelog Entry')
 
 
 def test_install_skill_cursor(tmp_path: Path) -> None:

@@ -90,13 +90,13 @@ def install_skill(
             dest.write_text(content_body, encoding="utf-8")
             installed.append(("claude", dest))
 
-    # GitHub Copilot — project-level, body only as .instructions.md
+    # GitHub Copilot — .instructions.md needs applyTo frontmatter or Copilot ignores it
     if _want("copilot"):
         copilot_marker = project_dir / ".github" / "copilot-instructions.md"
         if explicit or copilot_marker.exists():
             dest = project_dir / ".github" / "instructions" / "mk2conf-changelog.instructions.md"
             dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(content_body, encoding="utf-8")
+            dest.write_text(f'---\napplyTo: "**"\n---\n\n{content_body}', encoding="utf-8")
             installed.append(("copilot", dest))
 
     # Cursor — project-level, body as .mdc

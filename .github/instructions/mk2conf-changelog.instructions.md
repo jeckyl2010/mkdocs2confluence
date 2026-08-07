@@ -1,6 +1,10 @@
+---
+applyTo: "**"
+---
+
 # MkDocs Changelog Entry
 
-Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. If any changes qualify as **MAJOR**, draft a dated changelog entry and prepend it to `CHANGELOG.md`. If not, explain why and exit without modifying any file.
+Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. If any changes qualify as **MAJOR**, draft a dated changelog entry in the collapsible format and prepend it to `CHANGELOG.md`. If not, explain why and exit without modifying any file.
 
 ## When to Use
 
@@ -9,13 +13,30 @@ Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. 
 
 ## Steps
 
-1. **Find the baseline** — run `git log --follow -1 --format="%H" -- <docs_dir>/CHANGELOG.md` to get the last commit that touched `CHANGELOG.md`. If no commit is found, use the root commit as the baseline.
+1. **Extract git data** — run the bundled data script to get structured, deterministic input:
 
-2. **Collect doc changes** — run `git diff <baseline>..HEAD -- <docs_dir>/` to see everything that changed in the docs directory since that baseline.
+   Normal update (since last CHANGELOG.md commit):
+   ```
+   python .mk2conf/scripts/changelog_data.py --docs-dir <docs_dir>
+   ```
 
-3. **Read the existing changelog** — read `<docs_dir>/CHANGELOG.md` for context on what was previously recorded.
+   Initial changelog (from a specific date):
+   ```
+   python .mk2conf/scripts/changelog_data.py --docs-dir <docs_dir> --since YYYY-MM-DD
+   ```
 
-4. **Decide: is this MAJOR?**
+   The script prints a JSON object to stdout. Use this as your sole source of truth for
+   commits, changed files, and contributors. Do not run git commands yourself.
+
+   If the script is missing, tell the user to run `mk2conf install-skill` first.
+
+   When `--since` is used, the JSON will contain `"mode": "since_date"`. Use this to
+   trigger the initial changelog flow described below.
+
+2. **Read the existing changelog** — read `<docs_dir>/CHANGELOG.md` for context on what
+   was previously recorded.
+
+3. **Decide: is this MAJOR?**
 
    **MAJOR criteria — any one of these qualifies:**
    - A new top-level documentation area or section added (a new folder or nav section that didn't exist before)
@@ -29,39 +50,123 @@ Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. 
    - Rewordings that preserve the original meaning
    - Internal restructuring with no reader-facing impact
 
-5. **If NOT MAJOR** — report what was found, explain in one sentence why it did not qualify, and stop. Do not modify any file.
+4. **If NOT MAJOR** — report what was found, explain in one sentence why it did not qualify,
+   and stop. Do not modify any file.
 
-6. **If MAJOR** — draft an entry using this format and prepend it to `CHANGELOG.md`:
+5. **If MAJOR** — draft an entry using the collapsible format below and prepend it to
+   `CHANGELOG.md`. The previous latest entry (if any) must be converted from `???+` to `???`
+   so only the new entry is expanded by default.
+
+## Linking to changed pages
+
+The `changes` object in the script JSON now includes `{"path": "...", "title": "..."}` for
+each file. Use this to link readers directly to the most relevant pages — but only where
+it adds value and reads naturally.
+
+Rules:
+
+- **Select, don't list.** Pick at most two or three files per entry — the ones a reader
+  would actually want to visit. Omit files that are supporting material (images, assets,
+  index stubs, nav-only pages).
+- **Weave into prose**, not as a separate list. Example:
+
+  Good: `Updated the [Configuration reference](configuration/index.md) to cover the new auth options.`
+  Bad: `Updated configuration/index.md. See also: getting-started.md, reference.md.`
+
+- **Use `title` as link text** when it reads naturally. Fall back to a short descriptive
+  phrase if the title is too long or too generic (e.g. "Overview", "Index").
+- **Paths are relative to `docs_dir`**, and `CHANGELOG.md` lives at the root of `docs_dir`.
+  A file at `docs/configuration/index.md` links as `configuration/index.md`.
+- **Deleted pages** — do not link to them. Name them in prose without a link.
+- **Skip linking entirely** if the change is a typo fix, formatting pass, or other
+  non-substantive update — linking draws attention and signals importance.
+
+## Entry format
+
+The latest entry uses `???+` (expanded by default on Material, always visible on Confluence).
+All older entries use `???` (collapsed, showing only the date and title as the trigger).
 
 ```markdown
-## YYYY-MM-DD — Brief title describing the major change
+???+ note "YYYY-MM-DD — Brief title describing the major change"
 
-One or two sentences summarising what fundamentally changed and why it matters to readers.
+    ### Added
+    - …
 
-### Added
-- …
+    ### Changed
+    - …
 
-### Changed
-- …
+    ### Deprecated
+    - …
 
-### Removed
-- …
+    ### Removed
+    - …
+
+    ### Fixed
+    - …
+
+    ### Security
+    - …
+
+    Contributors: Name One, Name Two
 ```
 
-   Rules for the entry:
-   - Date is today's date in `YYYY-MM-DD` format
-   - Sections (`Added`, `Changed`, `Removed`) are included only when non-empty
-   - No version numbers — dates only
-   - Title is a brief, reader-facing description (not a git commit message)
+Rules for the entry:
 
-   Prepend the entry above any existing entries in `CHANGELOG.md`. Do not commit — the user reviews, edits if needed, and commits manually.
+- Date is the `date` field from the script output (`YYYY-MM-DD`)
+- Title is a brief, reader-facing description — not a git commit message
+- No version numbers — dates only
+- **Include only sections that have actual content** — omit any empty section entirely
+- Section meanings: `Added` (new content), `Changed` (updated content), `Deprecated`
+  (content being phased out), `Removed` (deleted content), `Fixed` (corrected errors or
+  misleading information), `Security` (security-related documentation updates)
+- `Contributors:` line — include when the `contributors` array from the script output has
+  **more than one name**. Omit when there is only one contributor.
+- Content inside the admonition block must be indented with **4 spaces**
+- When prepending, convert the previous `???+` opener to `???` first
+
+## CHANGELOG.md structure
+
+If `CHANGELOG.md` does not exist yet, create it with this header before the first entry:
+
+```markdown
+# Changelog
+
+All notable changes to this documentation are recorded here.
+The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+```
+
+## Initial changelog (--since DATE)
+
+When the script is run with `--since` and the JSON contains `"mode": "since_date"`,
+the user wants to bootstrap a CHANGELOG.md from scratch for a given time window.
+
+Different rules apply:
+
+- **Always draft** — the MAJOR threshold does not apply. This is a retrospective
+  summary, not an incremental gate.
+- **Group by theme**, not by individual commit. Synthesise the changed files and
+  commit subjects into meaningful categories.
+- **Date range in the title** — use the `since` value from the JSON as the start
+  and `date` as the end, e.g. `2026-05-01 → 2026-05-27`.
+- **If CHANGELOG.md already exists**, stop and ask the user whether they want to
+  prepend, append, or replace. Do not overwrite silently.
+- **If CHANGELOG.md does not exist**, create it with the standard header and the
+  entry as `???+`.
+
+Example title: `2026-05-01 → 2026-05-27 — Initial documentation release`
 
 ## Pitfalls
 
-- **Do not draft an entry for every change.** The changelog is for readers who want to know what fundamentally changed, not a git log. When in doubt, do not draft.
-- **Do not commit.** Always leave the file for the user to review. The user runs `git add` and `git commit` themselves before publishing.
-- **If CHANGELOG.md does not exist yet**, create it with just the new entry (no header needed).
+- **Do not draft an entry for every change.** The changelog is for readers who want to know
+  what fundamentally changed — not a git log. When in doubt, do not draft.
+- **Do not commit.** Always leave the file for the user to review. The user runs `git add`
+  and `git commit` themselves before publishing.
+- **The script is the only source of git data.** Do not interpret commit messages or diffs
+  yourself — the script output is deterministic and already scoped to the docs directory.
+- **4-space indent is required** inside the admonition block. 2-space or tab indent will
+  break both Material rendering and the Confluence compile step.
 
 ## Verification
 
-After drafting, show the user the proposed entry in the terminal and remind them to review `CHANGELOG.md` before committing and running `mk2conf publish`.
+After drafting, show the user the proposed entry in the terminal and remind them to review
+`CHANGELOG.md` before committing and running `mk2conf publish`.

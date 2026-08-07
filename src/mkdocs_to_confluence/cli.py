@@ -274,7 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Detected targets (all installed when no --tool given):\n"
             "  hermes        ~/.hermes/skills/tooling/mkdocs-changelog/SKILL.md\n"
             "  github-skills .github/skills/tooling/mkdocs-changelog/SKILL.md\n"
-            "  claude        .claude/commands/changelog.md  (frontmatter stripped)\n"
+            "  claude        .claude/commands/mk2conf-changelog.md  (frontmatter stripped)\n"
             "  copilot       .github/instructions/mk2conf-changelog.instructions.md\n"
             "  cursor        .cursor/rules/mk2conf-changelog.mdc\n"
             "\n"
