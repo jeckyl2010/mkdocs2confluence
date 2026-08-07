@@ -32,13 +32,13 @@ jobs:
       hashes: ${{ steps.hash.outputs.hashes }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # gh-release uses GITHUB_TOKEN, uv publish uses OIDC — no git auth needed.
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
       - name: Build
         run: uv build -q
@@ -50,7 +50,7 @@ jobs:
           echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           files: |
             dist/*.whl
@@ -66,6 +66,9 @@ jobs:
       actions: read
       id-token: write
       contents: write
+    # Deliberately NOT pinned to a SHA, unlike every other action here: the SLSA
+    # generator MUST be referenced by an exact @vX.Y.Z tag or slsa-verifier cannot
+    # verify the trusted builder's ref. A SHA (or a short @vX tag) breaks provenance.
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.release.outputs.hashes }}"
