@@ -15,7 +15,8 @@ permissions: {}
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     permissions:
       security-events: write
       contents: read
@@ -32,6 +33,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # gh-release uses GITHUB_TOKEN, uv publish uses OIDC — no git auth needed.
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0

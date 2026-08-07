@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # gitleaks needs full history
+          persist-credentials: false  # no step here pushes; keep the token out of .git/config
 
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v3
@@ -47,16 +48,15 @@ jobs:
       - name: Architecture boundaries (import-linter)
         run: uv run lint-imports
 
+      # Findings fail the job. Bandit writes the SARIF on exit 1 too, so the
+      # upload below still runs; hashFiles guards the crash case (no file).
+      # Needs the bandit[sarif] extra — plain bandit has no sarif formatter.
       - name: Security scan (bandit)
-        run: |
-          uv run bandit -r src -ll -q -f sarif -o bandit.sarif || true
-          if [ ! -f bandit.sarif ] || [ ! -s bandit.sarif ]; then
-            echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Bandit","rules":[]}},"results":[]}]}' > bandit.sarif
-          fi
+        run: uv run bandit -r src -ll -q -f sarif -o bandit.sarif
 
       - name: Upload Bandit results to Security tab
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: ${{ !cancelled() && hashFiles('bandit.sarif') != '' }}
         with:
           sarif_file: bandit.sarif
           category: bandit
