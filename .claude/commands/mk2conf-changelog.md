@@ -1,14 +1,3 @@
----
-name: mkdocs-changelog
-description: Analyse doc changes since the last CHANGELOG.md update and draft a major-change entry if the changes qualify.
-version: "1.4.0"
-tags: [documentation, git, changelog, mkdocs, confluence]
-specificity: context-specific
-tool_agnostic: true
-authors: [Anders Hybertz]
-tested_on: []
----
-
 # MkDocs Changelog Entry
 
 Analyse git changes to the docs directory since the last `CHANGELOG.md` commit. If any changes qualify as **MAJOR**, draft a dated changelog entry in the collapsible format and prepend it to `CHANGELOG.md`. If not, explain why and exit without modifying any file.
