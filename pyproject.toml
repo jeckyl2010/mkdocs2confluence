@@ -74,7 +74,22 @@ where = ["src"]
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+# S = flake8-bandit (security), B = flake8-bugbear (likely bugs).
+select = ["E", "F", "I", "S", "B"]
+ignore = [
+  # Deliberate throughout: best-effort side effects (content hashes, managed-page
+  # stamps) whose failure is self-healing on the next run. Each site says so.
+  "S110",  # try-except-pass
+  # Fixed argument lists only — `git log` in the footer transform and the macOS
+  # DYLD self-re-exec in cli.py. No user input reaches a subprocess.
+  "S603", "S606", "S607",
+  # Retry jitter in http_retry.py, not a security context.
+  "S311",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert freely and use throwaway credentials in fixtures.
+"tests/**" = ["S101", "S105", "S106", "S107"]
 
 [tool.mypy]
 strict = true

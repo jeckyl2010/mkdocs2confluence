@@ -34,11 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # gh-release uses GITHUB_TOKEN, uv publish uses OIDC — no git auth needed.
+          # gh CLI uses GH_TOKEN, uv publish uses OIDC — no git auth needed.
           persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # This job holds id-token: write for PyPI. A cache restored from a
+          # lower-trust context must not be able to influence what we publish.
+          enable-cache: false
 
       - name: Build
         run: uv build -q
@@ -49,13 +53,13 @@ jobs:
           cd dist
           echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
 
+      # Uses the runner's built-in gh CLI rather than a third-party action, so no
+      # external code runs in the job that can publish to PyPI.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
-        with:
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
-          generate_release_notes: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release create "$TAG" dist/*.whl dist/*.tar.gz --generate-notes
 
       - name: Publish to PyPI
         run: uv publish

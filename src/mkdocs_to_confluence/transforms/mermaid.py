@@ -62,7 +62,7 @@ def _mermaid_ink_png(source: str) -> bytes:
     compressed = zlib.compress(payload.encode("utf-8"))
     encoded = base64.urlsafe_b64encode(compressed).decode().rstrip("=")
     url = f"{_MERMAID_INK_URL}/img/pako:{encoded}?type=png"
-    req = urllib.request.Request(url, headers={"User-Agent": "mk2conf/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "mk2conf/1.0"})  # noqa: S310
     with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # noqa: S310  # nosec B310
         return cast(bytes, resp.read())
 

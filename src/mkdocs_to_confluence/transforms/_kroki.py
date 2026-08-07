@@ -53,7 +53,10 @@ def kroki_post(source: str, diagram_type: str, kroki_url: str, fmt: str = "png")
     """POST *source* to Kroki for *diagram_type* and return rendered bytes."""
     url = f"{kroki_url.rstrip('/')}/{diagram_type}/{fmt}"
     body = source.encode("utf-8")
-    req = urllib.request.Request(
+    # kroki_url comes from config, so the scheme is not attacker-controlled, but it is
+    # also not validated. Switching this to httpx (already a dependency) would restrict
+    # it to http/https and remove the urllib import entirely.
+    req = urllib.request.Request(  # noqa: S310
         url,
         data=body,
         headers={

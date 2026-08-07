@@ -1207,7 +1207,9 @@ def _build_tree(
             def _make_cell(
                 text: str, col: int, is_header: bool = False
             ) -> TableCell:
-                align = aligns[col] if col < len(aligns) else None
+                # B023 is suppressed below: _make_cell is defined and fully consumed
+                # inside a single loop iteration, so aligns cannot be rebound under it.
+                align = aligns[col] if col < len(aligns) else None  # noqa: B023
                 return TableCell(
                     children=_parse_inline(text, fn_map=_fn),
                     align=align,
