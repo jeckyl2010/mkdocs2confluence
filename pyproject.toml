@@ -52,7 +52,7 @@ dev = [
   "ruff",
   "mypy",
   "types-PyYAML",
-  "bandit",
+  "bandit[sarif]",
   "build",
   "pre-commit",
 ]

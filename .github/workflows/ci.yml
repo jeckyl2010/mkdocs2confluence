@@ -12,7 +12,8 @@ permissions: {}
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     permissions:
       security-events: write
       contents: read
