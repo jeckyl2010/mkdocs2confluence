@@ -38,3 +38,6 @@ junit.xml
 .mk2conf-pages.json
 .mk2conf-sync-state.json
 .env
+
+# Claude Code machine-local settings
+.claude/settings.local.json

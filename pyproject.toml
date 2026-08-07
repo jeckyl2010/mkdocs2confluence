@@ -104,7 +104,7 @@ exclude_lines = [
 ]
 
 # Architecture boundaries — enforces the compile pipeline stage separation
-# documented in .github/copilot-instructions.md. Higher layers may import lower
+# documented in AGENTS.md. Higher layers may import lower
 # ones; siblings joined by "|" must stay independent of each other.
 [tool.importlinter]
 root_package = "mkdocs_to_confluence"
