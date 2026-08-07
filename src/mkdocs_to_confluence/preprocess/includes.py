@@ -294,7 +294,7 @@ def _parse_spec(
             raise IncludeError(
                 f"{source_path}:{lineno}: named-section includes are not yet "
                 f"supported: {raw_spec!r}"
-            )
+            ) from None
         if start < 1 or end < start:
             raise IncludeError(
                 f"{source_path}:{lineno}: invalid line range {start}:{end} "

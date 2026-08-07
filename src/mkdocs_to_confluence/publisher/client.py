@@ -7,6 +7,7 @@ Authentication is HTTP Basic with email + API token.
 from __future__ import annotations
 
 import base64
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
@@ -378,7 +379,9 @@ class ConfluenceClient:
                 name = lbl.get("name", "")
                 if name:
                     http_request_with_retry(
-                        lambda: self._http.delete(label_url, params={"name": name}),
+                        # partial binds name now; a closure would late-bind and could
+                        # delete the wrong label if the helper ever defers the call.
+                        partial(self._http.delete, label_url, params={"name": name}),
                         f"set_page_labels({page_id!r})",
                     )
 

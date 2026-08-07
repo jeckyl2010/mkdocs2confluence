@@ -158,7 +158,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
         # yaml.SafeLoader subclass — this is a safe load. Bandit cannot resolve the
         # loader through the function call, so it assumes the worst. Removing the
         # suppression reintroduces a medium-severity finding that fails CI.
-        raw: object = yaml.load(fh, Loader=_make_env_loader())  # nosec B506
+        raw: object = yaml.load(fh, Loader=_make_env_loader())  # noqa: S506  # nosec B506
 
     if not isinstance(raw, dict):
         raise ConfigError("mkdocs.yml must be a YAML mapping at the top level.")
@@ -280,7 +280,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
                     raise ConfigError(
                         f"mkdocs.yml: 'confluence.changelog' path {cl_str!r} "
                         "escapes docs_dir. The path must be relative to the docs directory."
-                    )
+                    ) from None
                 changelog_file = cl_str
 
         # exclude_properties (optional) — raw front matter keys to omit from
