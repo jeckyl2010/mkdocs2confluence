@@ -45,6 +45,7 @@
 | `--8<--` file includes | Resolved before parsing |
 | Admonitions `!!! type "title"` | `info` / `tip` / `warning` / `note` macro |
 | Danger admonitions (`danger`, `error`, `bug`) | Red `panel` macro with 🚨 prefix |
+| Custom admonitions (`!!! value-driver`) | Mapped via `confluence.admonitions`, else a green `tip` macro |
 | Collapsible admonitions `??? type` | `expand` macro |
 | Content tabs `=== "Label"` | `expand` macros (one per tab) |
 | Details blocks `??? "title"` | `expand` macro |
@@ -215,6 +216,7 @@ MkDocs abbreviation definitions (`*[ABBR]: Full term`) are rendered as inline su
 | Feature | Behaviour |
 |---|---|
 | **Admonition styling** | `tip`, `info`, `warning`, `note` use Confluence's fixed native macro colours. `danger`, `error`, `bug` use a custom red `panel` macro with 🚨 prefix. All other types are mapped to the nearest native macro. |
+| **Custom admonition kinds** | A kind Material does not define (e.g. `value-driver`) renders as a green `tip` macro unless mapped. Map them explicitly under `confluence.admonitions`: `value-driver: tip`, `risk: danger`. Targets must name a built-in kind; an unknown target warns and falls back to the default. Titles always keep the author's own kind. |
 | **Abbreviation tooltips** | No native tooltip support. First occurrence gets a superscript anchor link (`API¹`); definitions collected in a numbered glossary at page bottom. |
 | **Page ordering** | Confluence sorts child pages alphabetically; the v2 REST API has no write endpoint for ordering. |
 | **Code language aliases** | Short aliases (`py`, `js`, `yml`, `ts`, `sh`) are passed through as-is; Confluence requires full language names for syntax highlighting. |

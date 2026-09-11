@@ -537,3 +537,45 @@ confluence:
     config = load_config(config_file)
     assert config.confluence is not None
     assert config.confluence.allow_any_host is False
+
+
+class TestAdmonitionsConfig:
+    """`confluence.admonitions` parsing and validation."""
+
+    def _write(self, tmp_path, block: str):  # type: ignore[no-untyped-def]
+        from mkdocs_to_confluence.loader.config import load_config
+        (tmp_path / "docs").mkdir(exist_ok=True)
+        (tmp_path / "mkdocs.yml").write_text(
+            "site_name: T\n"
+            "confluence:\n"
+            "  base_url: https://x.atlassian.net\n"
+            "  email: a@b.c\n"
+            "  token: t\n"
+            "  space_key: S\n" + block,
+            encoding="utf-8",
+        )
+        return load_config(tmp_path / "mkdocs.yml")
+
+    def test_absent_defaults_to_empty(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        cfg = self._write(tmp_path, "")
+        assert cfg.confluence is not None
+        assert cfg.confluence.admonitions == {}
+
+    def test_mapping_is_parsed_and_lowercased(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        cfg = self._write(tmp_path, "  admonitions:\n    Value-Driver: TIP\n    risk: danger\n")
+        assert cfg.confluence is not None
+        assert cfg.confluence.admonitions == {"value-driver": "tip", "risk": "danger"}
+
+    def test_non_mapping_is_rejected(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        import pytest
+
+        from mkdocs_to_confluence.loader.config import ConfigError
+        with pytest.raises(ConfigError, match="must be a mapping"):
+            self._write(tmp_path, "  admonitions:\n    - tip\n")
+
+    def test_non_string_value_is_rejected(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        import pytest
+
+        from mkdocs_to_confluence.loader.config import ConfigError
+        with pytest.raises(ConfigError, match="non-empty"):
+            self._write(tmp_path, "  admonitions:\n    risk: 5\n")

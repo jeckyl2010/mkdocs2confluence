@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -38,6 +38,10 @@ class ConfluenceConfig:
     exclude_properties: tuple[str, ...] = ()  # front matter keys to omit from Page Properties table
     attachment_preview: bool = False  # render PDF/Office attachment links as view-file macros
     children_macro: bool = True  # append Children Display macro to section index pages
+    # Custom admonition kind → built-in kind it should render as, e.g.
+    # {"value-driver": "tip"}.  Kinds absent here fall back to the built-in
+    # mapping, then to "success".  Emitter owns the target vocabulary.
+    admonitions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -314,6 +318,29 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             )
         children_macro = raw_children
 
+        # admonitions (optional) — map custom admonition kinds onto built-in ones.
+        # Only the shape is checked here; the emitter owns the target vocabulary
+        # and warns about unknown targets, since loader sits below it in the layering.
+        raw_admonitions = raw_conf.get("admonitions", {})
+        if not isinstance(raw_admonitions, dict):
+            raise ConfigError(
+                "mkdocs.yml: 'confluence.admonitions' must be a mapping of "
+                f"custom kind to built-in kind, got {type(raw_admonitions).__name__}."
+            )
+        admonitions: dict[str, str] = {}
+        for key, value in raw_admonitions.items():
+            if not isinstance(key, str) or not key.strip():
+                raise ConfigError(
+                    "mkdocs.yml: 'confluence.admonitions' keys must be non-empty strings."
+                )
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigError(
+                    f"mkdocs.yml: 'confluence.admonitions.{key}' must be a non-empty "
+                    "string naming a built-in admonition kind (e.g. 'tip', 'warning')."
+                )
+            # Admonition kinds are case-insensitive in Markdown; normalise both sides.
+            admonitions[key.strip().lower()] = value.strip().lower()
+
         confluence = ConfluenceConfig(
             base_url=base_url.rstrip("/"),
             space_key=space_key,
@@ -332,6 +359,7 @@ def load_config(mkdocs_yml: Path) -> MkDocsConfig:
             exclude_properties=exclude_properties,
             attachment_preview=attachment_preview,
             children_macro=children_macro,
+            admonitions=admonitions,
         )
 
     # --- extra_css (optional) ---

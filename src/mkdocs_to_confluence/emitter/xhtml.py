@@ -17,6 +17,7 @@ https://developer.atlassian.com/server/confluence/confluence-storage-format/
 from __future__ import annotations
 
 import html
+import sys
 from pathlib import Path
 from typing import Sequence
 
@@ -77,6 +78,32 @@ def configure_styles(styles: ExtraStyles | None) -> None:
     global _styles
     _styles = styles
 
+
+# ── Custom admonition aliases (set once per run via configure_admonitions) ─────
+
+_admonition_aliases: dict[str, str] = {}
+
+
+def configure_admonitions(aliases: dict[str, str] | None) -> None:
+    """Map custom admonition kinds onto built-in ones, from ``confluence.admonitions``.
+
+    Targets naming no built-in kind are kept but warned about — they resolve
+    through the same fallback as any unknown kind, so a typo degrades rather
+    than fails the build.
+    """
+    global _admonition_aliases
+    _admonition_aliases = dict(aliases or {})
+    unknown = sorted(
+        f"{k} -> {v}" for k, v in _admonition_aliases.items() if v not in _KNOWN_ADMONITION_KINDS
+    )
+    if unknown:
+        print(
+            "warning: confluence.admonitions targets an unknown admonition kind: "
+            + ", ".join(unknown)
+            + f". Known kinds: {', '.join(sorted(_KNOWN_ADMONITION_KINDS))}.",
+            file=sys.stderr,
+        )
+
 # ── Admonition kind → Confluence macro name ───────────────────────────────────
 
 # Types that map to Confluence's four native panel macros (include built-in icons).
@@ -106,6 +133,11 @@ _ADMONITION_MACRO: dict[str, str] = {
 _ADMONITION_DANGER_KINDS: frozenset[str] = frozenset(
     {"danger", "error", "bug", "failure", "fail", "missing"}
 )
+# Every kind the emitter understands as an alias target.
+_KNOWN_ADMONITION_KINDS: frozenset[str] = (
+    frozenset(_ADMONITION_MACRO) | _ADMONITION_DANGER_KINDS
+)
+
 _DANGER_EMOJI = "🚨"
 _DANGER_COLOURS = {
     "borderColor": "#DE350B",
@@ -350,8 +382,25 @@ def _emit_code_block(node: CodeBlock) -> str:
     return "".join(parts)
 
 
+def _resolve_admonition_kind(kind: str) -> str:
+    """Resolve *kind* to the built-in kind that decides its Confluence rendering.
+
+    Order: an explicit ``confluence.admonitions`` alias, then the built-in kinds,
+    then ``success`` for anything unrecognised.
+    """
+    alias = _admonition_aliases.get(kind)
+    if alias is not None:
+        return alias
+    if kind in _KNOWN_ADMONITION_KINDS:
+        return kind
+    return "success"
+
+
 def _emit_admonition(node: Admonition) -> str:
+    # The title keeps the author's own kind ("Value-driver"), only the styling
+    # follows the resolved kind.
     title = node.title or _DEFAULT_ADMONITION_TITLES.get(node.kind, node.kind.capitalize())
+    kind = _resolve_admonition_kind(node.kind)
     body = emit(node.children)
 
     # ??? and ???+ → Confluence expand macro (collapsible)
@@ -367,7 +416,7 @@ def _emit_admonition(node: Admonition) -> str:
 
     # Fall through for ???+ (expanded=True) — render as a regular admonition below.
 
-    if node.kind in _ADMONITION_DANGER_KINDS:
+    if kind in _ADMONITION_DANGER_KINDS:
         colours = "".join(
             f'  <ac:parameter ac:name="{k}">{v}</ac:parameter>\n'
             for k, v in _DANGER_COLOURS.items()
@@ -381,7 +430,7 @@ def _emit_admonition(node: Admonition) -> str:
             "</ac:structured-macro>\n"
         )
 
-    macro_name = _ADMONITION_MACRO.get(node.kind, "info")
+    macro_name = _ADMONITION_MACRO.get(kind, "tip")
     return (
         f'<ac:structured-macro ac:name="{macro_name}">\n'
         f'  <ac:parameter ac:name="title">{html.escape(title)}</ac:parameter>\n'

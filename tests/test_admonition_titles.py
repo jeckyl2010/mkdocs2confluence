@@ -60,3 +60,59 @@ def test_image_in_title_not_mangled() -> None:
     nodes = (_adm("look ![alt](img.png)"),)
     out = strip_links_in_admonition_titles(nodes, "index.md")
     assert out[0].title == "look ![alt](img.png)"
+
+
+class TestCustomAdmonitionKinds:
+    """`confluence.admonitions` config, then built-ins, then a `success` default."""
+
+    def setup_method(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import configure_admonitions
+        configure_admonitions(None)
+
+    teardown_method = setup_method
+
+    def _macro(self, src: str) -> str:
+        import re
+
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        from mkdocs_to_confluence.parser import parse
+        m = re.search(r'ac:name="(\w+)"', emit(parse(src)))
+        return m.group(1) if m else ""
+
+    def test_hyphenated_kind_parses_as_an_admonition(self) -> None:
+        """`!!! value-driver` must not fall through to a paragraph."""
+        assert self._macro('!!! value-driver\n\n    Body.\n') != ""
+
+    def test_unknown_kind_defaults_to_success(self) -> None:
+        assert self._macro('!!! value-driver\n\n    Body.\n') == "tip"  # success -> tip
+
+    def test_builtin_kind_is_unaffected(self) -> None:
+        assert self._macro('!!! note\n\n    Body.\n') == "info"
+        assert self._macro('!!! warning\n\n    Body.\n') == "warning"
+
+    def test_config_alias_wins_over_the_default(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import configure_admonitions
+        configure_admonitions({"value-driver": "warning"})
+        assert self._macro('!!! value-driver\n\n    Body.\n') == "warning"
+
+    def test_config_alias_can_target_a_danger_panel(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import configure_admonitions
+        configure_admonitions({"risk": "danger"})
+        assert self._macro('!!! risk\n\n    Body.\n') == "panel"
+
+    def test_config_alias_can_override_a_builtin(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import configure_admonitions
+        configure_admonitions({"note": "warning"})
+        assert self._macro('!!! note\n\n    Body.\n') == "warning"
+
+    def test_title_keeps_the_authors_kind_not_the_alias(self) -> None:
+        from mkdocs_to_confluence.emitter.xhtml import configure_admonitions, emit
+        from mkdocs_to_confluence.parser import parse
+        configure_admonitions({"value-driver": "warning"})
+        assert "Value-driver" in emit(parse('!!! value-driver\n\n    Body.\n'))
+
+    def test_unknown_alias_target_warns_and_degrades(self, capsys) -> None:  # type: ignore[no-untyped-def]
+        from mkdocs_to_confluence.emitter.xhtml import configure_admonitions
+        configure_admonitions({"oops": "nonsense"})
+        assert "unknown admonition kind" in capsys.readouterr().err
+        assert self._macro('!!! oops\n\n    Body.\n') == "tip"
