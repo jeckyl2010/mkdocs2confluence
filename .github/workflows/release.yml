@@ -82,7 +82,7 @@ jobs:
 
   provenance-retry:
     needs: [release, provenance]
-    if: ${{ always() && (needs.provenance.result == 'failure' || needs.provenance.outputs.outcome == 'failure') }}
+    if: ${{ always() && (needs.provenance.result != 'success' || needs.provenance.outputs.outcome != 'success') }}
     permissions:
       actions: read
       id-token: write
@@ -94,14 +94,21 @@ jobs:
       continue-on-error: true
 
   provenance-result:
-    needs: [provenance, provenance-retry]
-    if: ${{ always() }}
+    needs: [provenance]
+    if: ${{ always() && needs.provenance.result == 'success' && needs.provenance.outputs.outcome == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if provenance could not be generated
+      - name: Confirm primary provenance success
+        run: true
+
+  provenance-retry-result:
+    needs: [provenance, provenance-retry]
+    if: ${{ always() && (needs.provenance.result != 'success' || needs.provenance.outputs.outcome != 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if retry provenance could not be generated
         env:
-          PRIMARY_SUCCESS: ${{ needs.provenance.result == 'success' && needs.provenance.outputs.outcome != 'failure' }}
-          RETRY_SUCCESS: ${{ needs.provenance-retry.result == 'success' && needs.provenance-retry.outputs.outcome != 'failure' }}
+          RETRY_SUCCESS: ${{ needs.provenance-retry.result == 'success' && needs.provenance-retry.outputs.outcome == 'success' }}
         run: |
           set -euo pipefail
-          [ "$PRIMARY_SUCCESS" = "true" ] || [ "$RETRY_SUCCESS" = "true" ]
+          [ "$RETRY_SUCCESS" = "true" ]
