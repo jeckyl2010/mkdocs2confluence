@@ -66,6 +66,7 @@ jobs:
 
   provenance:
     needs: release
+    continue-on-error: true
     permissions:
       actions: read
       id-token: write
@@ -77,3 +78,29 @@ jobs:
     with:
       base64-subjects: "${{ needs.release.outputs.hashes }}"
       upload-assets: true
+
+  provenance-retry:
+    needs: [release, provenance]
+    if: ${{ always() && needs.provenance.result != 'success' }}
+    continue-on-error: true
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: "${{ needs.release.outputs.hashes }}"
+      upload-assets: true
+
+  provenance-result:
+    needs: [provenance, provenance-retry]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if provenance could not be generated
+        env:
+          PRIMARY_RESULT: ${{ needs.provenance.result }}
+          RETRY_RESULT: ${{ needs.provenance-retry.result }}
+        run: |
+          set -euo pipefail
+          [ "$PRIMARY_RESULT" = "success" ] || [ "$RETRY_RESULT" = "success" ]
