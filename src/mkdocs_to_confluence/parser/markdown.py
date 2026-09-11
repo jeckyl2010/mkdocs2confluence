@@ -256,7 +256,7 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 
 # Matches an admonition opener:  !!! kind  /  !!! kind "title"  /  ??? kind  /  ???+ kind
 _ADMONITION_RE = re.compile(
-    r"""^(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+(?P<q>["'])(?P<title>.*?)(?P=q))?$"""
+    r"""^[ ]{0,3}(?P<marker>!{3}|\?{3}\+?)\s+(?P<kind>\w+)(?:\s+(?P<q>["'])(?P<title>.*?)(?P=q))?\s*$"""
 )
 
 # Matches a Material for MkDocs content tab opener:  === "Label"
@@ -296,39 +296,129 @@ _FOOTNOTE_REF_RE = re.compile(r'^\[\^(?P<label>[^\]]+)\]')
 # Matches a definition list definition line:  :   text
 _DEFLIST_DEF_RE = re.compile(r'^:\s+(?P<text>.+)$')
 
-# Matches <div class="grid cards" markdown> (with or without quotes around class value).
-_GRID_CARD_DIV_RE = re.compile(
-    r'^\s*<div\b[^>]*\bclass=["\'][^"\']*\bgrid\s+cards\b[^"\']*["\'][^>]*>\s*$',
+# Matches any <div ... class="..."> opener, capturing the class list.  Material has
+# two grid flavours: ``grid cards`` (each list item / admonition is a card) and a
+# plain ``grid`` (each top-level block is one grid item).
+_DIV_CLASS_RE = re.compile(
+    r'^\s*<div\b[^>]*\bclass=["\'](?P<classes>[^"\']*)["\'][^>]*>\s*$',
     re.IGNORECASE,
 )
+# Any <div> opener, used only for nesting depth so an inner div cannot close the grid.
+_ANY_DIV_OPEN_RE = re.compile(r'^\s*<div\b[^>]*>\s*$', re.IGNORECASE)
 _CLOSE_DIV_RE = re.compile(r'^\s*</div>\s*$', re.IGNORECASE)
 
+# An attr-list line opting a block into card styling:  { .card }
+_CARD_ATTR_RE = re.compile(r'^\s*\{:?\s*\.card\b[^}]*\}\s*$')
 
-def _tokenize_grid_cards(inner_lines: list[str]) -> _GridCardsToken:
-    """Convert the inner lines of a grid cards div into a ``_GridCardsToken``.
 
-    Two card formats are supported:
+def _grid_kind(line: str) -> str | None:
+    """Return ``"cards"``, ``"grid"``, or ``None`` for a ``<div>`` opener line.
 
-    * **Bullet list** — each list item is one card::
+    ``grid cards`` wins over ``grid``; a div without a ``grid`` class is not ours.
+    """
+    m = _DIV_CLASS_RE.match(line)
+    if m is None:
+        return None
+    classes = m.group("classes").split()
+    if "grid" not in classes:
+        return None
+    return "cards" if "cards" in classes else "grid"
+
+
+# Matches a top-level card bullet (no leading indent): ``- ``, ``* ``, ``+ ``.
+_CARD_BULLET_RE = re.compile(r'^(?P<marker>[-*+]\s+)(?P<text>.*)$')
+
+
+def _expand_leading_tabs(line: str) -> str:
+    """Expand tabs in *line*'s leading whitespace to 4-space tab stops.
+
+    Indent width drives every block decision below, and Markdown counts a tab as
+    4 columns.  Only the indent is touched — tabs inside code or text are content.
+    """
+    stripped = line.lstrip(" \t")
+    indent = line[: len(line) - len(stripped)]
+    return indent.expandtabs(4) + stripped
+
+
+def _split_card_blocks(lines: list[str]) -> list[list[str]] | None:
+    """Split *lines* into one block of lines per top-level bullet.
+
+    The bullet marker is removed from the first line of each block and its
+    continuation lines are dedented by the marker width, so each block reads as
+    standalone Markdown.  Returns ``None`` when there are no top-level bullets,
+    leaving the caller on its non-bullet path.
+    """
+    starts = [
+        (i, m) for i, ln in enumerate(lines) if (m := _CARD_BULLET_RE.match(ln)) is not None
+    ]
+    if not starts:
+        return None
+
+    blocks: list[list[str]] = []
+    for n, (start, m) in enumerate(starts):
+        end = starts[n + 1][0] if n + 1 < len(starts) else len(lines)
+        dedent = len(m.group("marker"))
+        body: list[str] = []
+        for raw in lines[start + 1:end]:
+            ln = _expand_leading_tabs(raw)
+            # Only strip indentation that is actually whitespace; a line that is
+            # under-indented keeps whatever it has rather than losing content.
+            body.append(ln[dedent:] if ln[:dedent].isspace() else ln)
+        blocks.append([m.group("text"), *_strip_insignificant_indent(body)])
+    return blocks
+
+
+def _strip_insignificant_indent(lines: list[str]) -> list[str]:
+    """Remove a common leading indent of 1-3 spaces from *lines*.
+
+    Authors routinely indent card bodies by 4 while the list marker is only 2
+    wide, leaving 2 stray spaces after the marker dedent.  Markdown treats fewer
+    than 4 spaces as insignificant, but our block patterns anchor at ``^``, so
+    those strays would stop a ``---``, a code fence or a heading from being
+    recognised.  An indent of 4+ is left alone: that is what delimits an
+    admonition body, and removing it would detach the body from its opener.
+    """
+    indents = [len(ln) - len(ln.lstrip()) for ln in lines if ln.strip()]
+    common = min(indents, default=0)
+    if not 0 < common < 4:
+        return lines
+    return [ln[common:] if ln.strip() else ln for ln in lines]
+
+
+def _tokenize_grid(inner_lines: list[str], *, kind: str) -> _GridCardsToken:
+    """Convert the inner lines of a Material grid div into a ``_GridCardsToken``.
+
+    *kind* is ``"cards"`` for ``<div class="grid cards">`` or ``"grid"`` for a
+    plain ``<div class="grid">``.  Both map onto the same Confluence layout; they
+    differ only in what counts as one item:
+
+    * ``cards`` — each top-level bullet is a card, and the bullet marker is
+      stripped so the item's own block content (admonition, nested list, code
+      block) parses normally::
 
         - :icon: **Title** — description text
+        - !!! tip "Title"
 
-    * **Admonition list** — each admonition is one card::
+      With no bullets present, each top-level block is a card instead, which is
+      the admonition-list form::
 
         !!! tip "Title"
             Body content
+
+    * ``grid`` — each top-level block is one grid item and keeps its own
+      rendering; a bullet list is a single item, not one item per bullet.
+      ``{ .card }`` styling hints are dropped, having no Confluence equivalent.
     """
+    if kind == "cards":
+        blocks = _split_card_blocks(inner_lines)
+        if blocks is not None:
+            return _GridCardsToken(cards=[_tokenize("\n".join(b)) for b in blocks])
+    else:
+        inner_lines = [ln for ln in inner_lines if not _CARD_ATTR_RE.match(ln)]
+
     inner_tokens = _tokenize("\n".join(inner_lines))
 
-    # Bullet list: each item becomes a card (a single paragraph).
-    if len(inner_tokens) == 1 and isinstance(inner_tokens[0], _BulletListToken):
-        cards: list[list[_Token]] = [
-            [_ParagraphToken(lines=[item.text])]
-            for item in inner_tokens[0].items
-        ]
-        return _GridCardsToken(cards=cards)
-
-    # All other cases: each top-level token is one card.
+    # Each top-level token is one item.
     return _GridCardsToken(cards=[[tok] for tok in inner_tokens])
 
 
@@ -344,13 +434,15 @@ def _tokenize(text: str) -> list[_Token]:
     while i < len(lines):
         line = lines[i]
 
-        # ── Grid cards div ───────────────────────────────────────────────────
-        if _GRID_CARD_DIV_RE.match(line):
+        # ── Grid div (``grid cards`` or plain ``grid``) ──────────────────────
+        grid_kind = _grid_kind(line)
+        if grid_kind is not None:
             i += 1
             inner_lines: list[str] = []
             depth = 1
             while i < len(lines) and depth > 0:
-                if _GRID_CARD_DIV_RE.match(lines[i]):
+                # Any nested <div> must be counted, or its </div> closes the grid early.
+                if _ANY_DIV_OPEN_RE.match(lines[i]):
                     depth += 1
                 elif _CLOSE_DIV_RE.match(lines[i]):
                     depth -= 1
@@ -360,7 +452,7 @@ def _tokenize(text: str) -> list[_Token]:
                 if depth > 0:
                     inner_lines.append(lines[i])
                 i += 1
-            tokens.append(_tokenize_grid_cards(inner_lines))
+            tokens.append(_tokenize_grid(inner_lines, kind=grid_kind))
             continue
 
         # ── Fenced code block ────────────────────────────────────────────────

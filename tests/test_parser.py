@@ -1460,3 +1460,211 @@ class TestAnchorNode:
         assert '<ac:link ac:anchor="section-1">' in xhtml
         assert 'ac:structured-macro ac:name="anchor"' in xhtml
         assert "section-1" in xhtml
+
+
+class TestAdmonitionOpenerWhitespace:
+    """Opener lines survive trailing whitespace and <=3 spaces of indent."""
+
+    @pytest.mark.parametrize("opener", [
+        '!!! abstract "Description"',
+        '!!! abstract "Description" ',      # trailing space
+        '   !!! abstract "Description"',    # 3-space indent
+        '??? tip "T"  ',
+    ])
+    def test_opener_variants_parse(self, opener: str) -> None:
+        nodes = parse(f"{opener}\n\n    Body text.\n")
+        assert isinstance(nodes[0], Admonition), f"failed for {opener!r}"
+
+    def test_four_space_indent_is_not_an_admonition(self) -> None:
+        """4 spaces is an indented code block, not an opener."""
+        nodes = parse("text\n\n    !!! abstract \"x\"\n")
+        assert not any(isinstance(n, Admonition) for n in nodes)
+
+
+class TestGridCardAdmonitions:
+    """`- !!! kind "Title"` inside grid cards is a card, not raw paragraph text."""
+
+    DIV = '<div class="grid cards" markdown>\n\n'
+    END = '\n</div>\n'
+
+    def _emit(self, body: str) -> str:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        return emit(parse(self.DIV + body + self.END))
+
+    def test_bulleted_admonitions_become_admonition_cards(self) -> None:
+        xhtml = self._emit(
+            '- !!! abstract "Description"\n        This is a test\n\n'
+            '- !!! note "Test me"\n        This is hello\n'
+        )
+        assert "!!!" not in xhtml, "admonition opener leaked as raw text"
+        assert xhtml.count('ac:structured-macro ac:name="info"') == 2
+        assert xhtml.count("<ac:layout-cell>") == 2
+        assert "This is a test" in xhtml and "This is hello" in xhtml
+
+    def test_card_body_may_contain_a_bullet_list(self) -> None:
+        """A nested list inside a card must not disable admonition detection."""
+        xhtml = self._emit('- !!! tip "T"\n\n      - one\n      - two\n')
+        assert "!!!" not in xhtml
+        assert 'ac:structured-macro ac:name="tip"' in xhtml
+        assert "<li><p>one</p></li>" in xhtml
+
+    def test_icon_cards_and_admonition_cards_can_mix(self) -> None:
+        xhtml = self._emit('- :material-cog: **Setup**\n\n- !!! tip "T"\n\n      Body.\n')
+        assert "!!!" not in xhtml
+        assert "<strong>Setup</strong>" in xhtml
+        assert 'ac:structured-macro ac:name="tip"' in xhtml
+        assert xhtml.count("<ac:layout-cell>") == 2
+
+    def test_card_body_may_contain_a_code_block(self) -> None:
+        xhtml = self._emit('- !!! tip "T"\n\n      ```python\n      x = 1\n      ```\n')
+        assert 'ac:name="code"' in xhtml
+        assert "x = 1" in xhtml
+
+    def test_icon_cards_are_left_alone(self) -> None:
+        xhtml = self._emit('- :material-cog: **Setup**\n- :material-run: **Run**\n')
+        assert "ac:structured-macro" not in xhtml
+        assert "<strong>Setup</strong>" in xhtml
+        assert xhtml.count("<ac:layout-cell>") == 2
+
+    def test_icon_card_keeps_its_description_paragraph(self) -> None:
+        xhtml = self._emit('- :material-cog: **Setup**\n\n    Description text.\n')
+        assert "Description text." in xhtml
+
+    def test_non_admonition_triple_marker_stays_literal(self) -> None:
+        """`!?!` is not an admonition marker and must render as text."""
+        assert "!?!" in self._emit('- !?! not an admonition\n')
+
+
+class TestGenericGrid:
+    """`<div class="grid">` — each top-level block is one grid item."""
+
+    def _emit(self, src: str) -> str:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        return emit(parse(src))
+
+    def _grid(self, body: str, classes: str = "grid") -> str:
+        return f'<div class="{classes}" markdown>\n\n{body}\n</div>\n'
+
+    def test_admonitions_become_grid_items(self) -> None:
+        xhtml = self._emit(self._grid(
+            '!!! tip "A"\n\n    Body A\n\n!!! note "B"\n\n    Body B\n'
+        ))
+        assert "&lt;div" not in xhtml, "grid div leaked as literal text"
+        assert xhtml.count("<ac:layout-cell>") == 2
+        assert 'ac:structured-macro ac:name="tip"' in xhtml
+
+    def test_bullet_list_is_one_item_not_one_per_bullet(self) -> None:
+        """The `cards` card-splitting must not apply to a plain grid."""
+        xhtml = self._emit(self._grid("- one\n- two\n"))
+        assert xhtml.count("<ac:layout-cell>") == 1
+        assert "<li><p>one</p></li>" in xhtml
+
+    def test_card_attr_list_is_dropped(self) -> None:
+        """`{ .card }` is a styling hint with no Confluence equivalent."""
+        xhtml = self._emit(self._grid(
+            "**HTML** for structure\n{ .card }\n\n**JS** for logic\n{ .card }\n"
+        ))
+        assert ".card" not in xhtml
+        assert xhtml.count("<ac:layout-cell>") == 2
+
+    def test_grid_cards_still_splits_on_bullets(self) -> None:
+        """Regression guard: `grid cards` keeps one-card-per-bullet."""
+        xhtml = self._emit(self._grid("- one\n- two\n", classes="grid cards"))
+        assert xhtml.count("<ac:layout-cell>") == 2
+
+    def test_class_order_does_not_matter(self) -> None:
+        xhtml = self._emit(self._grid("- one\n- two\n", classes="cards grid"))
+        assert xhtml.count("<ac:layout-cell>") == 2
+
+    def test_extra_classes_are_tolerated(self) -> None:
+        xhtml = self._emit(self._grid("- one\n- two\n", classes="grid cards custom"))
+        assert xhtml.count("<ac:layout-cell>") == 2
+
+    def test_div_without_grid_class_is_not_a_grid(self) -> None:
+        xhtml = self._emit('<div class="note" markdown>\n\ntext\n\n</div>\n')
+        assert "ac:layout" not in xhtml
+
+    def test_nested_div_does_not_close_the_grid_early(self) -> None:
+        """An inner </div> must not terminate the grid and strand later items."""
+        xhtml = self._emit(self._grid(
+            '<div class="x">\n</div>\n\n!!! tip "A"\n\n    Body\n'
+        ))
+        assert 'ac:structured-macro ac:name="tip"' in xhtml, "item after nested div was lost"
+
+
+class TestGridCardBodyBlocks:
+    """Card bodies keep block structure; a 2-space marker dedent must not break it."""
+
+    def _emit(self, body: str) -> str:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        return emit(parse(f'<div class="grid cards" markdown>\n\n{body}\n</div>\n'))
+
+    def test_separator_becomes_a_rule(self) -> None:
+        """Material's canonical card syntax uses `---` as a divider."""
+        xhtml = self._emit("- **T**\n\n    ---\n\n    Body.\n")
+        assert "<hr/>" in xhtml
+        assert "<p>---</p>" not in xhtml
+
+    def test_code_fence_stays_a_code_block(self) -> None:
+        xhtml = self._emit("- **T**\n\n    ```python\n    x = 1\n    ```\n")
+        assert 'ac:name="code"' in xhtml
+        assert "<![CDATA[x = 1]]>" in xhtml
+        assert "<code>python" not in xhtml, "fence collapsed into inline code"
+
+    def test_heading_in_card_body(self) -> None:
+        xhtml = self._emit("- **T**\n\n    ## Sub\n\n    Body.\n")
+        assert "<h2>Sub</h2>" in xhtml
+
+    def test_admonition_body_indent_is_preserved(self) -> None:
+        """4+ spaces delimit an admonition body and must survive the dedent."""
+        xhtml = self._emit('- !!! tip "T"\n\n      - one\n      - two\n')
+        assert 'ac:structured-macro ac:name="tip"' in xhtml
+        # The list must be *inside* the panel, not a sibling after it.
+        body = xhtml.split("<ac:rich-text-body>")[1]
+        assert "<li><p>one</p></li>" in body.split("</ac:rich-text-body>")[0]
+
+    def test_material_canonical_complex_example(self) -> None:
+        """The example straight from the Material grids reference page."""
+        xhtml = self._emit(
+            "- :material-clock-fast:{ .lg .middle } __Set up in 5 minutes__\n\n"
+            "    ---\n\n"
+            "    Install it and get up and running in minutes\n\n"
+            "- :fontawesome-brands-markdown:{ .lg .middle } __It's just Markdown__\n\n"
+            "    ---\n\n"
+            "    Focus on your content\n"
+        )
+        assert xhtml.count("<ac:layout-cell>") == 2
+        assert xhtml.count("<hr/>") == 2
+        assert "Set up in 5 minutes" in xhtml and "Focus on your content" in xhtml
+
+
+class TestGridCardIndentEdgeCases:
+    """Marker width and tab indentation must not detach a card's body."""
+
+    def _emit(self, body: str) -> str:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        return emit(parse(f'<div class="grid cards" markdown>\n\n{body}\n</div>\n'))
+
+    def _panel_body(self, xhtml: str) -> str:
+        return xhtml.split("<ac:rich-text-body>")[1].split("</ac:rich-text-body>")[0]
+
+    def test_tab_indented_admonition_body_stays_inside_the_panel(self) -> None:
+        xhtml = self._emit('- !!! tip "T"\n\n\t\tBody.\n')
+        assert "Body." in self._panel_body(xhtml), "tab-indented body escaped the panel"
+
+    def test_tab_indented_code_fence_in_card(self) -> None:
+        xhtml = self._emit("- **T**\n\n\t```python\n\tx = 1\n\t```\n")
+        assert "<![CDATA[x = 1]]>" in xhtml
+
+    def test_wide_marker_keeps_separator(self) -> None:
+        xhtml = self._emit("-   **T**\n\n    ---\n\n    Body.\n")
+        assert "<hr/>" in xhtml
+
+    def test_wide_marker_keeps_admonition_body(self) -> None:
+        xhtml = self._emit('-   !!! tip "T"\n\n        Body.\n')
+        assert "Body." in self._panel_body(xhtml)
+
+    def test_crlf_line_endings(self) -> None:
+        src = '<div class="grid cards" markdown>\r\n\r\n- !!! tip "T"\r\n\r\n      Body.\r\n\r\n</div>\r\n'
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        assert "Body." in self._panel_body(emit(parse(src)))
