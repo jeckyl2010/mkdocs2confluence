@@ -1668,3 +1668,52 @@ class TestGridCardIndentEdgeCases:
         src = '<div class="grid cards" markdown>\r\n\r\n- !!! tip "T"\r\n\r\n      Body.\r\n\r\n</div>\r\n'
         from mkdocs_to_confluence.emitter.xhtml import emit
         assert "Body." in self._panel_body(emit(parse(src)))
+
+
+class TestAdmonitionBodyOverIndent:
+    """Body content indented past the 4 that delimit it must still parse."""
+
+    def _emit(self, src: str) -> str:
+        from mkdocs_to_confluence.emitter.xhtml import emit
+        return emit(parse(src))
+
+    def test_list_indented_eight_spaces(self) -> None:
+        """8 spaces (4 for the body + 4 more) is a common authoring habit."""
+        xhtml = self._emit('!!! note "T"\n\n        - one\n        - two\n')
+        assert "<li><p>one</p></li>" in xhtml
+        assert "<p>- one" not in xhtml, "list flattened to a paragraph"
+
+    def test_list_indented_four_spaces_still_works(self) -> None:
+        xhtml = self._emit('!!! note "T"\n\n    - one\n    - two\n')
+        assert "<li><p>one</p></li>" in xhtml
+
+    def test_nested_list_relative_indent_is_preserved(self) -> None:
+        """Dedenting must not flatten a sub-list into its parent."""
+        for sub_indent in ("      ", "        "):  # 2 and 4 spaces past the item
+            xhtml = self._emit(f'!!! note "T"\n\n    - one\n{sub_indent}- sub\n    - two\n')
+            assert xhtml.count("<ul>") == 2, f"sub-list lost at {len(sub_indent)} spaces"
+
+    def test_mixed_indent_body_is_left_alone(self) -> None:
+        """A deeper line beside a column-0 line keeps its relative indent."""
+        xhtml = self._emit('!!! note "T"\n\n    Intro.\n\n        - deeper\n')
+        assert "<p>Intro.</p>" in xhtml
+
+    def test_over_indented_code_fence(self) -> None:
+        xhtml = self._emit('!!! note "T"\n\n        ```python\n        x = 1\n        ```\n')
+        assert "<![CDATA[x = 1]]>" in xhtml
+
+    def test_content_tab_body_is_dedented_too(self) -> None:
+        xhtml = self._emit('=== "A"\n\n        - one\n        - two\n')
+        assert "<li><p>one</p></li>" in xhtml
+
+    def test_grid_card_admonition_with_over_indented_list(self) -> None:
+        """The reported case: grid card, bulleted admonition, list at 8 spaces."""
+        xhtml = self._emit(
+            '<div class="grid cards">\n\n'
+            '- !!! abstract "Documentation"\n\n'
+            '        - **Scope:** test\n'
+            '        - **Out:** test\n\n'
+            '</div>\n'
+        )
+        assert "<li><p><strong>Scope:</strong> test</p></li>" in xhtml
+        assert "<p>- " not in xhtml

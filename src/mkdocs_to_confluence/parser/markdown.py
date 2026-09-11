@@ -51,6 +51,7 @@ from __future__ import annotations
 import contextlib
 import html
 import re
+import textwrap
 from dataclasses import dataclass, field
 from typing import Union
 
@@ -329,6 +330,17 @@ def _grid_kind(line: str) -> str | None:
 _CARD_BULLET_RE = re.compile(r'^(?P<marker>[-*+]\s+)(?P<text>.*)$')
 
 
+def _dedent_body(lines: list[str]) -> str:
+    """Join admonition/tab body *lines* and drop any indent they all share.
+
+    The collector strips the 4 columns that delimit the body, but authors often
+    indent the content further (8 spaces is a common habit). That residual indent
+    is invisible to the author and would stop a list, fence or heading from being
+    recognised, since those anchor at column 0.
+    """
+    return textwrap.dedent("\n".join(_expand_leading_tabs(ln) for ln in lines))
+
+
 def _expand_leading_tabs(line: str) -> str:
     """Expand tabs in *line*'s leading whitespace to 4-space tab stops.
 
@@ -536,7 +548,7 @@ def _tokenize(text: str) -> list[_Token]:
             # Drop trailing blank lines so the recursive tokenizer stays clean.
             while body_raw and not body_raw[-1].strip():
                 body_raw.pop()
-            body_tokens = _tokenize("\n".join(body_raw))
+            body_tokens = _tokenize(_dedent_body(body_raw))
             tokens.append(
                 _AdmonitionToken(
                     kind=kind,
@@ -571,7 +583,7 @@ def _tokenize(text: str) -> list[_Token]:
                         break
                 while body_raw_tab and not body_raw_tab[-1].strip():
                     body_raw_tab.pop()
-                tabs.append(_TabData(label=label, body_tokens=_tokenize("\n".join(body_raw_tab))))
+                tabs.append(_TabData(label=label, body_tokens=_tokenize(_dedent_body(body_raw_tab))))
             if tabs:
                 tokens.append(_ContentTabsToken(tabs=tabs))
             continue
