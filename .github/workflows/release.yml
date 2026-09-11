@@ -78,11 +78,11 @@ jobs:
     with:
       base64-subjects: "${{ needs.release.outputs.hashes }}"
       upload-assets: true
-      continue-on-error: true
 
   provenance-retry:
     needs: [release, provenance]
-    if: ${{ always() && (needs.provenance.result != 'success' || needs.provenance.outputs.outcome != 'success') }}
+    if: ${{ always() && needs.provenance.result != 'success' }}
+    continue-on-error: true
     permissions:
       actions: read
       id-token: write
@@ -91,24 +91,16 @@ jobs:
     with:
       base64-subjects: "${{ needs.release.outputs.hashes }}"
       upload-assets: true
-      continue-on-error: true
 
   provenance-result:
-    needs: [provenance]
-    if: ${{ always() && needs.provenance.result == 'success' && needs.provenance.outputs.outcome == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Confirm primary provenance success
-        run: true
-
-  provenance-retry-result:
     needs: [provenance, provenance-retry]
-    if: ${{ always() && (needs.provenance.result != 'success' || needs.provenance.outputs.outcome != 'success') }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if retry provenance could not be generated
+      - name: Fail if provenance could not be generated
         env:
-          RETRY_SUCCESS: ${{ needs.provenance-retry.result == 'success' && needs.provenance-retry.outputs.outcome == 'success' }}
+          PRIMARY_RESULT: ${{ needs.provenance.result }}
+          RETRY_RESULT: ${{ needs.provenance-retry.result }}
         run: |
           set -euo pipefail
-          [ "$RETRY_SUCCESS" = "true" ]
+          [ "$PRIMARY_RESULT" = "success" ] || [ "$RETRY_RESULT" = "success" ]
