@@ -85,3 +85,31 @@ jobs:
           files: junit.xml
           report_type: test_results
           fail_ci_if_error: false
+
+  # The checks job above runs the full suite on the project's default Python;
+  # this runs just the tests on every version listed in the classifiers.
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install dependencies
+        run: uv sync --all-extras --frozen
+
+      - name: Run tests
+        run: uv run pytest -q
