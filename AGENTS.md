@@ -84,6 +84,15 @@ Use the `/release` skill (`.claude/skills/release/SKILL.md`). It contains the fu
 ## Developer tooling
 
 - **Setup:** See `Setup.md` for environment setup and pre-commit hook installation
+- **Code search** — pick the tool by question:
+  - Definitions, references, types of a symbol: the pyright LSP tool when the session has one
+  - Code shapes — call sites, argument patterns, multi-line constructs: `ast-grep`
+    (`ast-grep run --lang python -p 'self._http.get($$$)' src`)
+  - Module dependencies between stages: grimp, already installed with import-linter
+    (`grimp.build_graph("mkdocs_to_confluence")`, then `find_modules_that_directly_import`,
+    `find_shortest_chain`)
+  - Untested lines in a change: `uv run pytest --cov-report=term-missing`
+  - Plain text — strings, comments, non-Python files: `rg`
 - **Local AI proxy:** See `docs/developer/local-ai.md` (`litellm_config.yaml`, `copilot_auto_router.json`)
 - **`/release` skill:** hand-edit `.claude/skills/release/SKILL.md`. `.github/skills/release/SKILL.md` is a symlink to it so Copilot CLI sees the same file
 - **mkdocs-changelog skill — generated, never edit in place.** This repo dogfoods its own
