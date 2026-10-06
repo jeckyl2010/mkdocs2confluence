@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1980" height="480" viewBox="0 0 1980 480" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif">
+<title>mkdocs2confluence architecture</title>
+<desc>Input (mkdocs.yml, Markdown files) flows through the compiler pipeline (Loader, Preprocess, IR, Transforms, Emitter) into the publisher (Plan, Execute, Confluence API).</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0B1022"/><stop offset="0.55" stop-color="#0D1328"/><stop offset="1" stop-color="#0A1A22"/></linearGradient>
+<radialGradient id="gA" gradientUnits="userSpaceOnUse" cx="150" cy="300" r="380"><stop offset="0" stop-color="#F5A524" stop-opacity="0.13"/><stop offset="1" stop-color="#F5A524" stop-opacity="0"/></radialGradient>
+<radialGradient id="gV" gradientUnits="userSpaceOnUse" cx="760" cy="120" r="620"><stop offset="0" stop-color="#8B5CF6" stop-opacity="0.16"/><stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/></radialGradient>
+<radialGradient id="gE" gradientUnits="userSpaceOnUse" cx="1640" cy="380" r="460"><stop offset="0" stop-color="#10B981" stop-opacity="0.13"/><stop offset="1" stop-color="#10B981" stop-opacity="0"/></radialGradient>
+<pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="11" cy="11" r="1" fill="#FFFFFF" fill-opacity="0.07"/></pattern>
+<clipPath id="canvas"><rect width="1980" height="480" rx="26"/></clipPath>
+<linearGradient id="flow" gradientUnits="userSpaceOnUse" x1="200" y1="0" x2="1700" y2="0"><stop offset="0" stop-color="#FCD34D"/><stop offset="0.019" stop-color="#FCD34D"/><stop offset="0.061" stop-color="#A78BFA"/><stop offset="0.667" stop-color="#60A5FA"/><stop offset="0.733" stop-color="#34D399"/><stop offset="1" stop-color="#34D399"/></linearGradient>
+<linearGradient id="pIs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FCD34D" stop-opacity="0.85"/><stop offset="0.45" stop-color="#F5A524" stop-opacity="0.28"/><stop offset="1" stop-color="#F5A524" stop-opacity="0.55"/></linearGradient>
+<linearGradient id="pIf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FCD34D" stop-opacity="0.10"/><stop offset="1" stop-color="#F5A524" stop-opacity="0.025"/></linearGradient>
+<linearGradient id="pPs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A78BFA" stop-opacity="0.85"/><stop offset="0.45" stop-color="#60A5FA" stop-opacity="0.28"/><stop offset="1" stop-color="#60A5FA" stop-opacity="0.55"/></linearGradient>
+<linearGradient id="pPf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A78BFA" stop-opacity="0.10"/><stop offset="1" stop-color="#60A5FA" stop-opacity="0.025"/></linearGradient>
+<linearGradient id="pEs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34D399" stop-opacity="0.85"/><stop offset="0.45" stop-color="#10B981" stop-opacity="0.28"/><stop offset="1" stop-color="#10B981" stop-opacity="0.55"/></linearGradient>
+<linearGradient id="pEf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34D399" stop-opacity="0.10"/><stop offset="1" stop-color="#10B981" stop-opacity="0.025"/></linearGradient>
+<linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A2240"/><stop offset="1" stop-color="#121830"/></linearGradient>
+<linearGradient id="cardEdge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.05"/></linearGradient>
+<filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10"/></filter>
+<filter id="aglow" filterUnits="userSpaceOnUse" x="0" y="0" width="1980" height="480"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="8"/><feOffset dy="6"/><feComponentTransfer><feFuncA type="linear" slope="0.55"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<g clip-path="url(#canvas)">
+<rect width="1980" height="480" fill="url(#bg)"/>
+<rect width="1980" height="480" fill="url(#dots)"/>
+<rect width="1980" height="480" fill="url(#gA)"/>
+<rect width="1980" height="480" fill="url(#gV)"/>
+<rect width="1980" height="480" fill="url(#gE)"/>
+</g>
+<rect x="0.75" y="0.75" width="1978.5" height="478.5" rx="25.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1.5"/>
+<text x="40" y="54" font-size="24" font-weight="700" fill="#F8FAFC" letter-spacing="-0.3">mkdocs2confluence<tspan font-weight="400" fill="#7C8AA5" dx="12">architecture</tspan></text>
+<text x="1940" y="52" text-anchor="end" font-family="Menlo, 'SF Mono', Monaco, monospace" font-size="13" fill="#7C8AA5"><tspan fill="#FCD34D">MkDocs</tspan>  →  <tspan fill="#A78BFA">compile</tspan>  →  <tspan fill="#34D399">Confluence Cloud</tspan></text>
+<rect x="36" y="96" width="208" height="348" rx="20" fill="url(#pIs)" opacity="0.18" filter="url(#glow)"/>
+<rect x="36" y="96" width="208" height="348" rx="20" fill="url(#pIf)" stroke="url(#pIs)" stroke-width="1.4"/>
+<circle cx="60" cy="123" r="4" fill="#FCD34D"/>
+<circle cx="60" cy="123" r="8" fill="#FCD34D" fill-opacity="0.18"/>
+<text x="74" y="127.5" font-size="12.5" font-weight="700" letter-spacing="2.2" fill="#FCD34D">INPUT</text>
+<rect x="280" y="96" width="1004" height="348" rx="20" fill="url(#pPs)" opacity="0.18" filter="url(#glow)"/>
+<rect x="280" y="96" width="1004" height="348" rx="20" fill="url(#pPf)" stroke="url(#pPs)" stroke-width="1.4"/>
+<circle cx="304" cy="123" r="4" fill="#A78BFA"/>
+<circle cx="304" cy="123" r="8" fill="#A78BFA" fill-opacity="0.18"/>
+<text x="318" y="127.5" font-size="12.5" font-weight="700" letter-spacing="2.2" fill="#A78BFA">PIPELINE</text>
+<text x="1262" y="127.5" text-anchor="end" font-family="Menlo, 'SF Mono', Monaco, monospace" font-size="11.5" fill="#8391AB">compile_page()</text>
+<rect x="1320" y="240" width="612" height="204" rx="20" fill="url(#pEs)" opacity="0.18" filter="url(#glow)"/>
+<rect x="1320" y="240" width="612" height="204" rx="20" fill="url(#pEf)" stroke="url(#pEs)" stroke-width="1.4"/>
+<circle cx="1344" cy="267" r="4" fill="#34D399"/>
+<circle cx="1344" cy="267" r="8" fill="#34D399" fill-opacity="0.18"/>
+<text x="1358" y="271.5" font-size="12.5" font-weight="700" letter-spacing="2.2" fill="#34D399">PUBLISHER</text>
+<text x="1910" y="271.5" text-anchor="end" font-family="Menlo, 'SF Mono', Monaco, monospace" font-size="11.5" fill="#8391AB">plan_publish() → execute_publish()</text>
+<circle cx="225" cy="202.0" r="2.6" fill="url(#flow)"/>
+<path d="M225 202.0H298" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M225 202.0H298" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M300 202.0L289 196.0L292 202.0L289 208.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="225" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M225 348.0H488" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M225 348.0H488" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M490 348.0L479 342.0L482 348.0L479 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="469" cy="202.0" r="2.6" fill="url(#flow)"/>
+<path d="M469 202.0H556.0Q574.0 202.0 574.0 220.0V290" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M469 202.0H556.0Q574.0 202.0 574.0 220.0V290" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M574.0 292L568.0 281L574.0 284L580.0 281Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="659" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M659 348.0H690" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M659 348.0H690" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M692 348.0L681 342.0L684 348.0L681 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="861" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M861 348.0H892" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M861 348.0H892" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M894 348.0L883 342.0L886 348.0L883 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="1063" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M1063 348.0H1094" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1063 348.0H1094" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1096 348.0L1085 342.0L1088 348.0L1085 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="1265" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M1265 348.0H1338" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1265 348.0H1338" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1340 348.0L1329 342.0L1332 348.0L1329 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="1509" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M1509 348.0H1540" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1509 348.0H1540" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1542 348.0L1531 342.0L1534 348.0L1531 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<circle cx="1711" cy="348.0" r="2.6" fill="url(#flow)"/>
+<path d="M1711 348.0H1742" fill="none" stroke="url(#flow)" stroke-width="5" stroke-opacity="0.45" filter="url(#aglow)" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1711 348.0H1742" fill="none" stroke="url(#flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1744 348.0L1733 342.0L1736 348.0L1733 354.0Z" fill="url(#flow)" stroke="url(#flow)" stroke-width="1" stroke-linejoin="round"/>
+<g filter="url(#shadow)">
+<rect x="60" y="150" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="60.5" y="150.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="60.5" y="150.5" width="159" height="103" rx="13.5" fill="none" stroke="#FCD34D" stroke-opacity="0.28"/>
+<path d="M90 150.8H190" stroke="#FCD34D" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="122.0" y="163" width="36" height="36" rx="10" fill="#FCD34D" fill-opacity="0.13" stroke="#FCD34D" stroke-opacity="0.35"/>
+<g transform="translate(129.0 170) scale(0.9167)" fill="none" stroke="#FCD34D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/></g>
+<text x="140.0" y="220" text-anchor="middle" font-family="Menlo, 'SF Mono', Monaco, monospace" font-size="14.5" font-weight="700" fill="#F1F5F9">mkdocs.yml</text>
+<text x="140.0" y="239" text-anchor="middle" font-size="11.5" fill="#97A3BA">site config + nav</text>
+<g filter="url(#shadow)">
+<rect x="60" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="60.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="60.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#FCD34D" stroke-opacity="0.28"/>
+<path d="M90 296.8H190" stroke="#FCD34D" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="122.0" y="309" width="36" height="36" rx="10" fill="#FCD34D" fill-opacity="0.13" stroke="#FCD34D" stroke-opacity="0.35"/>
+<g transform="translate(129.0 316) scale(0.9167)" fill="none" stroke="#FCD34D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V3h7l4 4v11h-3"/><path d="M4 7h8l4 4v10H4z"/><path d="M12 7v4h4"/><path d="M7 15h5M7 18h5"/></g>
+<text x="140.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Markdown files</text>
+<text x="140.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">pages + snippets</text>
+<g filter="url(#shadow)">
+<rect x="304" y="150" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="304.5" y="150.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="304.5" y="150.5" width="159" height="103" rx="13.5" fill="none" stroke="#A78BFA" stroke-opacity="0.28"/>
+<path d="M334 150.8H434" stroke="#A78BFA" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="366.0" y="163" width="36" height="36" rx="10" fill="#A78BFA" fill-opacity="0.13" stroke="#A78BFA" stroke-opacity="0.35"/>
+<g transform="translate(373.0 170) scale(0.9167)" fill="none" stroke="#A78BFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M4 14v6h16v-6"/></g>
+<text x="384.0" y="220" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Loader</text>
+<text x="384.0" y="239" text-anchor="middle" font-size="11.5" fill="#97A3BA">resolves config + nav tree</text>
+<g filter="url(#shadow)">
+<rect x="494" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="494.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="494.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#A48DFA" stroke-opacity="0.28"/>
+<path d="M524 296.8H624" stroke="#A48DFA" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="556.0" y="309" width="36" height="36" rx="10" fill="#A48DFA" fill-opacity="0.13" stroke="#A48DFA" stroke-opacity="0.35"/>
+<g transform="translate(563.0 316) scale(0.9167)" fill="none" stroke="#A48DFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6.4"/><circle cx="12" cy="12" r="2.4"/><path d="M18.10 14.53L20.68 15.60M14.53 18.10L15.60 20.68M9.47 18.10L8.40 20.68M5.90 14.53L3.32 15.60M5.90 9.47L3.32 8.40M9.47 5.90L8.40 3.32M14.53 5.90L15.60 3.32M18.10 9.47L20.68 8.40" stroke-width="2.8"/></g>
+<text x="574.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Preprocess</text>
+<text x="574.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">includes · front matter</text>
+<g filter="url(#shadow)">
+<rect x="696" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="696.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="696.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#9496F9" stroke-opacity="0.28"/>
+<path d="M726 296.8H826" stroke="#9496F9" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="758.0" y="309" width="36" height="36" rx="10" fill="#9496F9" fill-opacity="0.13" stroke="#9496F9" stroke-opacity="0.35"/>
+<g transform="translate(765.0 316) scale(0.9167)" fill="none" stroke="#9496F9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1.2"/><rect x="3" y="16" width="6" height="5" rx="1.2"/><rect x="15" y="16" width="6" height="5" rx="1.2"/><path d="M12 8v4M6 16v-4h12v4"/></g>
+<text x="776.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">IR</text>
+<text x="776.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">frozen node tree</text>
+<g filter="url(#shadow)">
+<rect x="898" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="898.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="898.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#7E9EF8" stroke-opacity="0.28"/>
+<path d="M928 296.8H1028" stroke="#7E9EF8" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="960.0" y="309" width="36" height="36" rx="10" fill="#7E9EF8" fill-opacity="0.13" stroke="#7E9EF8" stroke-opacity="0.35"/>
+<g transform="translate(967.0 316) scale(0.9167)" fill="none" stroke="#7E9EF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L15 9" stroke-width="2.4"/><path d="M17 3v4M15 5h4M20 10v3M18.5 11.5h3M9.5 3v3M8 4.5h3"/></g>
+<text x="978.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Transforms</text>
+<text x="978.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">links · assets · diagrams</text>
+<g filter="url(#shadow)">
+<rect x="1100" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="1100.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="1100.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#60A5FA" stroke-opacity="0.28"/>
+<path d="M1130 296.8H1230" stroke="#60A5FA" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="1162.0" y="309" width="36" height="36" rx="10" fill="#60A5FA" fill-opacity="0.13" stroke="#60A5FA" stroke-opacity="0.35"/>
+<g transform="translate(1169.0 316) scale(0.9167)" fill="none" stroke="#60A5FA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M14 4.5l-4 15"/></g>
+<text x="1180.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Emitter</text>
+<text x="1180.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">storage XHTML + macros</text>
+<g filter="url(#shadow)">
+<rect x="1344" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="1344.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="1344.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#34D399" stroke-opacity="0.28"/>
+<path d="M1374 296.8H1474" stroke="#34D399" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="1406.0" y="309" width="36" height="36" rx="10" fill="#34D399" fill-opacity="0.13" stroke="#34D399" stroke-opacity="0.35"/>
+<g transform="translate(1413.0 316) scale(0.9167)" fill="none" stroke="#34D399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6l1.7 1.7L8.5 4.4M3.5 12l1.7 1.7 3.3-3.3M3.5 18l1.7 1.7 3.3-3.3"/><path d="M12 6h8.5M12 12h8.5M12 18h8.5"/></g>
+<text x="1424.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Plan</text>
+<text x="1424.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">skips unchanged by hash</text>
+<g filter="url(#shadow)">
+<rect x="1546" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="1546.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="1546.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#34D399" stroke-opacity="0.28"/>
+<path d="M1576 296.8H1676" stroke="#34D399" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="1608.0" y="309" width="36" height="36" rx="10" fill="#34D399" fill-opacity="0.13" stroke="#34D399" stroke-opacity="0.35"/>
+<g transform="translate(1615.0 316) scale(0.9167)" fill="none" stroke="#34D399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.3v7.4l6-3.7z" fill="#34D399" stroke-width="1.2"/></g>
+<text x="1626.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Execute</text>
+<text x="1626.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">create · update · upload</text>
+<g filter="url(#shadow)">
+<rect x="1748" y="296" width="160" height="104" rx="14" fill="url(#card)"/>
+</g>
+<rect x="1748.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="url(#cardEdge)"/>
+<rect x="1748.5" y="296.5" width="159" height="103" rx="13.5" fill="none" stroke="#34D399" stroke-opacity="0.28"/>
+<path d="M1778 296.8H1878" stroke="#34D399" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.9"/>
+<rect x="1810.0" y="309" width="36" height="36" rx="10" fill="#34D399" fill-opacity="0.13" stroke="#34D399" stroke-opacity="0.35"/>
+<g transform="translate(1817.0 316) scale(0.9167)" fill="none" stroke="#34D399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19h10.5a4.5 4.5 0 0 0 .6-8.96A6.2 6.2 0 0 0 6.2 9.3 4.9 4.9 0 0 0 7 19z"/><path d="M9 14.5l2 2 4-4"/></g>
+<text x="1828.0" y="366" text-anchor="middle" font-size="16" font-weight="700" fill="#F1F5F9">Confluence API</text>
+<text x="1828.0" y="385" text-anchor="middle" font-size="11.5" fill="#97A3BA">Cloud REST v2 + v1</text>
+</svg>
