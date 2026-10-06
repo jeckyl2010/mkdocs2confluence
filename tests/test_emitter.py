@@ -113,6 +113,20 @@ class TestSectionEmitter:
         assert "{ #test-me }" not in out
         assert "<h2>Test me</h2>" in out
 
+    def test_anchor_name_not_html_escaped_in_cdata(self) -> None:
+        # CDATA is not entity-decoded, so escaping the name there would make it
+        # differ from the (attribute-decoded) ac:anchor on links pointing at it.
+        from mkdocs_to_confluence.ir.nodes import AnchorNode
+
+        out = emit((Paragraph((AnchorNode(name="it's"),)),))
+        assert "<![CDATA[it's]]>" in out
+
+    def test_anchor_name_splits_cdata_terminator(self) -> None:
+        from mkdocs_to_confluence.ir.nodes import AnchorNode
+
+        out = emit((Paragraph((AnchorNode(name="a]]>b"),)),))
+        assert "<![CDATA[a]]]]><![CDATA[>b]]>" in out
+
 
 class TestParagraphEmitter:
     def test_simple_paragraph(self) -> None:

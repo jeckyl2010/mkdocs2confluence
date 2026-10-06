@@ -258,13 +258,9 @@ def _emit_section(node: Section) -> str:
     # Confluence's auto heading-anchors use a different naming scheme than the
     # MkDocs slug our links carry, so without an explicit named anchor a
     # `#slug` link lands at the top of the page instead of the section.
-    name = html.escape(node.explicit_anchor or node.anchor)
+    name = node.explicit_anchor or node.anchor
     if name:
-        anchor = (
-            f'<ac:structured-macro ac:name="anchor">'
-            f'<ac:parameter ac:name=""><![CDATA[{name}]]></ac:parameter>'
-            f"</ac:structured-macro>"
-        )
+        anchor = _anchor_macro(name)
     heading = f"{anchor}<{tag}{style_attr}>{title_html}</{tag}>\n"
     body = emit(node.children)
     return heading + body
@@ -301,6 +297,20 @@ def _emit_front_matter(node: FrontMatter) -> str:
         )
 
     return "".join(parts)
+
+
+def _anchor_macro(name: str) -> str:
+    """Confluence anchor macro for *name*.
+
+    The name sits in CDATA, which is not entity-decoded, so it must not be
+    HTML-escaped — only a literal ``]]>`` needs splitting.
+    """
+    safe = name.replace("]]>", "]]]]><![CDATA[>")
+    return (
+        f'<ac:structured-macro ac:name="anchor">'
+        f'<ac:parameter ac:name=""><![CDATA[{safe}]]></ac:parameter>'
+        f"</ac:structured-macro>"
+    )
 
 
 def _xml_safe(text: str) -> str:
@@ -694,12 +704,7 @@ def _emit_abbrev_glossary_block(node: AbbrevGlossaryBlock) -> str:
     """End-of-page abbreviations list with Confluence anchor targets."""
     parts: list[str] = ["<hr />\n<h6>Abbreviations</h6>\n<ol>\n"]
     for fn in node.footnoted:
-        anchor = html.escape(f"abbr-{fn.number}")
-        anchor_macro = (
-            f'<ac:structured-macro ac:name="anchor">'
-            f'<ac:parameter ac:name=""><![CDATA[{anchor}]]></ac:parameter>'
-            f"</ac:structured-macro>"
-        )
+        anchor_macro = _anchor_macro(f"abbr-{fn.number}")
         abbr = html.escape(fn.abbr)
         defn = _emit_inlines(fn.definition)
         parts.append(f"<li>{anchor_macro}<strong>{abbr}</strong> — {defn}</li>\n")
@@ -714,12 +719,7 @@ def _emit_footnote_block(node: FootnoteBlock) -> str:
     """Footnotes section: heading + ordered list with anchor targets."""
     items: list[str] = []
     for fn in node.items:
-        anchor = html.escape(f"fn-{fn.label}")
-        anchor_macro = (
-            f'<ac:structured-macro ac:name="anchor">'
-            f'<ac:parameter ac:name=""><![CDATA[{anchor}]]></ac:parameter>'
-            f"</ac:structured-macro>"
-        )
+        anchor_macro = _anchor_macro(f"fn-{fn.label}")
         content = _emit_inlines(fn.children)
         items.append(f"<li>{anchor_macro}{content}</li>\n")
     return "<h2>Footnotes</h2>\n<ol>\n" + "".join(items) + "</ol>\n"
@@ -780,12 +780,7 @@ def _emit_inline(node: IRNode) -> str:
     if isinstance(node, RawInlineHtml):
         return node.html_str
     if isinstance(node, AnchorNode):
-        name = html.escape(node.name)
-        return (
-            f'<ac:structured-macro ac:name="anchor">'
-            f"<ac:parameter ac:name=\"\"><![CDATA[{name}]]></ac:parameter>"
-            f"</ac:structured-macro>"
-        )
+        return _anchor_macro(node.name)
     # Fallback: emit unknown inline nodes as escaped repr
     return html.escape(repr(node))
 
