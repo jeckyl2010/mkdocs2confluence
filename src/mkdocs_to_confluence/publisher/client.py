@@ -67,6 +67,10 @@ class ConfluenceClient:
             raise RuntimeError("ConfluenceClient must be used as a context manager.")
         return self._client
 
+    def _get(self, url: str, **kwargs: Any) -> httpx.Response:
+        # Reads are rate-limited too; retry 429s like writes do.
+        return http_request_with_retry(lambda: self._http.get(url, **kwargs), f"GET {url}")
+
     def _base(self) -> str:
         # Strip trailing slash and any trailing /wiki so users can supply either
         # "https://org.atlassian.net" or "https://org.atlassian.net/wiki".
@@ -95,7 +99,7 @@ class ConfluenceClient:
         Raises :class:`ConfluenceError` when the space is not found.
         """
         url = self._v2("/spaces")
-        resp = self._http.get(url, params={"keys": space_key, "limit": 1})
+        resp = self._get(url, params={"keys": space_key, "limit": 1})
         self._raise_for_status(resp, f"get_space_id({space_key!r})")
         data = resp.json()
         results = data.get("results", [])
@@ -112,7 +116,7 @@ class ConfluenceClient:
         Raises :class:`ConfluenceError` when the page is not found.
         """
         url = self._v2(f"/pages/{page_id}")
-        resp = self._http.get(url)
+        resp = self._get(url)
         if resp.status_code == 404:
             raise ConfluenceError(
                 f"Parent page {page_id!r} not found (HTTP 404). "
@@ -147,7 +151,7 @@ class ConfluenceClient:
         else:
             url = self._v2(f"/pages/{parent_id}/direct-children")
 
-        resp = self._http.get(url, params={"limit": 250})
+        resp = self._get(url, params={"limit": 250})
         self._raise_for_status(resp, f"find_folder_under({title!r})")
         for item in resp.json().get("results", []):
             if item.get("type") == "folder" and item.get("title") == title:
@@ -168,7 +172,7 @@ class ConfluenceClient:
         if not space_key:
             return None
         cql = f'type=folder AND title="{title}" AND space="{space_key}"'
-        resp = self._http.get(
+        resp = self._get(
             self._v1("/content/search"),
             params={"cql": cql, "limit": 10},
         )
@@ -218,7 +222,7 @@ class ConfluenceClient:
         return pages from other spaces.
         """
         url = self._v2(f"/spaces/{space_id}/pages")
-        resp = self._http.get(
+        resp = self._get(
             url,
             params={"title": title, "status": "current", "limit": 10},
         )
@@ -303,7 +307,7 @@ class ConfluenceClient:
         """
         key = "content-appearance-published"
         prop_url = self._v1(f"/content/{page_id}/property/{key}")
-        get_resp = self._http.get(prop_url)
+        get_resp = self._get(prop_url)
 
         if get_resp.status_code == 200:
             current_version = get_resp.json().get("version", {}).get("number", 1)
@@ -330,7 +334,7 @@ class ConfluenceClient:
         can safely treat a missing hash as "unknown — must update".
         """
         url = self._v1(f"/content/{page_id}/property/mk2conf-content-hash")
-        resp = self._http.get(url)
+        resp = self._get(url)
         if resp.is_error:
             return None
         value = resp.json().get("value", "")
@@ -345,7 +349,7 @@ class ConfluenceClient:
         """
         key = "mk2conf-content-hash"
         prop_url = self._v1(f"/content/{page_id}/property/{key}")
-        get_resp = self._http.get(prop_url)
+        get_resp = self._get(prop_url)
         if get_resp.status_code == 200:
             current_version = get_resp.json().get("version", {}).get("number", 1)
             http_request_with_retry(
@@ -373,7 +377,7 @@ class ConfluenceClient:
         label_url = self._v1(f"/content/{page_id}/label")
 
         # Remove all existing labels
-        existing_resp = self._http.get(label_url)
+        existing_resp = self._get(label_url)
         if existing_resp.status_code == 200:
             for lbl in existing_resp.json().get("results", []):
                 name = lbl.get("name", "")
@@ -453,7 +457,7 @@ class ConfluenceClient:
         Returns the ``spaceContentStates`` list, which is the same for every
         page in the space.
         """
-        resp = self._http.get(self._v1(f"/content/{page_id}/state/available"))
+        resp = self._get(self._v1(f"/content/{page_id}/state/available"))
         if resp.is_success:
             data: dict[str, Any] = resp.json()
             return list(data.get("spaceContentStates") or [])
@@ -466,7 +470,7 @@ class ConfluenceClient:
         Uses the v2 ``GET /pages/{id}/attachments`` endpoint.
         """
         url = self._v2(f"/pages/{page_id}/attachments")
-        resp = self._http.get(url, params={"limit": 250})
+        resp = self._get(url, params={"limit": 250})
         self._raise_for_status(resp, f"list_attachments({page_id!r})")
         results: list[dict[str, Any]] = resp.json().get("results", [])
         return {r["title"]: r for r in results}
@@ -533,7 +537,7 @@ class ConfluenceClient:
         a publish.
         """
         url = self._v2(f"/pages/{page_id}/properties/mk2conf-managed")
-        get_resp = self._http.get(url)
+        get_resp = self._get(url)
         if get_resp.status_code == 200:
             return  # already stamped
         http_request_with_retry(
@@ -555,7 +559,7 @@ class ConfluenceClient:
         url = self._v2(f"/pages/{page_id}/descendants")
         params: dict[str, str | int] = {"depth": "all", "limit": 250}
         while True:
-            resp = self._http.get(url, params=params)
+            resp = self._get(url, params=params)
             self._raise_for_status(resp, f"get_descendant_ids({page_id!r})")
             data = resp.json()
             for item in data.get("results", []):
@@ -571,7 +575,7 @@ class ConfluenceClient:
 
     def is_managed(self, page_id: str) -> bool:
         """Return ``True`` if *page_id* has the ``mk2conf-managed`` property."""
-        resp = self._http.get(self._v2(f"/pages/{page_id}/properties/mk2conf-managed"))
+        resp = self._get(self._v2(f"/pages/{page_id}/properties/mk2conf-managed"))
         return resp.status_code == 200
 
     def delete_page(self, page_id: str) -> None:
@@ -590,7 +594,7 @@ class ConfluenceClient:
         url = self._v2(f"/pages/{page_id}/inline-comments")
         params: dict[str, Any] = {"resolution-status": "open", "body-format": "storage", "limit": 250}
         while True:
-            resp = self._http.get(url, params=params)
+            resp = self._get(url, params=params)
             self._raise_for_status(resp, f"get_page_inline_comments({page_id!r})")
             data = resp.json()
             results.extend(data.get("results", []))
@@ -607,7 +611,7 @@ class ConfluenceClient:
         url = self._v2(f"/pages/{page_id}/footer-comments")
         params: dict[str, Any] = {"resolution-status": "open", "body-format": "storage", "limit": 250}
         while True:
-            resp = self._http.get(url, params=params)
+            resp = self._get(url, params=params)
             self._raise_for_status(resp, f"get_page_footer_comments({page_id!r})")
             data = resp.json()
             results.extend(data.get("results", []))
@@ -635,7 +639,7 @@ class ConfluenceClient:
     def resolve_inline_comment(self, comment_id: str) -> None:
         """Resolve an inline comment by setting *resolved=true*."""
         url = self._v2(f"/inline-comments/{comment_id}")
-        get_resp = self._http.get(url, params={"body-format": "storage"})
+        get_resp = self._get(url, params={"body-format": "storage"})
         self._raise_for_status(get_resp, f"get_inline_comment({comment_id!r})")
         data = get_resp.json()
         version = data.get("version", {}).get("number", 1)
@@ -650,7 +654,7 @@ class ConfluenceClient:
     def resolve_footer_comment(self, comment_id: str) -> None:
         """Resolve a footer comment by setting *resolved=true*."""
         url = self._v2(f"/footer-comments/{comment_id}")
-        get_resp = self._http.get(url, params={"body-format": "storage"})
+        get_resp = self._get(url, params={"body-format": "storage"})
         self._raise_for_status(get_resp, f"get_footer_comment({comment_id!r})")
         data = get_resp.json()
         version = data.get("version", {}).get("number", 1)

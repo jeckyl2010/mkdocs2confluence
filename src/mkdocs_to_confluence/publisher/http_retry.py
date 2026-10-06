@@ -38,7 +38,7 @@ def http_request_with_retry(fn: Callable[[], httpx.Response], context: str) -> h
             )
         header = resp.headers.get("Retry-After", "")
         try:
-            wait = min(float(header), _RETRY_AFTER_CAP)
+            wait = min(max(float(header), 0.0), _RETRY_AFTER_CAP)
         except ValueError:
             wait = min(2.0 ** attempt + random.uniform(0.0, 1.0), _RETRY_AFTER_CAP)
         print(

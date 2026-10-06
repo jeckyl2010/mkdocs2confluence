@@ -1061,3 +1061,49 @@ def test_request_prints_warning_each_retry(monkeypatch: pytest.MonkeyPatch, caps
     assert out.count("rate-limited") == 2
     assert "attempt 1/3" in out
     assert "attempt 2/3" in out
+
+
+def test_request_clamps_negative_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
+    # time.sleep raises ValueError on negative values.
+    sleeps: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+    transport = _MockTransport(
+        _rate_limit_response(retry_after="-5"),
+        _json_response({}),
+    )
+    with httpx.Client(transport=transport) as http:
+        http_request_with_retry(
+            lambda: http.get("https://example.atlassian.net/wiki/api/v2/test"), "test_op"
+        )
+    assert sleeps == [0.0]
+
+
+def test_client_get_retries_on_429(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Reads are rate-limited too; a 429 on a lookup must not abort the publish.
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    transport = _MockTransport(
+        _rate_limit_response(),
+        _json_response({"results": [{"id": "7", "title": "Home"}]}),
+    )
+    with ConfluenceClient(_make_config()) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        page = client.find_page("42", "Home")
+    assert page == {"id": "7", "title": "Home"}
+    assert len(transport.requests) == 2
+
+
+def test_client_paginated_get_retries_on_429(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    transport = _MockTransport(
+        _json_response({
+            "results": [{"id": "1", "type": "page"}],
+            "_links": {"next": "/wiki/api/v2/pages/9/descendants?cursor=abc"},
+        }),
+        _rate_limit_response(),
+        _json_response({"results": [{"id": "2", "type": "page"}], "_links": {}}),
+    )
+    with ConfluenceClient(_make_config()) as client:
+        client._client = httpx.Client(transport=transport)  # type: ignore[assignment]
+        ids = client.get_descendant_ids("9")
+    assert ids == ["1", "2"]
+    assert transport.requests[2].url.params["cursor"] == "abc"
