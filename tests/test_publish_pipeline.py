@@ -78,16 +78,13 @@ def test_compile_page_with_ready_false_still_compiles(tmp_path: Path) -> None:
     assert isinstance(xhtml, str)
 
 
-def test_compile_page_with_source_path_none_returns_empty(tmp_path: Path) -> None:
-    docs = tmp_path / "docs"
-    docs.mkdir()
+def test_compile_page_raises_for_missing_source(tmp_path: Path) -> None:
+    # An empty result would be published over the existing page, blanking it.
+    from mkdocs_to_confluence.loader.page import PageLoadError
+
     node = NavNode(title="Missing", docs_path="missing.md", source_path=None, level=0)
-    config = _make_config(docs)
-    result = compile_page(node, config)
-    xhtml, attachments, labels = result.xhtml, result.attachments, result.labels
-    assert xhtml == ""
-    assert attachments == []
-    assert labels == ()
+    with pytest.raises(PageLoadError, match="Missing"):
+        compile_page(node, _make_config(tmp_path))
 
 
 def test_compile_page_excludes_configured_properties(tmp_path: Path) -> None:
@@ -2211,3 +2208,43 @@ def test_execute_publish_calls_set_page_status_on_skip(tmp_path: Path) -> None:
     execute_publish([action], client, space_id="42", docs_dir=tmp_path)
 
     client.set_page_status.assert_called_once_with("88", "in-progress", space_key=None)
+
+
+class TestSkippedPagesSurvivePrune:
+    """A page still in nav: but skipped this run must keep its Confluence page."""
+
+    @staticmethod
+    def _publish_with_prune(node: NavNode, docs: Path) -> tuple[list[PageAction], MagicMock]:
+        from mkdocs_to_confluence.publisher.executor import execute_publish
+
+        client = MagicMock()
+        client.find_page.return_value = {"id": "555", "version": {"number": 3}}
+        client.get_descendant_ids.return_value = ["555"]
+        client.is_managed.return_value = True
+        plan, _ = plan_publish([node], client, _make_config(docs), _make_conf_config(), space_id="42", quiet=True)
+        execute_publish(plan, client, space_id="42", docs_dir=docs, root_page_id="ROOT", prune=True, quiet=True)
+        return plan, client
+
+    def test_ready_false_page_is_kept(self, tmp_path: Path) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        md = docs / "guide.md"
+        md.write_text("---\nready: false\n---\n\n# Guide\n", encoding="utf-8")
+
+        plan, client = self._publish_with_prune(_page_node("Guide", md), docs)
+
+        assert [(a.action, a.page_id) for a in plan] == [("skip", "555")]
+        client.delete_page.assert_not_called()
+
+    def test_missing_file_is_skipped_not_blanked(self, tmp_path: Path) -> None:
+        # A nav entry whose file is gone (e.g. renamed) must not publish an
+        # empty body over the existing page, nor let prune delete it.
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        node = NavNode(title="Guide", docs_path="guide.md", source_path=None, level=0)
+
+        plan, client = self._publish_with_prune(node, docs)
+
+        assert [(a.action, a.page_id) for a in plan] == [("skip", "555")]
+        client.update_page.assert_not_called()
+        client.delete_page.assert_not_called()

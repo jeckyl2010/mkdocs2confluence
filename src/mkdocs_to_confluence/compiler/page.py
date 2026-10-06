@@ -7,7 +7,7 @@ from mkdocs_to_confluence.emitter.xhtml import emit
 from mkdocs_to_confluence.ir.nodes import ChildrenMacro, FrontMatter, SourceFooter
 from mkdocs_to_confluence.loader.config import MkDocsConfig
 from mkdocs_to_confluence.loader.nav import NavNode
-from mkdocs_to_confluence.loader.page import load_page
+from mkdocs_to_confluence.loader.page import PageLoadError, load_page
 from mkdocs_to_confluence.parser.markdown import parse, parse_inline
 from mkdocs_to_confluence.preprocess.abbrevs import (
     extract_abbreviations,
@@ -52,10 +52,11 @@ def compile_page(
     quiet: bool = False,
 ) -> CompileResult:
     """Run the full compile pipeline for one page and return a typed result."""
-    if node.source_path is None:
-        return CompileResult(xhtml="")
-
+    # load_page raises PageLoadError for a nav entry whose file is missing;
+    # never compile it to an empty body, which would blank the published page.
     raw = load_page(node)
+    if node.source_path is None:  # unreachable after load_page; narrows the type
+        raise PageLoadError(f"Cannot load page '{node.title}': no source file.")
 
     preprocessed = preprocess_includes(
         raw,

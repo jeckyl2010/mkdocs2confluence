@@ -47,6 +47,29 @@ def _find_section_index(node: NavNode) -> NavNode | None:
     return None
 
 
+def _plan_skipped_page_action(
+    node: NavNode,
+    client: ConfluenceClient,
+    *,
+    space_id: str,
+    title: str,
+    parent_id: str | None,
+) -> PageAction:
+    """Build a skip action for a nav page that is not being published this run.
+
+    Carries the existing page's ID so ``--prune`` keeps it: the page is still
+    in ``nav:``, only skipped (``ready: false`` or a load error).
+    """
+    existing = client.find_page(space_id, title)
+    return PageAction(
+        node=node,
+        title=title,
+        action="skip",
+        parent_id=parent_id,
+        page_id=str(existing["id"]) if existing is not None else None,
+    )
+
+
 def _plan_compiled_page_action(
     node: NavNode,
     client: ConfluenceClient,
@@ -231,11 +254,8 @@ def _plan_nodes(
                 if not quiet:
                     print(f"  skipping   '{clean_title}'  (ready: false)")
                 actions.append(
-                    PageAction(
-                        node=node,
-                        title=clean_title,
-                        action="skip",
-                        parent_id=parent_id,
+                    _plan_skipped_page_action(
+                        node, client, space_id=space_id, title=clean_title, parent_id=parent_id
                     )
                 )
                 continue
@@ -248,11 +268,8 @@ def _plan_nodes(
                 if not quiet:
                     print(f"  skipping   '{clean_title}'  (error: {exc})")
                 actions.append(
-                    PageAction(
-                        node=node,
-                        title=clean_title,
-                        action="skip",
-                        parent_id=parent_id,
+                    _plan_skipped_page_action(
+                        node, client, space_id=space_id, title=clean_title, parent_id=parent_id
                     )
                 )
                 continue
