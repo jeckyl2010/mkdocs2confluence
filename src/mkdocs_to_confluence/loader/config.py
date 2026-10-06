@@ -123,7 +123,7 @@ def _make_env_loader() -> type[yaml.SafeLoader]:
     def _ignore(loader: yaml.SafeLoader, _tag_suffix: str, node: yaml.Node) -> None:
         return None
 
-    _Loader.add_multi_constructor("", _ignore)  # type: ignore[no-untyped-call]
+    _Loader.add_multi_constructor("", _ignore)
     return _Loader
 
 
