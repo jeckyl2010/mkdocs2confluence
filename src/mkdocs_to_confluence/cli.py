@@ -607,7 +607,7 @@ def _cmd_publish(args: argparse.Namespace) -> None:
         except ValueError:
             docs_rel = Path("docs")
         new_entries = {
-            str(docs_rel / action.node.docs_path): action.page_id
+            (docs_rel / action.node.docs_path).as_posix(): action.page_id
             for action in plan
             if action.node.docs_path and action.page_id and not action.is_folder
         }
